@@ -36,10 +36,12 @@ jobs:
       - name: Install harness peer deps
         # WORKAROUND: harness deps gap — ajv, ajv-formats, and js-yaml are
         # declared devDependencies only in the harness package; they are not
-        # installed when the package is fetched via npx. Global install
-        # ensures the harness linters can resolve their imports.
+        # installed when the package is fetched via npx. Global install +
+        # NODE_PATH ensures the harness linters can resolve their imports.
         run: npm install -g ajv ajv-formats js-yaml
       - name: Run harness lint
+        env:
+          NODE_PATH: /usr/local/lib/node_modules
         run: |
           CLI_REF=$(node -e "console.log(JSON.parse(require('fs').readFileSync('harness.config.json','utf8')).version)")
           npx -y "github:henrik-me/agent-harness#${CLI_REF}" lint --quiet
@@ -56,6 +58,8 @@ jobs:
         # WORKAROUND: harness deps gap — see harness-lint job comment above.
         run: npm install -g ajv ajv-formats js-yaml
       - name: Run harness sync check
+        env:
+          NODE_PATH: /usr/local/lib/node_modules
         run: |
           CLI_REF=$(node -e "console.log(JSON.parse(require('fs').readFileSync('harness.config.json','utf8')).version)")
           npx -y "github:henrik-me/agent-harness#${CLI_REF}" sync --mode=check --cwd .
