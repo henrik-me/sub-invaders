@@ -284,7 +284,66 @@ Recorded by sub-agent `cs01-security-settings` on 2026-05-11T01:58:45Z.
 
 ### G3, G4, G5, G6 — evidence
 
-(Filled during execution — G3/G4/G5 require user actions; G6 requires Ruleset application after CI context names are known.)
+**G6 — Ruleset application (orchestrator-runnable)**
+
+Recorded by orchestrator (yoga-si) on 2026-05-11T03:13Z, after CI on PR #3 HEAD `9885c24`
+confirmed the real status-check context names (verified via the Checks API at
+`gh api repos/henrik-me/sub-invaders/commits/<sha>/check-runs` — context names are bare
+`ci`, `harness-lint`, etc., **without** the `ci/` prefix that `gh pr checks` displays;
+that prefix is a CLI display artefact, not part of the API contract).
+
+**Command:**
+```bash
+gh api -X POST repos/henrik-me/sub-invaders/rulesets --input infra/main-protection-ruleset.json
+```
+
+**Response (abbreviated):**
+```json
+{
+  "id": 16210336,
+  "name": "main-protection",
+  "source_type": "Repository",
+  "source": "henrik-me/sub-invaders",
+  "enforcement": "active",
+  "current_user_can_bypass": "always"
+}
+```
+
+**Verify:** `gh api repos/henrik-me/sub-invaders/rulesets/16210336`
+```json
+{
+  "name": "main-protection",
+  "enforcement": "active",
+  "conditions": { "ref_name": { "include": ["refs/heads/main"], "exclude": [] } },
+  "rule_types": ["deletion","non_fast_forward","required_linear_history","pull_request","required_status_checks"],
+  "required_checks": ["ci","harness-lint","harness-sync-check","js-tests","dotnet-tests"],
+  "pr_rule": {
+    "required_approving_review_count": 1,
+    "dismiss_stale_reviews_on_push": true,
+    "required_review_thread_resolution": true,
+    "allowed_merge_methods": ["squash"]
+  }
+}
+```
+
+**Status:** active. Bypass actor: RepositoryAdmin (actor_id 5) — orchestrator can bypass
+in extremis but the standard merge path goes through PR-rule + required-checks.
+
+---
+
+**G3 — workboard-auto-approve App installation:** _pending user action._ Required before
+the close-out PR can auto-merge cleanly; CS01 claim PR #2 was human-merged so G3 was not
+on the critical path for opening the content PR.
+
+**G4 — `infra/provision.sh` execution:** _pending user action._ Creates `rg-sub-invaders-prod`,
+Storage Account, SWA staging, Budget. User runs locally with their Azure subscription
+context.
+
+**G5 — `AZURE_STATIC_WEB_APPS_API_TOKEN` secret:** _pending user action._ Sourced from the
+SWA resource created by G4 (`az staticwebapp secrets list`); pasted into repo Actions
+secrets. Until G5 lands, `swa-deploy/build-and-deploy` correctly fails with
+`deployment_token was not provided` — this failure is informational, not in the Ruleset's
+required-checks list, and not a merge blocker.
 
 ## Plan-vs-implementation review
 
