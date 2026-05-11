@@ -1,0 +1,93 @@
+# .github/workflows/ci.yml — CS01 deliverable #7.
+# Runs harness lint, harness sync check, JS tests, and .NET tests on every
+# push to main and every pull request targeting main. The umbrella `ci` job
+# is the single status-check context that the Ruleset requires.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  harness-lint:
+    name: harness-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
+        with:
+          node-version: '20'
+      - name: Run harness lint
+        run: |
+          CLI_REF=$(node -e "console.log(JSON.parse(require('fs').readFileSync('harness.config.json','utf8')).version)")
+          npx -y "github:henrik-me/agent-harness#${CLI_REF}" lint --quiet
+
+  harness-sync-check:
+    name: harness-sync-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
+        with:
+          node-version: '20'
+      - name: Run harness sync check
+        run: |
+          CLI_REF=$(node -e "console.log(JSON.parse(require('fs').readFileSync('harness.config.json','utf8')).version)")
+          npx -y "github:henrik-me/agent-harness#${CLI_REF}" sync --mode=check --cwd .
+
+  js-tests:
+    name: js-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
+        with:
+          node-version: '20'
+      - name: Run JS tests
+        # Per CS01-R7: must NOT fail if the glob has no matches (expected in CS01).
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          files=(src/**/*.test.mjs)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No JS tests yet — skipping (expected for CS01)."
+            exit 0
+          fi
+          node --test "${files[@]}"
+
+  dotnet-tests:
+    name: dotnet-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - uses: actions/setup-dotnet@4d6c8fcf3c8f7a60068d26b594648e99df24cee3 # v4.0.0
+        with:
+          dotnet-version: '8.0.x'
+      - name: Run .NET tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -d "api" ] || ! ls api/*.csproj 1> /dev/null 2>&1; then
+            echo "No .NET project at api/ — skipping (unexpected after CS01; investigate)."
+            exit 0
+          fi
+          dotnet restore api/
+          dotnet test api/ --configuration Release --logger:"console;verbosity=normal"
+
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    needs: [harness-lint, harness-sync-check, js-tests, dotnet-tests]
+    steps:
+      - run: echo "All required CI jobs passed."

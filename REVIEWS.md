@@ -262,17 +262,33 @@ Violation handling:
 
 ## Project-specific review gates
 
-_No project-specific gates are defined yet. Add entries here for gates that
-apply to this project but are not universal harness policy. Examples:_
+The following gates apply IN ADDITION TO the universal harness review process:
 
-- _"All clickstops that touch Azure deployment configuration require a manual
-  approval step from the project owner before the close-out PR is raised."_
-- _"Security-sensitive changes (cryptographic primitives, secret handling,
-  auth flows) require a dedicated security review round in addition to the
-  standard GPT-5.5 content review."_
-- _"Any CS that modifies public-facing API schemas must include a
-  backwards-compatibility attestation in the PR body."_
+- **Staging URL gate** — every content PR that changes `src/`, `api/`, `infra/`, or
+  `.github/workflows/swa-deploy.yml` MUST include the latest SWA staging deploy URL in the
+  PR body and confirm `/` returns HTTP 200.
 
-_Replace this placeholder paragraph with the actual gates for your project._
+- **`/api/health` smoke gate** — every content PR that changes `api/` MUST confirm in the
+  PR body that `GET /api/health` returns HTTP 200 with body `{"status":"ok"}`. Capture the
+  verify-deploy script output if the scaffold is wired (CS04+).
+
+- **Leaderboard JSON shape gate (CS03+)** — any change to `/api/score` or `/api/session`
+  response shapes MUST include a backwards-compatibility note in the PR body, OR an explicit
+  "BREAKING — frontend updated in this PR" callout.
+
+- **Container-validate gate (when applicable)** — any CS that introduces or modifies a
+  container image MUST run `scripts/validate-image.mjs` and include the validation output in
+  the PR body. (CS01–CS04 do not touch containers; this gate activates only when a CS adds
+  container surface.)
+
+- **Azure resource-group isolation gate** — any CS that modifies `infra/provision.sh` or any
+  other resource-creation script MUST verify in the PR body that
+  `gh api ... rg list --tag workload=sub-invaders` shows only the expected RG and that all
+  created resources have `--resource-group "$RG_NAME"`.
+
+- **Budget gate** — any CS that changes the budget cap, alert thresholds, or Action Group
+  recipients MUST include the new RG-scoped Budget JSON snapshot in the PR body.
+
+These gates are enforced by reviewer discipline; mechanical checks may follow in a later CS.
 
 <!-- harness:local-end id=reviews.project-gates -->

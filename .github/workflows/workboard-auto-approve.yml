@@ -1,0 +1,104 @@
+# .github/workflows/workboard-auto-approve.yml — CS01 deliverable #7.
+#
+# VALIDATION layer for workboard-only PRs. This workflow validates that a PR
+# tagged `workboard-only`:
+#   1. Was opened by an author in the actor allowlist (henrik-me).
+#   2. Touches only files inside the workboard-only path allowlist:
+#        WORKBOARD.md
+#        project/clickstops/planned/**
+#        project/clickstops/active/**
+#        project/clickstops/done/**
+#
+# **Auto-approval and auto-merge are performed by the workboard-auto-approve
+# GitHub App (gate G3), not by this workflow.** GitHub Actions' built-in
+# `GITHUB_TOKEN` cannot create approving pull-request reviews (this is a
+# GitHub platform restriction documented at
+# https://docs.github.com/actions/security-for-github-actions/security-guides/automatic-token-authentication#permissions-for-the-github_token);
+# any attempt by this workflow to approve via `gh pr review --approve` would
+# fail with a 422 "GitHub Actions is not permitted to approve pull requests"
+# error. The App therefore owns approval and merge; this workflow's job is
+# to surface validation failures as early as possible (before the App or a
+# human reviewer touches the PR).
+#
+# If validation fails, this workflow posts an explanatory comment and exits
+# non-zero. If validation passes, it posts a brief "ready for App
+# auto-approve" comment and exits zero — the App, when installed, takes
+# over from there.
+
+name: workboard-auto-approve
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  auto-approve:
+    name: auto-approve
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'workboard-only')
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Validate actor allowlist
+        run: |
+          set -euo pipefail
+          ALLOWED_AUTHORS="henrik-me"
+          allowed=0
+          for a in $ALLOWED_AUTHORS; do
+            [ "$PR_AUTHOR" = "$a" ] && allowed=1 && break
+          done
+          if [ "$allowed" -ne 1 ]; then
+            gh pr comment "$PR_NUMBER" --repo "$REPO" \
+              --body "workboard-auto-approve: PR author '${PR_AUTHOR}' is not in the actor allowlist. Not approving."
+            echo "::error::Author '${PR_AUTHOR}' not in allowlist; exiting."
+            exit 1
+          fi
+          echo "Actor check: OK (author=${PR_AUTHOR})."
+
+      - name: Validate changed-file paths
+        id: path-check
+        run: |
+          set -euo pipefail
+
+          pr_files=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/files" --jq '.[].filename')
+
+          invalid_files=""
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            ok=0
+            case "$f" in
+              WORKBOARD.md)                        ok=1 ;;
+              project/clickstops/planned/*)        ok=1 ;;
+              project/clickstops/active/*)         ok=1 ;;
+              project/clickstops/done/*)           ok=1 ;;
+            esac
+            if [ "$ok" -eq 0 ]; then
+              invalid_files="${invalid_files}\n  - ${f}"
+            fi
+          done <<< "$pr_files"
+
+          if [ -n "$invalid_files" ]; then
+            msg="workboard-auto-approve: PR touches files outside the workboard-only path allowlist and will NOT be auto-approved.\n\nDisallowed files:${invalid_files}\n\nAllowed paths: \`WORKBOARD.md\`, \`project/clickstops/{planned,active,done}/**\`"
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$msg"
+            echo "::error::Path allowlist violations detected; exiting."
+            exit 1
+          fi
+          echo "Path check: OK."
+
+      - name: Post validation-passed comment
+        run: |
+          set -euo pipefail
+          # GITHUB_TOKEN cannot approve PRs (platform restriction); the
+          # workboard-auto-approve GitHub App (G3) owns approval+merge.
+          # This workflow's success simply signals to the App that the PR
+          # has cleared author + path validation.
+          gh pr comment "$PR_NUMBER" --repo "$REPO" \
+            --body "workboard-auto-approve: validation passed (author + path allowlist). Ready for App auto-approve + merge."

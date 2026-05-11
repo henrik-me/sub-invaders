@@ -1,0 +1,17 @@
+# CODEOWNERS
+#
+# Syntax: <pattern>  <@owner> [<@owner> ...]
+# Patterns follow .gitignore rules. The last matching rule takes precedence.
+# Owner tokens must be @username, @org/team, or user@example.com.
+
+# Default: all files require review from the repository owner.
+* @henrik-me
+
+# Governance documents
+/SECURITY.md @henrik-me
+
+# GitHub configuration and templates
+/.github/ @henrik-me
+
+# Infrastructure
+/infra/ @henrik-me

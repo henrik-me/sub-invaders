@@ -121,18 +121,18 @@ G6 Ruleset and G7 security settings are orchestrator-runnable via `gh api` durin
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Fill `harness.config.json` placeholders for sub-invaders | planned | orchestrator | project.name=sub-invaders, project.repo=henrik-me/sub-invaders, agent_suffix=si, templating.* — required before composed-blocks sub-agent runs |
-| Author `infra/main-protection-ruleset.json` | planned | sub-agent | agent-id=cs01-ruleset-and-app \| role=ruleset-author \| report-status=pending \| learnings=0 |
-| Enable security & supply-chain settings via `gh api` | planned | sub-agent | agent-id=cs01-security-settings \| role=gh-api-runner \| report-status=pending \| learnings=0 |
-| Author governance docs (SECURITY/CONTRIBUTING/CoC + .github templates + CODEOWNERS) | planned | sub-agent | agent-id=cs01-governance-docs \| role=docs-author \| report-status=pending \| learnings=0 |
-| Author `ARCHITECTURE.md` v1 | planned | sub-agent | agent-id=cs01-architecture-author \| role=docs-author \| report-status=pending \| learnings=0 |
-| Customise composed local blocks (`conventions.project`, `operations.project-deploy`, `reviews.project-gates`) | planned | sub-agent | agent-id=cs01-composed-blocks-customiser \| role=composed-block-author \| report-status=pending \| learnings=0 |
-| Author CI workflows (`ci.yml`, `swa-deploy.yml`, `workboard-auto-approve.yml`, `dependabot.yml`) | planned | sub-agent | agent-id=cs01-ci-workflows-author \| role=ci-author \| report-status=pending \| learnings=0 |
-| Author `infra/provision.sh` | planned | sub-agent | agent-id=cs01-azure-provisioning-script \| role=infra-author \| report-status=pending \| learnings=0 |
-| Author stub frontend + .NET 8 isolated Functions backend + xUnit | planned | sub-agent | agent-id=cs01-stub-frontend-and-backend \| role=full-stack-stub \| report-status=pending \| learnings=0 |
-| Author `CHANGELOG.md` SI-CS01 entry | planned | sub-agent | agent-id=cs01-changelog-author \| role=docs-author \| report-status=pending \| learnings=0 |
-| Post-completion verification (git status / line counts / API spot-check) | planned | orchestrator | OPERATIONS § Post-completion verification |
-| Apply Ruleset + record `gh api` evidence (G6) | planned | orchestrator | After workflows exist so context names are known (OQ1) |
+| Fill `harness.config.json` placeholders for sub-invaders | complete | orchestrator | Done in commit 715f5d3; placeholders replaced with real sub-invaders values |
+| Author `infra/main-protection-ruleset.json` | complete | sub-agent | agent-id=cs01-ruleset-and-app \| role=ruleset-author \| report-status=complete \| learnings=2 \| commit=daff29d |
+| Enable security & supply-chain settings via `gh api` | complete | sub-agent | agent-id=cs01-security-settings \| role=gh-api-runner \| report-status=complete \| learnings=2 \| evidence below |
+| Author governance docs (SECURITY/CONTRIBUTING/CoC + .github templates + CODEOWNERS) | complete | sub-agent | agent-id=cs01-governance-docs \| role=docs-author \| report-status=complete \| learnings=2 \| commit=aed831b |
+| Author `ARCHITECTURE.md` v1 | complete | sub-agent | agent-id=cs01-architecture-author \| role=docs-author \| report-status=complete \| learnings=2 \| commit=deba24b |
+| Customise composed local blocks (`conventions.project`, `operations.project-deploy`, `reviews.project-gates`) | complete | sub-agent | agent-id=cs01-composed-blocks-customiser \| role=composed-block-author \| report-status=complete \| learnings=2 \| commit=43e83ac |
+| Author CI workflows (`ci.yml`, `swa-deploy.yml`, `workboard-auto-approve.yml`, `dependabot.yml`) | complete | sub-agent | agent-id=cs01-ci-workflows-author \| role=ci-author \| report-status=complete \| learnings=3 \| commit=c5ddd36 |
+| Author `infra/provision.sh` | complete | sub-agent | agent-id=cs01-azure-provisioning-script \| role=infra-author \| report-status=complete \| learnings=3 \| commit=675e1ab |
+| Author stub frontend + .NET 8 isolated Functions backend + xUnit | complete | sub-agent | agent-id=cs01-stub-frontend-and-backend \| role=full-stack-stub \| report-status=complete \| learnings=3 \| commit=d7f64d3 |
+| Author `CHANGELOG.md` SI-CS01 entry | complete | sub-agent | agent-id=cs01-changelog-author \| role=docs-author \| report-status=complete \| learnings=0 \| commit=0e46503 |
+| Post-completion verification (git status / line counts / API spot-check) | complete | orchestrator | All 9 sub-agent outputs verified (line counts within ±20, BOM=False, CR=False, JSON valid, composed-block markers intact, no leaked build artifacts after `rm -rf api/bin api/obj`); harness lint 13/13 pass after fixes |
+| Apply Ruleset + record `gh api` evidence (G6) | planned | orchestrator | After workflows exist so context names are known (OQ1) — defer to after first CI run on content PR |
 | Coordinate user gate G3 (workboard-auto-approve App install) | planned | orchestrator | Pause for user |
 | Coordinate user gate G4 (run `infra/provision.sh`) | planned | orchestrator | Pause for user |
 | Coordinate user gate G5 (paste `AZURE_STATIC_WEB_APPS_API_TOKEN` secret) | planned | orchestrator | Pause for user |
@@ -144,8 +144,380 @@ G6 Ruleset and G7 security settings are orchestrator-runnable via `gh api` durin
 
 ## Notes / Learnings
 
-(filled during execution)
+### Sub-agent self-reported learning candidates (filed at close-out)
+
+> **Note:** Several harness-specific issues observed during CS01 execution were
+> reported upstream and addressed in **harness v0.3.1**:
+>
+> - `ajv`/`ajv-formats`/`js-yaml` moved from devDeps to runtime deps — schema-using
+>   linters now work via plain `npx -y github:henrik-me/agent-harness#<ref>`.
+> - `text-encoding` linter switched to `git ls-files` mode — gitignored build
+>   output (`api/bin`, `api/obj`) is now correctly skipped.
+> - `architecture` linter error now lists all four required headings and points
+>   at `harness lint --explain architecture`.
+> - WORKBOARD `## Queued` / `## Recently Completed` ban is **intentional policy**
+>   (LRN-102) — filesystem under `project/clickstops/{planned,done}/` is the
+>   source of truth.
+>
+> CS01 bumps the harness pin to **v0.3.1** in this PR (originally CS04's task
+> #1, brought forward because the v0.1.0 deps gap blocks CI). The bump triggered
+> one composed-block update in `OPERATIONS.md` (managed-prose refresh: LRN-102
+> "no recently-completed log", harness-vs-consumer composed-block guidance from
+> SI Finding #6, SAML-SSO `git ls-remote` fallback from SI Finding #7, and
+> `REPLACE_ME` placeholder rendering fix). All managed-block updates were
+> applied via `harness sync --mode=apply`; user-authored local blocks were
+> preserved (provenance correctly recorded as `user-authored` in
+> `.harness-lock.json`). Post-bump validation: `harness lint` 13/13 pass,
+> `harness sync --mode=check` clean, `dotnet test` 1/1 pass.
+
+- **Composed-blocks plan wording (A5):** CS01 plan deliverable 6 says "edit `template/composed/CONVENTIONS.md`" (harness-repo perspective) but consumer repos edit root `CONVENTIONS.md` directly. Future plans should use consumer-relative paths.
+- **SDK glob collision (A8):** `Microsoft.NET.Sdk` default `**/*.cs` glob picks up subdirectory test files. Fix: explicit `<Compile Remove="Sub-invaders.Api.Tests/**" />` in main csproj.
+- **HttpRequestData mocking (A8):** `HttpRequestData` is abstract and requires a live DI container to mock; CS01 test uses constant-string assertion (`HealthFunction.ResponseBody`) as a pragmatic workaround. Real HTTP-shape integration tests deferred to CS03+.
+- **az CLI version drift (A7, R6):** `az consumption budget create --resource-group` scope is unreliable across `az` 2.x minor versions. `provision.sh` uses ARM REST PATCH for budget notifications as a stable fallback (non-fatal if it fails).
+- **Azure SAML blocks `gh api` (A6):** Azure org SAML enforcement blocks `gh api repos/Azure/...` for non-SSO tokens. Use `git ls-remote https://github.com/Azure/<repo>.git refs/tags/<tag>` as the SHA verification fallback for action-pinning.
+- **PowerShell vs grep regex (A7):** PowerShell `Select-String` uses .NET regex where `\?` is a literal `?`, unlike grep BRE where `\?` is zero-or-one. Self-check patterns must be authored with .NET regex semantics in mind when run from PowerShell.
+- **Line endings on Windows (orchestrator):** Default `core.autocrlf=true` produces CRLF on disk while index stays LF, causing text-encoding linter failures. Fix: `.gitattributes` with `* text=auto eol=lf`, then `core.autocrlf=input`, then `git rm -rf --cached . && git reset --hard HEAD` re-extracts as LF.
+- **Workboard-auto-approve.yml docs in harness-managed prose (R2 finding):**
+  GPT-5.5's round-2 review surfaced that `OPERATIONS.md:130-144`,
+  `REVIEWS.md:30-32`, `REVIEWS.md:201-203`, and `REVIEWS.md:255-257` (all
+  in **harness-managed prose**, outside the `harness:local-*` markers)
+  describe `workboard-auto-approve.yml` as approving + auto-merging PRs.
+  Since the GitHub Actions built-in `GITHUB_TOKEN` cannot create approving
+  PR reviews, that description was always inaccurate (it would have failed
+  with HTTP 422 in production). The CS01 implementation corrects the
+  consumer-facing files (CHANGELOG.md, ARCHITECTURE.md) and the workflow
+  itself (validation-only), but the managed prose in OPERATIONS.md /
+  REVIEWS.md cannot be edited from a consumer repo — the next
+  `harness sync --mode=apply` would revert any local change. **Filed as a
+  feedback item to the agent-harness maintainer for an upstream
+  template-prose fix** (similar shape to the SI Finding #6/#7 items
+  absorbed into v0.3.1). The CS01 review thread for those file/line
+  citations should be resolved with this rationale.
+
+- **Workboard App = G3, NOT shipped by CS01:** The `workboard-auto-approve`
+  GitHub App installation (gate G3) is the actual mechanism for
+  auto-approval and auto-merge of workboard-only PRs (claim + close-out).
+  Until G3 lands, those PRs must be human-merged. The validation workflow
+  in this PR is an early-failure layer, not a fallback approver.
+- **Workboard-auto-approve App check 401/403 (A2, R2):** Standard `repo`-scope tokens cannot list App installations. G3 verification deferred to manual user step.
+- **CodeQL default setup language coverage (close-out gate finding):**
+  GitHub's `code-scanning/default-setup` endpoint refuses `csharp` for
+  `henrik-me/sub-invaders` with HTTP 422 "not present in the repository"
+  even though `api/Program.cs`, `api/HealthFunction.cs`, and
+  `api/Sub-invaders.Api.Tests/HealthFunctionTests.cs` exist. GitHub's
+  language auto-detection currently surfaces only `actions`, `javascript`,
+  `javascript-typescript`, and `typescript` for default setup on this
+  repo. CS01 enables default setup for `actions` + `javascript-typescript`
+  (the broader of the JS/TS pair). **Planned follow-up CS:** extend
+  CodeQL coverage to .NET via an advanced workflow (`.github/workflows/codeql.yml`)
+  if GitHub auto-detection still misses the Functions project after a
+  detection refresh.
+
+## Evidence
+
+### Security & supply-chain settings (G7) — evidence
+
+Recorded by sub-agent `cs01-security-settings` on 2026-05-11T01:58:45Z.
+
+#### Secret scanning + push protection
+
+**Command:** `gh api -X PATCH repos/henrik-me/sub-invaders -F security_and_analysis.secret_scanning.status=enabled -F security_and_analysis.secret_scanning_push_protection.status=enabled`
+
+**Response (abbreviated):** HTTP 200 OK; response body includes:
+```json
+"security_and_analysis": {
+  "secret_scanning": { "status": "enabled" },
+  "secret_scanning_push_protection": { "status": "enabled" },
+  "dependabot_security_updates": { "status": "enabled" }
+}
+```
+
+**Verify:** `gh api repos/henrik-me/sub-invaders --jq '.security_and_analysis'`
+```json
+{
+  "secret_scanning": { "status": "enabled" },
+  "secret_scanning_push_protection": { "status": "enabled" },
+  "dependabot_security_updates": { "status": "enabled" },
+  "secret_scanning_non_provider_patterns": { "status": "disabled" },
+  "secret_scanning_validity_checks": { "status": "disabled" }
+}
+```
+
+**Status:** enabled
+
+#### CodeQL default setup
+
+**First attempt (sub-agent A2):** `gh api -X PUT … --raw-field 'languages=["javascript","csharp"]'` returned HTTP 404; deferred per CS01-R1.
+
+**Re-attempt at close-out (orchestrator):**
+
+**Command:**
+```
+gh api -X PATCH repos/henrik-me/sub-invaders/code-scanning/default-setup \
+  --input - <<<'{"state":"configured","query_suite":"default","languages":["actions","javascript-typescript"]}'
+```
+
+**Response:** HTTP 202 Accepted
+```json
+{ "run_id": 25648911153, "run_url": "https://api.github.com/repos/henrik-me/sub-invaders/actions/runs/25648911153" }
+```
+
+**Verify (post-run):** `gh api repos/henrik-me/sub-invaders/code-scanning/default-setup` →
+```json
+{
+  "state": "configured",
+  "languages": ["actions","javascript","javascript-typescript","typescript"],
+  "query_suite": "default",
+  "threat_model": "remote",
+  "updated_at": "2026-05-11T03:36:28Z",
+  "schedule": "weekly",
+  "runner_type": "standard"
+}
+```
+
+**Setup workflow run:** `gh api repos/henrik-me/sub-invaders/actions/runs/25648911153` → `{"status":"completed","conclusion":"success"}`
+
+**Notes:**
+- Auto-detected eligible languages on this repo are `actions`, `javascript`, `javascript-typescript`, `typescript`. `javascript-typescript` covers JS+TS together.
+- `csharp` was rejected as "not present in the repository" by the default-setup endpoint despite `api/*.cs` files existing — GitHub's auto-detection for default setup does not currently surface the `api/` Functions project. Filed as planned follow-up CS (CS-NN — extend CodeQL coverage to .NET via advanced workflow if default detection still misses it).
+- First analysis may take up to 24 h to populate; this is the documented behaviour of CodeQL default setup (CS01-R1).
+
+**Status:** enabled (configured for `actions` + `javascript-typescript`; `csharp` deferred to follow-up CS — see Notes/Learnings)
+
+#### Dependabot alerts
+
+**Command:** `gh api -X PUT repos/henrik-me/sub-invaders/vulnerability-alerts`
+
+**Response:** HTTP 204 No Content
+
+**Verify:** `gh api repos/henrik-me/sub-invaders/vulnerability-alerts -i` → HTTP 204
+
+**Status:** enabled
+
+#### Dependabot security updates
+
+**Command:** `gh api -X PUT repos/henrik-me/sub-invaders/automated-security-fixes`
+
+**Response:** HTTP 200 OK
+
+**Verify:** `gh api repos/henrik-me/sub-invaders/automated-security-fixes -i` →
+```json
+{ "enabled": true, "paused": false }
+```
+
+**Status:** enabled
+
+#### Private Vulnerability Reporting
+
+**Command:** `gh api -X PUT repos/henrik-me/sub-invaders/private-vulnerability-reporting`
+
+**Response:** HTTP 200 OK
+
+**Verify:** `gh api repos/henrik-me/sub-invaders/private-vulnerability-reporting -i` →
+```json
+{ "enabled": true }
+```
+
+**Status:** enabled
+
+#### Final state snapshot
+
+```json
+{
+  "allow_merge_commit": true,
+  "allow_rebase_merge": true,
+  "allow_squash_merge": true,
+  "delete_branch_on_merge": false,
+  "has_discussions": false,
+  "has_issues": true,
+  "has_projects": true,
+  "name": "sub-invaders",
+  "private": false,
+  "security_and_analysis": {
+    "dependabot_security_updates": { "status": "enabled" },
+    "secret_scanning": { "status": "enabled" },
+    "secret_scanning_non_provider_patterns": { "status": "disabled" },
+    "secret_scanning_push_protection": { "status": "enabled" },
+    "secret_scanning_validity_checks": { "status": "disabled" }
+  }
+}
+```
+
+### G3, G4, G5, G6 — evidence
+
+**G6 — Ruleset application (orchestrator-runnable)**
+
+Recorded by orchestrator (yoga-si) on 2026-05-11T03:13Z, after CI on PR #3 HEAD `9885c24`
+confirmed the real status-check context names (verified via the Checks API at
+`gh api repos/henrik-me/sub-invaders/commits/<sha>/check-runs` — context names are bare
+`ci`, `harness-lint`, etc., **without** the `ci/` prefix that `gh pr checks` displays;
+that prefix is a CLI display artefact, not part of the API contract).
+
+**Command:**
+```bash
+gh api -X POST repos/henrik-me/sub-invaders/rulesets --input infra/main-protection-ruleset.json
+```
+
+**Response (abbreviated):**
+```json
+{
+  "id": 16210336,
+  "name": "main-protection",
+  "source_type": "Repository",
+  "source": "henrik-me/sub-invaders",
+  "enforcement": "active",
+  "current_user_can_bypass": "always"
+}
+```
+
+**Verify:** `gh api repos/henrik-me/sub-invaders/rulesets/16210336`
+```json
+{
+  "name": "main-protection",
+  "enforcement": "active",
+  "conditions": { "ref_name": { "include": ["refs/heads/main"], "exclude": [] } },
+  "rule_types": ["deletion","non_fast_forward","required_linear_history","pull_request","required_status_checks"],
+  "required_checks": ["ci","harness-lint","harness-sync-check","js-tests","dotnet-tests"],
+  "pr_rule": {
+    "required_approving_review_count": 1,
+    "dismiss_stale_reviews_on_push": true,
+    "required_review_thread_resolution": true,
+    "allowed_merge_methods": ["squash"]
+  }
+}
+```
+
+**Status:** active. Bypass actor: RepositoryAdmin (actor_id 5) — orchestrator can bypass
+in extremis but the standard merge path goes through PR-rule + required-checks.
+
+---
+
+**G3 — workboard-auto-approve App installation:** _pending user action._ Required before
+the close-out PR can auto-merge cleanly; CS01 claim PR #2 was human-merged so G3 was not
+on the critical path for opening the content PR.
+
+**G4 — `infra/provision.sh` execution:** _pending user action._ Creates `rg-sub-invaders-prod`,
+Storage Account, SWA staging, Budget. User runs locally with their Azure subscription
+context.
+
+**G5 — `AZURE_STATIC_WEB_APPS_API_TOKEN` secret:** _pending user action._ Sourced from the
+SWA resource created by G4 (`az staticwebapp secrets list`); pasted into repo Actions
+secrets. Until G5 lands, `swa-deploy/build-and-deploy` correctly fails with
+`deployment_token was not provided` — this failure is informational, not in the Ruleset's
+required-checks list, and not a merge blocker.
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate — see `../../../OPERATIONS.md` § Plan-vs-implementation review (close-out gate))_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-05-10T20:32:38.539-07:00
+**Outcome:** NEEDS-FIX
+
+### Per-deliverable outcome table
+
+| # | Deliverable (one-line summary) | Outcome | Rationale (required for non-match) |
+|---|---|---|---|
+| 1 | Branch protection Ruleset | match | — |
+| 2 | Workboard-auto-approve App installed | dropped | Pending user gate G3; scoped to CS01 close-out, not abandoned. |
+| 3 | Security and supply-chain posture enabled | diverged | Secret scanning, push protection, Dependabot, security updates, PVR are enabled, but CodeQL default setup is currently `not-configured`; docs/changelog also overstate it as configured. |
+| 4 | Governance docs | match | — |
+| 5 | ARCHITECTURE.md v1 | match | — |
+| 6 | Composed local blocks customized | match | — |
+| 7 | CI workflows authored | diverged | Intentional: `swa-deploy.yml` is unguarded pre-G5 and `workboard-auto-approve.yml` is validation-only, with App approval deferred to G3. |
+| 8 | Azure provisioning script | match | — |
+| 9 | G4 Azure provisioning completed | dropped | Pending user gate G4; scoped to CS01 close-out, not abandoned. |
+| 10 | G5 SWA token secret stored | dropped | Pending user gate G5; scoped to CS01 close-out, not abandoned. |
+| 11 | Stub frontend | match | — |
+| 12 | Stub backend + xUnit | match | — |
+| 13 | First SWA staging deploy + smoke | dropped | Pending G4/G5 and first deploy; scoped to CS01 close-out, not abandoned. |
+| 14 | CHANGELOG.md SI-CS01 entry | match | — |
+
+### Added (beyond plan)
+
+| # | Item | Rationale |
+|---|---|---|
+| A1 | Harness pin bump v0.1.0 → v0.3.1 | Brought forward to unblock CI and absorb upstream harness fixes. |
+| A2 | `.gitattributes` LF enforcement | Prevents Windows checkout line-ending drift from breaking harness lint. |
+| A3 | `harness.config.json` placeholder completion | Required for consumer repo identity and harness sync/lint correctness. |
+| A4 | `verify-deploy.example.yml` moved to workflow examples | Prevents GitHub from treating the example as a live workflow. |
+
+### Test-coverage assessment
+
+`gaps`
+
+- Frontend: no JS source/tests yet; intentional CS01 stub. `node --test` reports 0 tests.
+- Backend: `dotnet test api/` passes 1/1, but only asserts `HealthFunction.ResponseBody`; no HTTP integration assertion for status/header/route.
+- Infra script: reviewed statically; not executed against Azure because G4 is user-gated.
+- CI workflows: required checks reportedly pass; SWA deploy failure is expected pre-G5.
+- Security: CodeQL default setup is untested/unmet; API currently reports `not-configured`.
+
+### Notes for orchestrator
+
+- Blocking fix: enable CodeQL default setup for the intended languages, or explicitly revise the CS plan/docs/changelog/evidence to record an accepted not-applicable deviation.
+- Re-run this gate after fixing deliverable #3.
+
+### Outcome: NEEDS-FIX
+
+---
+
+### Round-2 remediation (orchestrator)
+
+The blocking finding (deliverable #3, CodeQL default setup) was addressed by **actually enabling** CodeQL default setup via `PATCH /repos/.../code-scanning/default-setup` with languages `["actions","javascript-typescript"]` (the auto-detected eligible set). State is now `configured`; analysis run `25648911153` was kicked off automatically.
+
+`csharp` was **not** enabled because GitHub's default-setup endpoint reports it as "not present in the repository" despite `api/*.cs` files existing — auto-detection does not currently surface the `api/` Functions project. This is captured in:
+- Evidence section (`#### CodeQL default setup` updated with re-attempt command, response, and notes).
+- Notes/Learnings (planned follow-up CS to extend CodeQL coverage to .NET via advanced workflow if needed).
+- ARCHITECTURE.md and CHANGELOG.md narrative corrected from "JavaScript and C#" to "actions + javascript-typescript (csharp follow-up)".
+
+Re-run of the plan-vs-impl gate captured below.
+
+---
+
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-05-10T20:40:00-07:00
+**Round:** 2 (re-evaluation after orchestrator remediation)
+**Outcome:** GO
+
+### Per-deliverable outcome table
+
+| # | Deliverable (one-line summary) | Outcome | Rationale (required for non-match) |
+|---|---|---|---|
+| 1 | Branch protection Ruleset | match | — |
+| 2 | Workboard-auto-approve App installed | dropped | Pending user gate G3; scoped to CS01 close-out, not abandoned. |
+| 3 | Security and supply-chain posture enabled | match | — |
+| 4 | Governance docs | match | — |
+| 5 | ARCHITECTURE.md v1 | match | — |
+| 6 | Composed local blocks customized | match | — |
+| 7 | CI workflows authored | match | — |
+| 8 | Azure provisioning script | match | — |
+| 9 | G4 Azure provisioning completed | dropped | Pending user gate G4; scoped to CS01 close-out, not abandoned. |
+| 10 | G5 SWA token secret stored | dropped | Pending user gate G5; scoped to CS01 close-out, not abandoned. |
+| 11 | Stub frontend | match | — |
+| 12 | Stub backend + xUnit | match | — |
+| 13 | First SWA staging deploy + smoke | dropped | Pending G4/G5 and first deploy; scoped to CS01 close-out, not abandoned. |
+| 14 | CHANGELOG.md SI-CS01 entry | match | — |
+
+### Added (beyond plan)
+
+| # | Item | Rationale |
+|---|---|---|
+| A1 | Harness pin bump v0.1.0 → v0.3.1 | Brought forward to unblock CI and absorb upstream harness fixes. |
+| A2 | `.gitattributes` LF enforcement | Prevents Windows checkout line-ending drift from breaking harness lint. |
+| A3 | `harness.config.json` placeholder completion | Required for consumer repo identity and harness sync/lint correctness. |
+| A4 | `verify-deploy.example.yml` moved to workflow examples | Prevents GitHub from treating the example as a live workflow. |
+
+### Test-coverage assessment
+
+`gaps`
+
+- `dotnet test api\Sub-invaders.Api.Tests\Sub-invaders.Api.Tests.csproj --nologo --verbosity minimal` passed: 1 total, 0 failed.
+- `node --test src\**\*.test.mjs` passed with 0 tests; intentional CS01 frontend stub.
+- Backend still only asserts `HealthFunction.ResponseBody`; no HTTP integration assertion for route/status/header.
+- Infra provisioning and SWA smoke remain unexecuted because G4/G5/first deploy are user-gated.
+
+### Notes for orchestrator
+
+- Round-1 blocker is resolved: CodeQL default setup API reports `state: configured`, languages include `actions`, `javascript`, `javascript-typescript`, `typescript`, schedule `weekly`; setup run `25648911153` is `completed/success`.
+- ARCHITECTURE.md, CHANGELOG.md, and CS evidence accurately describe enabled CodeQL coverage and the `csharp` follow-up.
+- No new blocking issues found.
+
+### Outcome: GO

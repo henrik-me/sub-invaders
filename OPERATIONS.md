@@ -32,11 +32,13 @@ Every CS produces exactly three PRs in sequence:
    here. Standard review loop (GPT-5.5 + user). Squash-merge only.
 
 3. **Close-out PR** — branch `cs<NN>/close-out`; touches only
-   `WORKBOARD.md` (row state set to done or removed), the clickstop rename
-   (`active → done`), and any close-out updates to `CONTEXT.md` /
-   `LEARNINGS.md`. Label: `workboard-only`. Same auto-merge rules as the
-   claim PR. **Must be preceded by the plan-vs-implementation review gate
-   (see [§ Plan-vs-implementation review (close-out gate)](#plan-vs-implementation-review-close-out-gate)).**
+   `WORKBOARD.md` (Active Work row removed for this CS), the clickstop
+   rename (`active → done`), and any close-out updates to `CONTEXT.md` /
+   `LEARNINGS.md`. The `done/` directory is the historical record;
+   WORKBOARD never carries a "recently completed" log (LRN-102). Label:
+   `workboard-only`. Same auto-merge rules as the claim PR. **Must be
+   preceded by the plan-vs-implementation review gate (see
+   [§ Plan-vs-implementation review (close-out gate)](#plan-vs-implementation-review-close-out-gate)).**
 
 Every active/done CS file must include explicit `## Tasks` rows for:
 
@@ -435,7 +437,7 @@ need" produces silent gaps that surface as integration failures later.
   `--quiet` suppresses success stdout only. Errors always go to stderr.
 
 - No dot-notation placeholders (LRN-049). Use flat keys only:
-  `mp` not `{{project.agent_suffix}}`. Dot-notation is not
+  `si` not `{{project.agent_suffix}}`. Dot-notation is not
   supported by the template engine and will be emitted literally.
 
 - Consumer-root-relative paths (LRN-050). Scripts run from the consumer's
@@ -662,6 +664,28 @@ To document marker syntax inside a code fence (e.g. in tests or this ADR),
 insert a zero-width space (U+200B) immediately after the leading `<` to
 prevent the parser from treating the example as a live marker.
 
+### Composed-block edits — consumer vs harness-repo paths
+
+When a CS plan or sub-agent briefing tells you to "edit a composed block",
+**do the edit at the consumer-repo path**, not the harness-repo template path.
+The two are different files:
+
+| Where you are | What to edit | Path |
+|---|---|---|
+| **Consumer repo** (e.g. `henrik-me/sub-invaders`) | The materialised composed file at the repo root, between its `<​!-- harness:local-start id=… -->` / `<​!-- harness:local-end id=… -->` markers | `<repo-root>/CONVENTIONS.md`, `<repo-root>/OPERATIONS.md`, `<repo-root>/REVIEWS.md` |
+| **Harness repo itself** (`henrik-me/agent-harness`) | The template that generates every consumer's composed file. Edits here propagate to all consumers on next `harness sync`. | `template/composed/CONVENTIONS.md`, `template/composed/OPERATIONS.md`, `template/composed/REVIEWS.md` |
+
+The CS plan template historically used harness-repo-relative paths (e.g.
+"edit `template/composed/CONVENTIONS.md`") because those plans were authored
+in the harness repo. **In a consumer repo, those paths do not exist.** The
+orchestrator briefing template now reminds dispatchers to translate to
+consumer-relative paths before sending a sub-agent into a consumer repo.
+
+A sub-agent that finds itself looking for `template/composed/...` inside a
+consumer repo should escalate ("the dispatch path appears to reference the
+harness repo, not this consumer repo — please clarify") rather than silently
+guess. ([SI Finding #6](LEARNINGS.md), CS30.)
+
 ### Mid-CS sync policy
 
 Do **not** run `harness sync` mid-CS unless fixing a harness blocker. Running
@@ -696,6 +720,30 @@ The workflow's steps are: checkout (pinned SHA), setup-node 20 (pinned SHA),
 derive-ref shell step, `npx -y github:henrik-me/agent-harness#<ref> lint --quiet`.
 All third-party `uses:` refs are pinned to 40-character commit SHAs.
 
+#### Resolving the SHA for an `actions/<owner>/<repo>@<tag>` pin
+
+The standard recipe is:
+
+```bash
+gh api repos/<owner>/<repo>/git/ref/tags/<tag> --jq .object.sha
+```
+
+**SAML-protected orgs (Azure, several enterprises) — fallback:** when an org
+enforces SAML SSO on its GitHub App and your CLI token isn't SSO-authorised,
+`gh api repos/<org>/...` returns `403`. The standard recipe then breaks for
+common pins like `Azure/static-web-apps-deploy@v1`.
+
+Use `git ls-remote` instead — it works against the org's public HTTP endpoint
+without authentication and returns the same SHA:
+
+```bash
+git ls-remote https://github.com/<owner>/<repo>.git refs/tags/<tag>
+# Output:
+# <40-char-sha>    refs/tags/<tag>
+```
+
+Pipe through `awk '{print $1}'` to get the bare SHA. ([SI Finding #7](LEARNINGS.md), CS30.)
+
 ### Drift-detection workflow
 
 `template/managed/.github/workflows/harness-drift.yml` is a managed workflow
@@ -721,7 +769,7 @@ consumer repo has drifted from the harness version pinned in
    whose body explains the drift, links to the harness ref, and lists changed
    files.
 
-The template uses `REPLACE_ME` and `REPLACE_ME` placeholders
+The template uses `sub-invaders` and `henrik-me` placeholders
 for PR reviewer/assignee fields; all YAML scalar values containing
 `{{...}}` placeholders are quoted so the unrendered template parses as valid
 YAML.
@@ -1029,5 +1077,63 @@ the harness and will be overwritten on the next `harness sync`. The block ID
 `composed.overrides["OPERATIONS.md"].local_blocks`.
 
 <!-- harness:local-start id=operations.project-deploy -->
-_(Add project-specific deployment workflow, environment list, secrets handling, etc.)_
+
+## Project-specific deploy operations
+
+### Azure Static Web Apps deploy
+
+- Workflow: `.github/workflows/swa-deploy.yml` triggered on push to `main`.
+- Secret: `AZURE_STATIC_WEB_APPS_API_TOKEN` (G5).
+- Build artifact paths: `app_location: "src"`, `api_location: "api"`,
+  `output_location: ""`.
+
+### .NET 8 isolated Functions build
+
+```bash
+dotnet restore api/
+dotnet build api/ --configuration Release --no-restore
+dotnet test api/ --configuration Release --no-build
+```
+
+### Local dev
+
+- Frontend: open `src/index.html` in a browser, or serve via `npx http-server src` for
+  module loading.
+- Backend: `func start --csharp` from `api/` (requires Azure Functions Core Tools v4 +
+  .NET 8 SDK).
+
+### Azure resource provisioning (G4)
+
+```bash
+infra/provision.sh             # uses defaults: rg-sub-invaders-prod, $5 budget
+RG_NAME=rg-sub-invaders-test STORAGE_ACCT_NAME=stsubinvaderstest$RAND6 \
+  infra/provision.sh           # override via env vars
+```
+
+The script is idempotent: re-running on an existing RG verifies the `workload=sub-invaders`
+tag and skips create operations that already succeeded.
+
+### Storage Tables persistence (CS03+)
+
+- Storage account: `stsubinvaders$RAND6` (CS01-5).
+- Tables: `Leaderboard` (PartitionKey=daily-challenge-key, RowKey=score-id),
+  `Sessions` (PartitionKey=session-id-prefix, RowKey=session-id, TTL=session-ttl).
+- Hourly cleanup Function (CS03) deletes expired sessions.
+
+### Env vars (deploy-time, set in Azure SWA configuration)
+
+| Var | Purpose | When |
+|---|---|---|
+| `STORAGE_CONNECTION_STRING` | Storage Tables access | CS03+ |
+| `RATE_LIMIT_PER_MIN` | Per-IP rate cap (default 30) | CS03+ |
+| `DAILY_CHALLENGE_SEED` | Pin deterministic daily challenge | CS04+ |
+
+### Secret rotation
+
+- `AZURE_STATIC_WEB_APPS_API_TOKEN`: rotate via Azure portal → SWA → Manage deployment
+  token; update GitHub secret immediately.
+- `STORAGE_CONNECTION_STRING`: rotate via Azure portal → Storage account → Access keys;
+  update SWA configuration; rolling update.
+- Never log secrets in workflows; never copy into the active CS file.
+
 <!-- harness:local-end id=operations.project-deploy -->

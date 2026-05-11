@@ -1,0 +1,6 @@
+bin/
+obj/
+*.user
+local.settings.json
+*.binlog
+.vs/

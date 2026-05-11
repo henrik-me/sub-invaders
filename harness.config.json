@@ -1,11 +1,16 @@
 {
   "$schema": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
-  "_comment": "Replace REPLACE_ME placeholders with your project's values before running harness sync",
-  "version": "v0.1.0",
+  "version": "v0.3.1",
   "project": {
-    "name": "my-project",
-    "agent_suffix": "mp",
-    "repo": "REPLACE_ME/REPLACE_ME"
+    "name": "sub-invaders",
+    "agent_suffix": "si",
+    "repo": "henrik-me/sub-invaders"
+  },
+  "constraints": {
+    "tier": "public",
+    "detected_at": "2026-05-11T01:10:46.511Z",
+    "owner": "henrik-me",
+    "repo": "sub-invaders"
   },
   "composed": {
     "files": [
@@ -32,13 +37,14 @@
     }
   },
   "templating": {
-    "project_name": "my-project",
-    "agent_suffix": "mp",
-    "agent_suffix_upper": "MP",
-    "repo_owner": "REPLACE_ME",
-    "default_codeowner": "REPLACE_ME",
-    "lib_codeowner": "REPLACE_ME",
-    "repo_short": "REPLACE_ME"
+    "project_name": "sub-invaders",
+    "agent_suffix": "si",
+    "agent_suffix_upper": "SI",
+    "repo_owner": "henrik-me",
+    "repo_slug": "henrik-me/sub-invaders",
+    "repo_short": "sub-invaders",
+    "default_codeowner": "henrik-me",
+    "lib_codeowner": "henrik-me"
   },
   "scaffolds": [
     "feature-flags",
