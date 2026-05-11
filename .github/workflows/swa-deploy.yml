@@ -6,10 +6,17 @@
 #                 to the PR using GITHUB_TOKEN; requires pull-requests: write).
 # PR closed     → preview environment torn down (close_pull_request job).
 #
-# IMPORTANT (CS01-9): this workflow is committed unguarded per design.
-# Before gate G5 (user stores AZURE_STATIC_WEB_APPS_API_TOKEN as a secret)
-# the deploy step will fail with a missing-secret error. That is expected and
-# intentional — do NOT add an `if:` guard to skip when the secret is absent.
+# IMPORTANT (CS01-9): this workflow is committed unguarded by job-level `if:`
+# so that the missing-secret failure on first `push:main` is loud and visible
+# (that was the deliberate gate-G5 signal during CS01).
+#
+# Post-G5 fixup (PR #15): we add `skip_deploy_on_missing_secrets: true` to the
+# SWA action itself. The token IS present for repo-pushed branches, so deploy
+# proceeds normally. For PRs from the `dependabot[bot]` actor (and forks),
+# GitHub does NOT pass repo secrets to the workflow, so the SWA action would
+# otherwise fail with `deployment_token was not provided`. The skip flag turns
+# that hard failure into a clear "skipped (no token)" message and a green
+# check, which is the Azure-recommended pattern for fork/Dependabot PRs.
 
 name: swa-deploy
 
@@ -45,6 +52,7 @@ jobs:
           app_location: "src"
           api_location: "api"
           output_location: ""
+          skip_deploy_on_missing_secrets: true
 
   close-pull-request:
     name: close-pull-request
@@ -55,3 +63,4 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           action: "close"
+          skip_deploy_on_missing_secrets: true
