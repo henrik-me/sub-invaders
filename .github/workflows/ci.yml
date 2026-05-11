@@ -2,12 +2,6 @@
 # Runs harness lint, harness sync check, JS tests, and .NET tests on every
 # push to main and every pull request targeting main. The umbrella `ci` job
 # is the single status-check context that the Ruleset requires.
-#
-# LEARNING CANDIDATE — harness peerDeps gap: ajv, ajv-formats, and js-yaml
-# are devDependencies in the harness package and are NOT pulled in by npx /
-# non-dev installs. Workaround: install them globally before invoking the
-# harness CLI. Track via LEARNINGS.md once the harness promotes them to
-# peerDependencies or bundles them.
 
 name: ci
 
@@ -33,19 +27,10 @@ jobs:
       - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
         with:
           node-version: '20'
-      - name: Clone harness with full devDeps
-        # WORKAROUND: harness deps gap — ajv, ajv-formats, and js-yaml are
-        # devDependencies of @henrik-me/agent-harness; npx -y skips devDeps,
-        # so the linter modules fail with ERR_MODULE_NOT_FOUND. Cloning and
-        # running `npm ci` installs the full dep tree, after which the
-        # harness CLI can resolve ajv via its own node_modules.
-        run: |
-          set -euo pipefail
-          CLI_REF=$(node -e "console.log(JSON.parse(require('fs').readFileSync('harness.config.json','utf8')).version)")
-          git clone --depth 1 --branch "${CLI_REF}" https://github.com/henrik-me/agent-harness.git /tmp/agent-harness
-          cd /tmp/agent-harness && npm ci --include=dev
       - name: Run harness lint
-        run: node /tmp/agent-harness/bin/harness.mjs lint --quiet
+        run: |
+          CLI_REF=$(node -e "console.log(JSON.parse(require('fs').readFileSync('harness.config.json','utf8')).version)")
+          npx -y "github:henrik-me/agent-harness#${CLI_REF}" lint --quiet
 
   harness-sync-check:
     name: harness-sync-check
@@ -55,15 +40,10 @@ jobs:
       - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
         with:
           node-version: '20'
-      - name: Clone harness with full devDeps
-        # WORKAROUND: see harness-lint job comment.
-        run: |
-          set -euo pipefail
-          CLI_REF=$(node -e "console.log(JSON.parse(require('fs').readFileSync('harness.config.json','utf8')).version)")
-          git clone --depth 1 --branch "${CLI_REF}" https://github.com/henrik-me/agent-harness.git /tmp/agent-harness
-          cd /tmp/agent-harness && npm ci --include=dev
       - name: Run harness sync check
-        run: node /tmp/agent-harness/bin/harness.mjs sync --mode=check --cwd .
+        run: |
+          CLI_REF=$(node -e "console.log(JSON.parse(require('fs').readFileSync('harness.config.json','utf8')).version)")
+          npx -y "github:henrik-me/agent-harness#${CLI_REF}" sync --mode=check --cwd .
 
   js-tests:
     name: js-tests

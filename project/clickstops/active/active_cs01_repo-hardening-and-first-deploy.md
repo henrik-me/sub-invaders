@@ -125,7 +125,7 @@ G6 Ruleset and G7 security settings are orchestrator-runnable via `gh api` durin
 | Author `infra/main-protection-ruleset.json` | complete | sub-agent | agent-id=cs01-ruleset-and-app \| role=ruleset-author \| report-status=complete \| learnings=2 \| commit=daff29d |
 | Enable security & supply-chain settings via `gh api` | complete | sub-agent | agent-id=cs01-security-settings \| role=gh-api-runner \| report-status=complete \| learnings=2 \| evidence below |
 | Author governance docs (SECURITY/CONTRIBUTING/CoC + .github templates + CODEOWNERS) | complete | sub-agent | agent-id=cs01-governance-docs \| role=docs-author \| report-status=complete \| learnings=2 \| commit=aed831b |
-| Author `ARCHITECTURE.md` v1 | complete | sub-agent | agent-id=cs01-architecture-author \| role=docs-author \| report-status=complete \| learnings=2 \| commit=deba24b (orchestrator added Data model section to satisfy linter) |
+| Author `ARCHITECTURE.md` v1 | complete | sub-agent | agent-id=cs01-architecture-author \| role=docs-author \| report-status=complete \| learnings=2 \| commit=deba24b |
 | Customise composed local blocks (`conventions.project`, `operations.project-deploy`, `reviews.project-gates`) | complete | sub-agent | agent-id=cs01-composed-blocks-customiser \| role=composed-block-author \| report-status=complete \| learnings=2 \| commit=43e83ac |
 | Author CI workflows (`ci.yml`, `swa-deploy.yml`, `workboard-auto-approve.yml`, `dependabot.yml`) | complete | sub-agent | agent-id=cs01-ci-workflows-author \| role=ci-author \| report-status=complete \| learnings=3 \| commit=c5ddd36 |
 | Author `infra/provision.sh` | complete | sub-agent | agent-id=cs01-azure-provisioning-script \| role=infra-author \| report-status=complete \| learnings=3 \| commit=675e1ab |
@@ -146,16 +146,22 @@ G6 Ruleset and G7 security settings are orchestrator-runnable via `gh api` durin
 
 ### Sub-agent self-reported learning candidates (filed at close-out)
 
-- **harness peerDeps gap (A6, A2):** `@henrik-me/agent-harness` declares `ajv`, `ajv-formats`, `js-yaml` as devDependencies only. `npx -y github:henrik-me/agent-harness ...` fails most linters with `ERR_MODULE_NOT_FOUND` until a downstream consumer runs `npm install -g ajv ajv-formats js-yaml`. CI workflow (`ci.yml`) installs them globally before `npx -y github:henrik-me/agent-harness` invocations. Recommended harness fix: declare them as `peerDependencies` (or `dependencies`) so `npx` pulls them.
-- **Line endings on Windows (orchestrator):** Default `core.autocrlf=true` produces CRLF on disk while index stays LF, causing text-encoding linter failures. Fix: `.gitattributes` with `* text=auto eol=lf`, then `core.autocrlf=input`, then `git rm -rf --cached . && git reset --hard HEAD` re-extracts as LF.
+> **Note:** Several harness-specific issues observed during CS01 execution
+> (`ajv`/`js-yaml` peerDeps gap, WORKBOARD `## Queued`/`## Recently Completed`
+> linter rule, `ARCHITECTURE.md ## Data model` required heading, text-encoding
+> linter scanning gitignored `api/bin`/`api/obj`, missing `lint --only=<name>`)
+> have been reported back to the harness maintainer for upstream fixes. The
+> CS01 content PR uses the standard `npx -y github:henrik-me/agent-harness#…`
+> invocation pattern and assumes those fixes will land via a harness pin bump
+> in CS04 (per the CS04 plan). Local workarounds have been removed.
+
 - **Composed-blocks plan wording (A5):** CS01 plan deliverable 6 says "edit `template/composed/CONVENTIONS.md`" (harness-repo perspective) but consumer repos edit root `CONVENTIONS.md` directly. Future plans should use consumer-relative paths.
-- **harness lint scans build artifacts (orchestrator):** `harness lint` text-encoding scanner walks the filesystem without respecting `.gitignore`. Running `dotnet build api/` locally produces `api/bin` and `api/obj` with CRLF JSON files that fail lint. Workaround: clean before lint. Long-term: harness lint should respect `.gitignore`.
 - **SDK glob collision (A8):** `Microsoft.NET.Sdk` default `**/*.cs` glob picks up subdirectory test files. Fix: explicit `<Compile Remove="Sub-invaders.Api.Tests/**" />` in main csproj.
 - **HttpRequestData mocking (A8):** `HttpRequestData` is abstract and requires a live DI container to mock; CS01 test uses constant-string assertion (`HealthFunction.ResponseBody`) as a pragmatic workaround. Real HTTP-shape integration tests deferred to CS03+.
 - **az CLI version drift (A7, R6):** `az consumption budget create --resource-group` scope is unreliable across `az` 2.x minor versions. `provision.sh` uses ARM REST PATCH for budget notifications as a stable fallback (non-fatal if it fails).
 - **Azure SAML blocks `gh api` (A6):** Azure org SAML enforcement blocks `gh api repos/Azure/...` for non-SSO tokens. Use `git ls-remote https://github.com/Azure/<repo>.git refs/tags/<tag>` as the SHA verification fallback for action-pinning.
-- **WORKBOARD section drift (orchestrator):** CS16 bootstrap left `## Queued` and `## Recently Completed` sections in WORKBOARD.md that the harness now forbids (filesystem source-of-truth). Removed in commit `ebe54da`.
 - **PowerShell vs grep regex (A7):** PowerShell `Select-String` uses .NET regex where `\?` is a literal `?`, unlike grep BRE where `\?` is zero-or-one. Self-check patterns must be authored with .NET regex semantics in mind when run from PowerShell.
+- **Line endings on Windows (orchestrator):** Default `core.autocrlf=true` produces CRLF on disk while index stays LF, causing text-encoding linter failures. Fix: `.gitattributes` with `* text=auto eol=lf`, then `core.autocrlf=input`, then `git rm -rf --cached . && git reset --hard HEAD` re-extracts as LF.
 - **CodeQL 404 on enable (A2, R1):** CodeQL default-setup PUT returned 404 — likely requires either 24h activation delay or paid plan on this tier. Acceptable per CS01-R1; revisit before close-out.
 - **Workboard-auto-approve App check 401/403 (A2, R2):** Standard `repo`-scope tokens cannot list App installations. G3 verification deferred to manual user step.
 
