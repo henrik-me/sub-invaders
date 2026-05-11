@@ -25,7 +25,11 @@ once a tagged release exists.
   user installation) — the built-in `GITHUB_TOKEN` cannot create approving
   PR reviews due to a GitHub platform restriction.
 - **Security & supply-chain.** Secret scanning + push protection enabled.
-  CodeQL default setup configured for JavaScript and C#. Dependabot alerts,
+  CodeQL default setup configured for `actions` and `javascript-typescript`
+  (the languages GitHub auto-detected as eligible on this repo); `csharp`
+  coverage for the `api/` Functions project is a planned follow-up CS
+  because GitHub's default-setup endpoint does not currently surface it.
+  Dependabot alerts,
   security updates, and weekly version updates enabled for `npm`, `nuget`,
   and `github-actions` ecosystems. Private Vulnerability Reporting enabled.
 - **Governance.** Added public-facing `SECURITY.md`, `CONTRIBUTING.md`

@@ -307,8 +307,11 @@ Weekly cadence for `npm`, `nuget`, and `github-actions` (CS01-4).
   Workflow-pin enforcement, PR-body checks, and commit-trailer checks are
   performed **inside** the `harness-lint` job by the harness CLI rather than
   as separate Ruleset contexts.
-- **CodeQL:** default setup for JavaScript and C# (CS01-3). Analysis may take up to 24 h
-  on first enable; enable in CS01, record API evidence immediately.
+- **CodeQL:** default setup enabled for `actions` and `javascript-typescript` (CS01-3).
+  `csharp` is not auto-detected for the `api/` Azure Functions project on this repo;
+  extending coverage via an advanced CodeQL workflow (or revisiting once GitHub
+  detection improves) is a planned follow-up CS. Analysis may take up to 24 h on
+  first enable.
 - **Secret scanning + push protection:** enabled (C16-13).
 - **Dependabot:** alerts, security updates, and version updates for `npm`, `nuget`, and
   `github-actions` (CS01-4).
@@ -354,7 +357,7 @@ Weekly cadence for `npm`, `nuget`, and `github-actions` (CS01-4).
 |---|---|---|
 | CS01-1 — Ruleset API shape | Author `infra/main-protection-ruleset.json` as the Repository Rulesets API request body, mirroring the agent-harness CS15a `main-protection` shape | CS15a proved this shape; C16-13 requires standards parity |
 | CS01-2 — Required checks in Ruleset | Require the five CI contexts: `ci`, `harness-lint`, `harness-sync-check`, `js-tests`, `dotnet-tests` (workflow-pin/PR-body/trailer enforcement runs inside `harness-lint`, not as separate Ruleset contexts) | Enforces contribution discipline while allowing project-specific workflow names; matches what the harness CLI actually runs |
-| CS01-3 — Code scanning | GitHub CodeQL default setup for JavaScript and C#; no advanced CodeQL workflow unless unavailable | C16-13 calls for default setup; less YAML = less consumer-maintained security plumbing |
+| CS01-3 — Code scanning | GitHub CodeQL default setup; configure for the languages GitHub auto-detects as eligible (`actions` + `javascript-typescript` on this repo). `csharp` is not auto-surfaced for the `api/` Functions project; planned follow-up CS to enable .NET coverage via advanced workflow if default detection still misses it. | C16-13 calls for default setup; less YAML = less consumer-maintained security plumbing |
 | CS01-4 — Dependabot | `.github/dependabot.yml` for `npm`, `nuget`, `github-actions`; weekly cadence; alerts and version updates enabled | Covers full stack: Node harness/tests, .NET Function, and Actions |
 | CS01-5 — Storage account naming | Default `STORAGE_ACCT_NAME=stsubinvaders$RAND6`; lowercase, no dashes, max 24 chars; env override | Azure global uniqueness + C16-14; env override enables deterministic retries |
 | CS01-6 — Azure resource group | Default `RG_NAME=rg-sub-invaders-prod`; script verifies tag `workload=sub-invaders` before any other resource operation | Hard isolation invariant and cleanup contract from C16-14 |

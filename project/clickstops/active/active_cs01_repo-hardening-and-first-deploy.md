@@ -200,6 +200,18 @@ G6 Ruleset and G7 security settings are orchestrator-runnable via `gh api` durin
   Until G3 lands, those PRs must be human-merged. The validation workflow
   in this PR is an early-failure layer, not a fallback approver.
 - **Workboard-auto-approve App check 401/403 (A2, R2):** Standard `repo`-scope tokens cannot list App installations. G3 verification deferred to manual user step.
+- **CodeQL default setup language coverage (close-out gate finding):**
+  GitHub's `code-scanning/default-setup` endpoint refuses `csharp` for
+  `henrik-me/sub-invaders` with HTTP 422 "not present in the repository"
+  even though `api/Program.cs`, `api/HealthFunction.cs`, and
+  `api/Sub-invaders.Api.Tests/HealthFunctionTests.cs` exist. GitHub's
+  language auto-detection currently surfaces only `actions`, `javascript`,
+  `javascript-typescript`, and `typescript` for default setup on this
+  repo. CS01 enables default setup for `actions` + `javascript-typescript`
+  (the broader of the JS/TS pair). **Planned follow-up CS:** extend
+  CodeQL coverage to .NET via an advanced workflow (`.github/workflows/codeql.yml`)
+  if GitHub auto-detection still misses the Functions project after a
+  detection refresh.
 
 ## Evidence
 
@@ -235,14 +247,42 @@ Recorded by sub-agent `cs01-security-settings` on 2026-05-11T01:58:45Z.
 
 #### CodeQL default setup
 
-**Command:** `gh api -X PUT repos/henrik-me/sub-invaders/code-scanning/default-setup --raw-field 'state=configured' --raw-field 'languages=["javascript","csharp"]' --raw-field 'query_suite=default'`
+**First attempt (sub-agent A2):** `gh api -X PUT … --raw-field 'languages=["javascript","csharp"]'` returned HTTP 404; deferred per CS01-R1.
 
-**Response:** HTTP 404 Not Found
-```json
-{ "message": "Not Found", "status": "404" }
+**Re-attempt at close-out (orchestrator):**
+
+**Command:**
+```
+gh api -X PATCH repos/henrik-me/sub-invaders/code-scanning/default-setup \
+  --input - <<<'{"state":"configured","query_suite":"default","languages":["actions","javascript-typescript"]}'
 ```
 
-**Status:** not-applicable on this tier (per CS01-R1; revisit before close-out)
+**Response:** HTTP 202 Accepted
+```json
+{ "run_id": 25648911153, "run_url": "https://api.github.com/repos/henrik-me/sub-invaders/actions/runs/25648911153" }
+```
+
+**Verify (post-run):** `gh api repos/henrik-me/sub-invaders/code-scanning/default-setup` →
+```json
+{
+  "state": "configured",
+  "languages": ["actions","javascript","javascript-typescript","typescript"],
+  "query_suite": "default",
+  "threat_model": "remote",
+  "updated_at": "2026-05-11T03:36:28Z",
+  "schedule": "weekly",
+  "runner_type": "standard"
+}
+```
+
+**Setup workflow run:** `gh api repos/henrik-me/sub-invaders/actions/runs/25648911153` → `{"status":"completed","conclusion":"success"}`
+
+**Notes:**
+- Auto-detected eligible languages on this repo are `actions`, `javascript`, `javascript-typescript`, `typescript`. `javascript-typescript` covers JS+TS together.
+- `csharp` was rejected as "not present in the repository" by the default-setup endpoint despite `api/*.cs` files existing — GitHub's auto-detection for default setup does not currently surface the `api/` Functions project. Filed as planned follow-up CS (CS-NN — extend CodeQL coverage to .NET via advanced workflow if default detection still misses it).
+- First analysis may take up to 24 h to populate; this is the documented behaviour of CodeQL default setup (CS01-R1).
+
+**Status:** enabled (configured for `actions` + `javascript-typescript`; `csharp` deferred to follow-up CS — see Notes/Learnings)
 
 #### Dependabot alerts
 
@@ -368,4 +408,64 @@ required-checks list, and not a merge blocker.
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate — see `../../../OPERATIONS.md` § Plan-vs-implementation review (close-out gate))_
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-05-10T20:32:38.539-07:00
+**Outcome:** NEEDS-FIX
+
+### Per-deliverable outcome table
+
+| # | Deliverable (one-line summary) | Outcome | Rationale (required for non-match) |
+|---|---|---|---|
+| 1 | Branch protection Ruleset | match | — |
+| 2 | Workboard-auto-approve App installed | dropped | Pending user gate G3; scoped to CS01 close-out, not abandoned. |
+| 3 | Security and supply-chain posture enabled | diverged | Secret scanning, push protection, Dependabot, security updates, PVR are enabled, but CodeQL default setup is currently `not-configured`; docs/changelog also overstate it as configured. |
+| 4 | Governance docs | match | — |
+| 5 | ARCHITECTURE.md v1 | match | — |
+| 6 | Composed local blocks customized | match | — |
+| 7 | CI workflows authored | diverged | Intentional: `swa-deploy.yml` is unguarded pre-G5 and `workboard-auto-approve.yml` is validation-only, with App approval deferred to G3. |
+| 8 | Azure provisioning script | match | — |
+| 9 | G4 Azure provisioning completed | dropped | Pending user gate G4; scoped to CS01 close-out, not abandoned. |
+| 10 | G5 SWA token secret stored | dropped | Pending user gate G5; scoped to CS01 close-out, not abandoned. |
+| 11 | Stub frontend | match | — |
+| 12 | Stub backend + xUnit | match | — |
+| 13 | First SWA staging deploy + smoke | dropped | Pending G4/G5 and first deploy; scoped to CS01 close-out, not abandoned. |
+| 14 | CHANGELOG.md SI-CS01 entry | match | — |
+
+### Added (beyond plan)
+
+| # | Item | Rationale |
+|---|---|---|
+| A1 | Harness pin bump v0.1.0 → v0.3.1 | Brought forward to unblock CI and absorb upstream harness fixes. |
+| A2 | `.gitattributes` LF enforcement | Prevents Windows checkout line-ending drift from breaking harness lint. |
+| A3 | `harness.config.json` placeholder completion | Required for consumer repo identity and harness sync/lint correctness. |
+| A4 | `verify-deploy.example.yml` moved to workflow examples | Prevents GitHub from treating the example as a live workflow. |
+
+### Test-coverage assessment
+
+`gaps`
+
+- Frontend: no JS source/tests yet; intentional CS01 stub. `node --test` reports 0 tests.
+- Backend: `dotnet test api/` passes 1/1, but only asserts `HealthFunction.ResponseBody`; no HTTP integration assertion for status/header/route.
+- Infra script: reviewed statically; not executed against Azure because G4 is user-gated.
+- CI workflows: required checks reportedly pass; SWA deploy failure is expected pre-G5.
+- Security: CodeQL default setup is untested/unmet; API currently reports `not-configured`.
+
+### Notes for orchestrator
+
+- Blocking fix: enable CodeQL default setup for the intended languages, or explicitly revise the CS plan/docs/changelog/evidence to record an accepted not-applicable deviation.
+- Re-run this gate after fixing deliverable #3.
+
+### Outcome: NEEDS-FIX
+
+---
+
+### Round-2 remediation (orchestrator)
+
+The blocking finding (deliverable #3, CodeQL default setup) was addressed by **actually enabling** CodeQL default setup via `PATCH /repos/.../code-scanning/default-setup` with languages `["actions","javascript-typescript"]` (the auto-detected eligible set). State is now `configured`; analysis run `25648911153` was kicked off automatically.
+
+`csharp` was **not** enabled because GitHub's default-setup endpoint reports it as "not present in the repository" despite `api/*.cs` files existing — auto-detection does not currently surface the `api/` Functions project. This is captured in:
+- Evidence section (`#### CodeQL default setup` updated with re-attempt command, response, and notes).
+- Notes/Learnings (planned follow-up CS to extend CodeQL coverage to .NET via advanced workflow if needed).
+- ARCHITECTURE.md and CHANGELOG.md narrative corrected from "JavaScript and C#" to "actions + javascript-typescript (csharp follow-up)".
+
+Re-run of the plan-vs-impl gate captured below.
