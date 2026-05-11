@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sub Invaders — coming soon</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #050d1a;
+      color: #c8dff5;
+      font-family: system-ui, sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid #1a3050;
+    }
+    header span { font-size: 0.85rem; letter-spacing: 0.08em; color: #4a7ca8; text-transform: uppercase; }
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+      gap: 1.25rem;
+    }
+    h1 {
+      font-size: clamp(2rem, 6vw, 3.5rem);
+      color: #7ecffa;
+      letter-spacing: -0.02em;
+    }
+    p { max-width: 48ch; line-height: 1.65; }
+    .badge {
+      display: inline-block;
+      background: #0d2540;
+      border: 1px solid #1a3e60;
+      border-radius: 2em;
+      padding: 0.35em 1em;
+      font-size: 0.8rem;
+      color: #5ab0e0;
+      letter-spacing: 0.06em;
+    }
+    a { color: #7ecffa; }
+    a:hover { color: #b8e6ff; }
+    footer {
+      padding: 1rem 2rem;
+      text-align: center;
+      font-size: 0.78rem;
+      color: #2a5070;
+      border-top: 1px solid #1a3050;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <span>henrik-me / sub-invaders</span>
+  </header>
+  <main>
+    <h1>Sub Invaders</h1>
+    <p class="badge">Coming soon — engine + gameplay land in CS02</p>
+    <p>
+      A browser-based submarine shoot-'em-up built with a canvas game engine,
+      a .NET 8 Azure Functions backend, and a daily-challenge leaderboard.
+      The repository is currently being hardened and the first Azure staging
+      environment is being provisioned.
+    </p>
+    <p>
+      <a href="https://github.com/henrik-me/sub-invaders" rel="noopener noreferrer">
+        View on GitHub →
+      </a>
+    </p>
+  </main>
+  <footer>
+    Sub Invaders · CS01 stub · no game logic yet
+  </footer>
+</body>
+</html>
