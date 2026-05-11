@@ -1,0 +1,28 @@
+# Enforce LF line endings (LRN-006, LRN-018) on every platform.
+# Works regardless of contributor's `core.autocrlf` setting — Git uses
+# .gitattributes to determine the working-tree representation.
+* text=auto eol=lf
+
+# Binary types — never normalise.
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.webp   binary
+*.ico    binary
+*.pdf    binary
+*.zip    binary
+*.gz     binary
+*.tgz    binary
+*.tar    binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.otf    binary
+*.mp3    binary
+*.mp4    binary
+*.wav    binary
+*.ogg    binary
+
+# Shell scripts must be LF-only (Bash chokes on CRLF).
+*.sh     text eol=lf
