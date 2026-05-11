@@ -1,0 +1,4 @@
+{
+  "_comment": "Feature flag declarations for sub-invaders. Populated in SI-CS04 when feature-flags scaffold is exercised for the daily-challenge mode.",
+  "flags": []
+}

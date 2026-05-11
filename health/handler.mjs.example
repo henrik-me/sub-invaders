@@ -1,0 +1,85 @@
+// health/handler.mjs.example — server-side health/readiness handler stub
+//
+// Copy this file to health/handler.mjs and wire it into your HTTP server:
+//
+//   import { handleHealth } from './health/handler.mjs';
+//   server.on('request', (req, res) => {
+//     if (req.url === '/health') return handleHealth(req, res);
+//     // ... other routes
+//   });
+//
+// Liveness vs readiness:
+//   - Liveness:  process is up and event loop is responsive. No external checks needed.
+//   - Readiness: external dependencies (DB, cache, downstream services) are reachable.
+//               Only report "ok" when the service can handle production traffic.
+
+// TODO: customize — import your actual dependency clients here
+// import { dbClient } from '../lib/db.mjs';
+
+/**
+ * Perform liveness checks.
+ * Returns true when the process itself is healthy (event loop responsive).
+ * Add in-process checks here (e.g., memory threshold, internal queue depth).
+ */
+async function checkLiveness() {
+  // TODO: customize — add in-process liveness assertions if needed
+  return true;
+}
+
+/**
+ * Perform readiness checks.
+ * Returns an object: { ready: boolean, checks: Record<string, 'ok'|'fail'> }
+ */
+async function checkReadiness() {
+  const checks = {};
+
+  // TODO: customize — replace the examples below with real dependency probes
+
+  // Example: database ping
+  // try {
+  //   await dbClient.ping();
+  //   checks.database = 'ok';
+  // } catch {
+  //   checks.database = 'fail';
+  // }
+
+  // Example: downstream service reachability
+  // try {
+  //   await fetch('http://downstream-service/health', { signal: AbortSignal.timeout(2000) });
+  //   checks.downstream = 'ok';
+  // } catch {
+  //   checks.downstream = 'fail';
+  // }
+
+  // Placeholder so the stub runs with no TODOs filled in
+  checks.placeholder = 'ok';
+
+  const ready = Object.values(checks).every((v) => v === 'ok');
+  return { ready, checks };
+}
+
+/**
+ * HTTP handler for GET /health
+ *
+ * Responds with JSON:
+ *   { "status": "ok",    "checks": { ... } }  — HTTP 200 when ready
+ *   { "status": "error", "checks": { ... } }  — HTTP 503 when not ready
+ *
+ * TODO: customize — adjust the response shape if your probe runner uses
+ *       different --expect-key / --expect-value values.
+ */
+export async function handleHealth(req, res) {
+  const live = await checkLiveness();
+  if (!live) {
+    const body = JSON.stringify({ status: 'error', reason: 'liveness check failed' });
+    res.writeHead(503, { 'Content-Type': 'application/json' });
+    res.end(body);
+    return;
+  }
+
+  const { ready, checks } = await checkReadiness();
+  // TODO: customize — set status field value to match --expect-value in health-probe.mjs
+  const body = JSON.stringify({ status: ready ? 'ok' : 'error', checks });
+  res.writeHead(ready ? 200 : 503, { 'Content-Type': 'application/json' });
+  res.end(body);
+}

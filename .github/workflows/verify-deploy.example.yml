@@ -1,0 +1,64 @@
+# verify-deploy.example.yml
+#
+# Example: run post-deployment verification after a production deploy.
+#
+# This file is a TEACHING ARTIFACT only. Rename it to verify-deploy.yml
+# (removing the .example suffix) to activate it, then customize the
+# triggers, environment variables, and rollback step for your project.
+#
+# Action refs are pinned to commit SHAs. Verify the current SHA for each
+# action at https://github.com/<owner>/<action>/releases before updating.
+# TODO: customize — update SHA pins when upgrading action versions.
+
+name: verify-deploy
+
+on:
+  # Manual trigger: useful for ad-hoc re-verification.
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Deployed service base URL'
+        required: true
+      expected_version:
+        description: 'Expected deployed version (git SHA or release tag)'
+        required: true
+
+  # TODO: customize — uncomment the trigger that fires after your deploy job.
+  # Option A: fire when a named workflow completes successfully.
+  # workflow_run:
+  #   workflows: ["deploy"]
+  #   types: [completed]
+  #
+  # Option B: fire on push to a release branch after CD runs.
+  # push:
+  #   branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    # For workflow_run: skip if the upstream deploy did not succeed.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+          # actions/checkout v4.2.2
+
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af
+          # actions/setup-node v4.1.0
+        with:
+          node-version: '20'
+
+      - name: Run post-deployment verification
+        run: |
+          node scripts/verify-deploy.mjs \
+            --url "${{ inputs.base_url || vars.DEPLOY_BASE_URL }}" \
+            --expected-version "${{ inputs.expected_version || github.sha }}"
+
+      # TODO: customize — add a rollback step that fires when checks fail.
+      # - name: Rollback on verification failure
+      #   if: failure()
+      #   run: |
+      #     echo "Verification failed — trigger rollback here"
+      #     # e.g. gh workflow run rollback.yml --field version=<prev>

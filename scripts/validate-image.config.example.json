@@ -1,0 +1,47 @@
+{
+  "comment": "Example configuration showing the tunable values for validate-image.mjs.",
+  "comment2": "These values are NOT read from this file at runtime — they document the",
+  "comment3": "defaults and the corresponding CLI flags. Copy the flags you need into",
+  "comment4": "your CI invocation or wrapper script.",
+
+  "image": {
+    "description": "Image reference to validate",
+    "cliFlag": "--image <tag>",
+    "example": "myapp:1.2.3"
+  },
+
+  "requiredLabels": {
+    "description": "Comma-separated key=value pairs every image must carry.",
+    "cliFlag": "--labels <key=val,...>",
+    "example": "org.opencontainers.image.version=1.2.3,org.opencontainers.image.source=https://github.com/org/repo",
+    "openContainersRecommended": [
+      "org.opencontainers.image.version",
+      "org.opencontainers.image.created",
+      "org.opencontainers.image.revision",
+      "org.opencontainers.image.source"
+    ]
+  },
+
+  "maxSizeMb": {
+    "description": "Maximum image size in megabytes. Images larger than this fail validation.",
+    "cliFlag": "--max-size-mb <N>",
+    "default": 500,
+    "examples": {
+      "small-service": 100,
+      "standard-service": 500,
+      "data-heavy": 2000
+    }
+  },
+
+  "containerTool": {
+    "description": "Container runtime to use for inspection. Edit CONTAINER_TOOL in validate-image.mjs.",
+    "default": "docker",
+    "alternatives": ["podman", "buildah"]
+  },
+
+  "expectedEntrypoint": {
+    "description": "Exact ENTRYPOINT array to enforce. Set EXPECTED_ENTRYPOINT in validate-image.mjs.",
+    "default": [],
+    "example": ["/usr/local/bin/node", "server.mjs"]
+  }
+}
