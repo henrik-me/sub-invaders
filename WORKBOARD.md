@@ -2,7 +2,7 @@
 
 Live coordination file for multi-agent work. Only orchestrating agents update this file.
 
-> **Last updated:** 2026-05-11T01:30Z
+> **Last updated:** 2026-05-11T04:15Z
 
 ## Orchestrators
 
@@ -10,13 +10,12 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 
 | Agent ID | Machine | Repo Folder | Status | Last Seen |
 |----------|---------|-------------|--------|-----------|
-| yoga-si | HENRIKM-YOGA | C:\src\sub-invaders | 🟢 Active | 2026-05-11T01:30Z |
+| yoga-si | HENRIKM-YOGA | C:\src\sub-invaders | 🟢 Active | 2026-05-11T04:15Z |
 
 ## Active Work
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
-| CS01 | Repo hardening + first SWA staging deploy | 🟢 active | yoga-si | cs01/content | 2026-05-11T01:30Z | (none) |
 
 > **Note:** Filesystem is the source of truth for queued and completed work.
 > See `project/clickstops/planned/` for the queue and `project/clickstops/done/`
