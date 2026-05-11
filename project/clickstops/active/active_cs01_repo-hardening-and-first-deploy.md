@@ -1,9 +1,9 @@
 # CS01 — Repo hardening + first SWA staging deploy
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-si
+**Branch:** cs01/content
+**Started:** 2026-05-11T01:30Z
 **Closed:** —
 **Depends on:** bootstrap commit (initial harness init in CS16 from agent-harness)
 
@@ -121,7 +121,26 @@ G6 Ruleset and G7 security settings are orchestrator-runnable via `gh api` durin
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per `../../../OPERATIONS.md` § Claim) | planned | — | — |
+| Fill `harness.config.json` placeholders for sub-invaders | planned | orchestrator | project.name=sub-invaders, project.repo=henrik-me/sub-invaders, agent_suffix=si, templating.* — required before composed-blocks sub-agent runs |
+| Author `infra/main-protection-ruleset.json` | planned | sub-agent | agent-id=cs01-ruleset-and-app \| role=ruleset-author \| report-status=pending \| learnings=0 |
+| Enable security & supply-chain settings via `gh api` | planned | sub-agent | agent-id=cs01-security-settings \| role=gh-api-runner \| report-status=pending \| learnings=0 |
+| Author governance docs (SECURITY/CONTRIBUTING/CoC + .github templates + CODEOWNERS) | planned | sub-agent | agent-id=cs01-governance-docs \| role=docs-author \| report-status=pending \| learnings=0 |
+| Author `ARCHITECTURE.md` v1 | planned | sub-agent | agent-id=cs01-architecture-author \| role=docs-author \| report-status=pending \| learnings=0 |
+| Customise composed local blocks (`conventions.project`, `operations.project-deploy`, `reviews.project-gates`) | planned | sub-agent | agent-id=cs01-composed-blocks-customiser \| role=composed-block-author \| report-status=pending \| learnings=0 |
+| Author CI workflows (`ci.yml`, `swa-deploy.yml`, `workboard-auto-approve.yml`, `dependabot.yml`) | planned | sub-agent | agent-id=cs01-ci-workflows-author \| role=ci-author \| report-status=pending \| learnings=0 |
+| Author `infra/provision.sh` | planned | sub-agent | agent-id=cs01-azure-provisioning-script \| role=infra-author \| report-status=pending \| learnings=0 |
+| Author stub frontend + .NET 8 isolated Functions backend + xUnit | planned | sub-agent | agent-id=cs01-stub-frontend-and-backend \| role=full-stack-stub \| report-status=pending \| learnings=0 |
+| Author `CHANGELOG.md` SI-CS01 entry | planned | sub-agent | agent-id=cs01-changelog-author \| role=docs-author \| report-status=pending \| learnings=0 |
+| Post-completion verification (git status / line counts / API spot-check) | planned | orchestrator | OPERATIONS § Post-completion verification |
+| Apply Ruleset + record `gh api` evidence (G6) | planned | orchestrator | After workflows exist so context names are known (OQ1) |
+| Coordinate user gate G3 (workboard-auto-approve App install) | planned | orchestrator | Pause for user |
+| Coordinate user gate G4 (run `infra/provision.sh`) | planned | orchestrator | Pause for user |
+| Coordinate user gate G5 (paste `AZURE_STATIC_WEB_APPS_API_TOKEN` secret) | planned | orchestrator | Pause for user |
+| First SWA deploy + `/api/health` smoke evidence | planned | orchestrator | Confirms deliverable 13 |
+| Open content PR + run GPT-5.5 review rounds until GO | planned | orchestrator | REVIEWS § Phase 2 |
+| Plan-vs-implementation review (close-out gate) | planned | orchestrator | OPERATIONS § Plan-vs-implementation review (close-out gate); recorded verbatim before close-out |
+| Close-out: docs + restart state | planned | orchestrator | Update WORKBOARD.md, CONTEXT.md, managed/composed templates and rendered roots, feature docs (per OPERATIONS § Claim) |
+| Close-out: learnings + follow-ups | planned | orchestrator | File LRN entries; create planned follow-up CSs for unresolved issues (per OPERATIONS § Claim) |
 
 ## Notes / Learnings
 
