@@ -282,8 +282,13 @@ failure does not block PR merge.
 
 ### `workboard-auto-approve.yml`
 
-Validates label, path restrictions, and actor allowlist before approving and auto-merging
-eligible workboard-only PRs. Copied from `agent-harness`.
+Validates that `workboard-only`-labeled PRs touch only the path allowlist
+(`WORKBOARD.md`, `project/clickstops/{planned,active,done}/**`) and come from
+an approved author. Posts a "ready for App auto-approve" comment on success
+and an explanatory comment on failure. **Approval and squash-merge are
+performed by the `workboard-auto-approve` GitHub App (gate G3), not by this
+workflow** — GitHub Actions' built-in `GITHUB_TOKEN` cannot create approving
+PR reviews. Permissions: `contents: read`, `pull-requests: write`.
 
 ### `dependabot.yml`
 

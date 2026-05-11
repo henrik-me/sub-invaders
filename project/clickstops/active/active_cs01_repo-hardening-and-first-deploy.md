@@ -177,7 +177,28 @@ G6 Ruleset and G7 security settings are orchestrator-runnable via `gh api` durin
 - **Azure SAML blocks `gh api` (A6):** Azure org SAML enforcement blocks `gh api repos/Azure/...` for non-SSO tokens. Use `git ls-remote https://github.com/Azure/<repo>.git refs/tags/<tag>` as the SHA verification fallback for action-pinning.
 - **PowerShell vs grep regex (A7):** PowerShell `Select-String` uses .NET regex where `\?` is a literal `?`, unlike grep BRE where `\?` is zero-or-one. Self-check patterns must be authored with .NET regex semantics in mind when run from PowerShell.
 - **Line endings on Windows (orchestrator):** Default `core.autocrlf=true` produces CRLF on disk while index stays LF, causing text-encoding linter failures. Fix: `.gitattributes` with `* text=auto eol=lf`, then `core.autocrlf=input`, then `git rm -rf --cached . && git reset --hard HEAD` re-extracts as LF.
-- **CodeQL 404 on enable (A2, R1):** CodeQL default-setup PUT returned 404 — likely requires either 24h activation delay or paid plan on this tier. Acceptable per CS01-R1; revisit before close-out.
+- **Workboard-auto-approve.yml docs in harness-managed prose (R2 finding):**
+  GPT-5.5's round-2 review surfaced that `OPERATIONS.md:130-144`,
+  `REVIEWS.md:30-32`, `REVIEWS.md:201-203`, and `REVIEWS.md:255-257` (all
+  in **harness-managed prose**, outside the `harness:local-*` markers)
+  describe `workboard-auto-approve.yml` as approving + auto-merging PRs.
+  Since the GitHub Actions built-in `GITHUB_TOKEN` cannot create approving
+  PR reviews, that description was always inaccurate (it would have failed
+  with HTTP 422 in production). The CS01 implementation corrects the
+  consumer-facing files (CHANGELOG.md, ARCHITECTURE.md) and the workflow
+  itself (validation-only), but the managed prose in OPERATIONS.md /
+  REVIEWS.md cannot be edited from a consumer repo — the next
+  `harness sync --mode=apply` would revert any local change. **Filed as a
+  feedback item to the agent-harness maintainer for an upstream
+  template-prose fix** (similar shape to the SI Finding #6/#7 items
+  absorbed into v0.3.1). The CS01 review thread for those file/line
+  citations should be resolved with this rationale.
+
+- **Workboard App = G3, NOT shipped by CS01:** The `workboard-auto-approve`
+  GitHub App installation (gate G3) is the actual mechanism for
+  auto-approval and auto-merge of workboard-only PRs (claim + close-out).
+  Until G3 lands, those PRs must be human-merged. The validation workflow
+  in this PR is an early-failure layer, not a fallback approver.
 - **Workboard-auto-approve App check 401/403 (A2, R2):** Standard `repo`-scope tokens cannot list App installations. G3 verification deferred to manual user step.
 
 ## Evidence

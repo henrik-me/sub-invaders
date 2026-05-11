@@ -14,10 +14,16 @@ once a tagged release exists.
   `main`: PR required, ≥1 approving review, conversation resolution, linear
   history, squash-only merges, no force-pushes, no deletions. Repo admin retains
   bypass for owner override (LRN-080).
-- **Workboard automation.** `workboard-auto-approve` GitHub App installed
-  (G3); fallback workflow `.github/workflows/workboard-auto-approve.yml`
-  validates label + path + actor before approving + auto-merging eligible
-  workboard-only PRs.
+- **Workboard validation workflow.** Added
+  `.github/workflows/workboard-auto-approve.yml` — validates that
+  `workboard-only`-labeled PRs come from an approved author and touch only
+  the workboard path allowlist (`WORKBOARD.md`,
+  `project/clickstops/{planned,active,done}/**`). On success it posts a
+  "ready for App auto-approve" comment; on failure it posts the
+  disallowed-files explanation and exits non-zero. **Approval and squash-merge
+  are owned by the `workboard-auto-approve` GitHub App** (gate G3, pending
+  user installation) — the built-in `GITHUB_TOKEN` cannot create approving
+  PR reviews due to a GitHub platform restriction.
 - **Security & supply-chain.** Secret scanning + push protection enabled.
   CodeQL default setup configured for JavaScript and C#. Dependabot alerts,
   security updates, and weekly version updates enabled for `npm`, `nuget`,
