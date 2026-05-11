@@ -222,6 +222,27 @@ No resources exist outside the RG; no manual sweeps required.
 
 ---
 
+## Data model
+
+CS01 has no persistent application data — the stub frontend is static HTML and the only
+backend endpoint is `GET /api/health`, which returns the constant string `{"status":"ok"}`
+with no storage I/O. The Azure Storage Account provisioned by `infra/provision.sh` is
+required by the Functions runtime (`AzureWebJobsStorage`) but is not used by application
+code in this CS.
+
+Forward-looking shape (filled out by CS03 — see the Persistence subsection under
+**Components** for the full key schema and replay-protection model):
+
+| Table | Partition key | Row key | Purpose | Cleanup |
+|---|---|---|---|---|
+| `Scores` | `leaderboard` | `inverseScore_sessionId` | Top-N leaderboard rows | RG-level retention |
+| `Sessions` | `session` | `sessionId` | Replay-protection nonces (C16-12) | Hourly `SessionsCleanupFunction` (Azure Tables `_ts` does not auto-delete) |
+
+CS01 ships none of these tables — the schema lives here as forward-scope documentation so
+CS03 agents know the contract before they start implementing it.
+
+---
+
 ## Hosting / deploy model
 
 Static assets and Functions deploy together through SWA managed Functions. There is no

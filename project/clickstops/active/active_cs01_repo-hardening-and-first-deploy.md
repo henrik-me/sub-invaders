@@ -146,14 +146,29 @@ G6 Ruleset and G7 security settings are orchestrator-runnable via `gh api` durin
 
 ### Sub-agent self-reported learning candidates (filed at close-out)
 
-> **Note:** Several harness-specific issues observed during CS01 execution
-> (`ajv`/`js-yaml` peerDeps gap, WORKBOARD `## Queued`/`## Recently Completed`
-> linter rule, `ARCHITECTURE.md ## Data model` required heading, text-encoding
-> linter scanning gitignored `api/bin`/`api/obj`, missing `lint --only=<name>`)
-> have been reported back to the harness maintainer for upstream fixes. The
-> CS01 content PR uses the standard `npx -y github:henrik-me/agent-harness#…`
-> invocation pattern and assumes those fixes will land via a harness pin bump
-> in CS04 (per the CS04 plan). Local workarounds have been removed.
+> **Note:** Several harness-specific issues observed during CS01 execution were
+> reported upstream and addressed in **harness v0.3.1**:
+>
+> - `ajv`/`ajv-formats`/`js-yaml` moved from devDeps to runtime deps — schema-using
+>   linters now work via plain `npx -y github:henrik-me/agent-harness#<ref>`.
+> - `text-encoding` linter switched to `git ls-files` mode — gitignored build
+>   output (`api/bin`, `api/obj`) is now correctly skipped.
+> - `architecture` linter error now lists all four required headings and points
+>   at `harness lint --explain architecture`.
+> - WORKBOARD `## Queued` / `## Recently Completed` ban is **intentional policy**
+>   (LRN-102) — filesystem under `project/clickstops/{planned,done}/` is the
+>   source of truth.
+>
+> CS01 bumps the harness pin to **v0.3.1** in this PR (originally CS04's task
+> #1, brought forward because the v0.1.0 deps gap blocks CI). The bump triggered
+> one composed-block update in `OPERATIONS.md` (managed-prose refresh: LRN-102
+> "no recently-completed log", harness-vs-consumer composed-block guidance from
+> SI Finding #6, SAML-SSO `git ls-remote` fallback from SI Finding #7, and
+> `REPLACE_ME` placeholder rendering fix). All managed-block updates were
+> applied via `harness sync --mode=apply`; user-authored local blocks were
+> preserved (provenance correctly recorded as `user-authored` in
+> `.harness-lock.json`). Post-bump validation: `harness lint` 13/13 pass,
+> `harness sync --mode=check` clean, `dotnet test` 1/1 pass.
 
 - **Composed-blocks plan wording (A5):** CS01 plan deliverable 6 says "edit `template/composed/CONVENTIONS.md`" (harness-repo perspective) but consumer repos edit root `CONVENTIONS.md` directly. Future plans should use consumer-relative paths.
 - **SDK glob collision (A8):** `Microsoft.NET.Sdk` default `**/*.cs` glob picks up subdirectory test files. Fix: explicit `<Compile Remove="Sub-invaders.Api.Tests/**" />` in main csproj.

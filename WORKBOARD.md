@@ -18,20 +18,7 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 |------------|-------|-------|-------|--------|--------------|----------------|
 | CS01 | Repo hardening + first SWA staging deploy | 🟢 active | yoga-si | cs01/content | 2026-05-11T01:30Z | (none) |
 
-## Queued
-
-| Priority | CS | Title | Notes |
-|----------|----|----|-------|
-| 2 | CS02 | Engine + game skeleton + minimal playable Sub Invaders | Custom in-tree engine at `src/engine/`, game at `src/game/`, hand-authored sprite sheet, localStorage high-score, deploy to staging. ≥8 sub-agent fan-out. Depends on CS01. |
-| 3 | CS03 | Backend Function project + persistent leaderboard | .NET 8 isolated Functions, C16-12 replay protection (session token + plausibility + rate limit), Storage Tables persistence, hourly cleanup, leaderboard scene in canvas. ≥8 sub-agent fan-out. Depends on CS01, CS02. |
-| 4 | CS04 | Daily challenge + harness pin-bump + whale-shark + v1 polish | First exercise of `harness sync --mode=apply` from a real consumer (task #1, orchestrator-owned). Then 5 daily modifiers, daily-challenge scene, whale-shark, feature-flags + health-check scaffolds wired up. v1 declared shipped at close. ≥7 sub-agent fan-out. Depends on CS01, CS02, CS03. |
-| defer | CS05 | Re-evaluate persistence (Storage Tables → ?) | Tripwire skeleton; do not claim until trigger condition fires (latency / cost / query-shape signals). |
-| defer | CS06 | Re-evaluate full-stack hosting (SWA → Cloudflare?) | Tripwire skeleton; do not claim until trigger condition fires (cost > $5/mo, cold-start P95 > 2s, etc.). |
-
-## Recently Completed
-
-| CS | Title | Closed | Notes |
-|----|-------|--------|-------|
-| _(bootstrap)_ | Initial harness init via agent-harness CS16 | 2026-05-11 | Repo created, harness pinned at `v0.2.0`, scaffolds: feature-flags, verify-deploy, container-validate, seed, health-check. See https://github.com/henrik-me/agent-harness PR for the bootstrap audit trail. |
-
-> **Note:** Clickstop files live under lifecycle subdirectories: `project/clickstops/planned/` (queued), `project/clickstops/active/` (in flight), `project/clickstops/done/` (completed).
+> **Note:** Filesystem is the source of truth for queued and completed work.
+> See `project/clickstops/planned/` for the queue and `project/clickstops/done/`
+> for history. Do not add `## Queued` or `## Recently Completed` sections here
+> (the harness linter forbids them).
