@@ -8,6 +8,55 @@ once a tagged release exists.
 
 ## [Unreleased]
 
+### Added (post-CS01 maintenance — 2026-05-11) — Dependabot wave + SWA fix
+
+- **Functions Worker stack aligned at v2** (PR #16, replaces auto-closed
+  Dependabot #9): `Microsoft.Azure.Functions.Worker` 1.22.0 → 2.1.0,
+  `Microsoft.Azure.Functions.Worker.Extensions.Http` 3.2.0 → 3.3.0,
+  `Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore` 1.3.2 → 2.1.0
+  (the Worker.Sdk 1.17.4 → 2.0.7 came in via Dependabot #10).
+- **Dependency bumps applied** via Dependabot:
+  - actions/setup-dotnet 4.0.0 → 5.2.0 (#4)
+  - actions/checkout 4.1.7 → 6.0.2 (#5)
+  - actions/setup-node 4.0.3 → 6.4.0 (#6)
+  - Microsoft.NET.Test.Sdk 17.12.0 → 18.5.1 (#11)
+  - xunit.runner.visualstudio 2.8.2 → 3.1.5 (#12)
+  - Microsoft.Azure.Functions.Worker.Sdk 1.17.4 → 2.0.7 (#10)
+
+### Fixed (post-CS01 maintenance — 2026-05-11)
+
+- **`swa-deploy.yml` no longer fails red on Dependabot/fork PRs** (PR #15).
+  Added `skip_deploy_on_missing_secrets: true` to both the upload and close
+  jobs of `Azure/static-web-apps-deploy`. PRs from `dependabot[bot]` (and
+  any fork) do not receive repo secrets, so the SWA action used to fail
+  with `deployment_token was not provided`. The skip flag turns that hard
+  failure into a clean "skipped (no token)" message and a green check.
+  When the token IS present (push:main and any in-repo PR), behaviour is
+  unchanged. (`build-and-deploy` is not in the required-checks set, so
+  the previous failure didn't block merges, just produced visual noise.)
+- **`csharp` is now auto-detected by CodeQL default setup** (no action
+  required). The "csharp follow-up CS" referenced in the SI-CS01 entry
+  above is no longer needed — once PR #3 merged the .NET code into `main`,
+  the CodeQL Setup workflow re-ran and added `csharp` to the configured
+  languages list (full list: `actions`, `csharp`, `javascript`,
+  `javascript-typescript`, `typescript`).
+
+### Changed (post-CS01 maintenance — 2026-05-11)
+
+- **`delete_branch_on_merge` enabled** on the repository so merged PR head
+  branches are removed automatically. Cleaned up the backlog of merged
+  branches accumulated during CS01 (claim, content, fixup, close-out, the
+  `cs01-fixup/swa-skip-deploy-on-missing-secrets` and
+  `deps/api-functions-worker-v2-alignment` branches, and all merged
+  Dependabot branches).
+- **Stale SWA staging environments cleaned up**. Azure Static Web Apps Free
+  SKU caps preview environments at 3; PRs #13/#14/#15 each created one and
+  none were reaped on PR close, which surfaced as
+  `BadRequest: This Static Web App already has the maximum number of
+  staging environments` on the next push:main deploy. Cleanup is via
+  `az staticwebapp environment delete --name swa-sub-invaders -g rg-sub-invaders-prod
+  --environment-name <pr-number> --yes`.
+
 ### Added (SI-CS01 — 2026-05-11) — Repo hardening + first SWA staging deploy
 
 - **Branch protection.** GitHub Repository Ruleset `main-protection` applied to
@@ -26,10 +75,11 @@ once a tagged release exists.
   PR reviews due to a GitHub platform restriction.
 - **Security & supply-chain.** Secret scanning + push protection enabled.
   CodeQL default setup configured for `actions` and `javascript-typescript`
-  (the languages GitHub auto-detected as eligible on this repo); `csharp`
-  coverage for the `api/` Functions project is a planned follow-up CS
-  because GitHub's default-setup endpoint does not currently surface it.
-  Dependabot alerts,
+  initially; once PR #3 merged the .NET code into `main`, default-setup
+  re-detected and added `csharp`, so the live language list on `main` is
+  `actions`, `csharp`, `javascript`, `javascript-typescript`, `typescript`
+  (the originally-planned follow-up CS for .NET CodeQL coverage is no
+  longer needed). Dependabot alerts,
   security updates, and weekly version updates enabled for `npm`, `nuget`,
   and `github-actions` ecosystems. Private Vulnerability Reporting enabled.
 - **Governance.** Added public-facing `SECURITY.md`, `CONTRIBUTING.md`
@@ -74,15 +124,13 @@ once a tagged release exists.
   awareness, architecture linter error message). Originally CS04 task #1;
   brought forward because the v0.1.0 deps gap blocks CI.
 
-### Pending (gated on user actions, will land in CS01 close-out PR)
+### Pending (gated on user actions)
 
-- **Azure resources** (G4) — user runs `infra/provision.sh` to create
-  `rg-sub-invaders-prod`, Storage account, Static Web App, Action Group,
-  Budget.
-- **First SWA deploy + smoke probe** (G5) — user pastes
-  `AZURE_STATIC_WEB_APPS_API_TOKEN` into Actions secrets; `swa-deploy.yml`
-  publishes to staging; verify-deploy or curl confirms `/` and
-  `GET /api/health` return HTTP 200.
+- **G3: workboard-auto-approve App install.** Not blocking (CS01 PRs were all
+  human/admin-merged). Should be installed before CS02 so workboard-only PRs
+  auto-merge cleanly. Install via
+  https://github.com/apps/workboard-auto-approve → Configure → choose
+  `henrik-me/sub-invaders`.
 
 ### Notes
 - This is the LRN-101 changelog pilot pattern: each closed CS appends one
