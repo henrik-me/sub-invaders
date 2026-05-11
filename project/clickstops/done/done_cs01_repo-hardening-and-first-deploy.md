@@ -1,10 +1,10 @@
 # CS01 — Repo hardening + first SWA staging deploy
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-si
-**Branch:** cs01/content
+**Branch:** cs01/content (merged) → cs01/close-out
 **Started:** 2026-05-11T01:30Z
-**Closed:** —
+**Closed:** 2026-05-11T04:15Z
 **Depends on:** bootstrap commit (initial harness init in CS16 from agent-harness)
 
 ## Goal
@@ -277,12 +277,22 @@ gh api -X PATCH repos/henrik-me/sub-invaders/code-scanning/default-setup \
 
 **Setup workflow run:** `gh api repos/henrik-me/sub-invaders/actions/runs/25648911153` → `{"status":"completed","conclusion":"success"}`
 
+**Update at end of CS01 close-out (after PR #3 merge + PR #13 merge):** GitHub's auto-detection picked up `csharp` once all the .NET code was on `main` and the CodeQL Setup workflow re-ran. Live state at close-out:
+```json
+{
+  "state": "configured",
+  "languages": ["actions","csharp","javascript","javascript-typescript","typescript"],
+  "schedule": "weekly",
+  "updated_at": "2026-05-11T04:01:53Z"
+}
+```
+PR #13's check list confirms all three CodeQL analyses are running on PRs: `Analyze (actions)`, `Analyze (csharp)`, `Analyze (javascript-typescript)` — all pass.
+
 **Notes:**
-- Auto-detected eligible languages on this repo are `actions`, `javascript`, `javascript-typescript`, `typescript`. `javascript-typescript` covers JS+TS together.
-- `csharp` was rejected as "not present in the repository" by the default-setup endpoint despite `api/*.cs` files existing — GitHub's auto-detection for default setup does not currently surface the `api/` Functions project. Filed as planned follow-up CS (CS-NN — extend CodeQL coverage to .NET via advanced workflow if default detection still misses it).
+- Auto-detected eligible languages now include `csharp`. The "csharp not present" error during the close-out re-attempt was transient (likely because not all .NET code had been pushed to `main` yet — auto-detection uses default-branch contents). Filing a planned follow-up CS for advanced-workflow CodeQL coverage is therefore **no longer needed**; default setup covers the full stack.
 - First analysis may take up to 24 h to populate; this is the documented behaviour of CodeQL default setup (CS01-R1).
 
-**Status:** enabled (configured for `actions` + `javascript-typescript`; `csharp` deferred to follow-up CS — see Notes/Learnings)
+**Status:** enabled (default setup, configured languages: `actions`, `csharp`, `javascript`, `javascript-typescript`, `typescript`; weekly schedule; threat model `remote`)
 
 #### Dependabot alerts
 
@@ -392,19 +402,89 @@ in extremis but the standard merge path goes through PR-rule + required-checks.
 
 ---
 
-**G3 — workboard-auto-approve App installation:** _pending user action._ Required before
-the close-out PR can auto-merge cleanly; CS01 claim PR #2 was human-merged so G3 was not
-on the critical path for opening the content PR.
+**G3 — workboard-auto-approve App installation:** _still pending user action at close-out._ Not on the critical path for any CS01 PR (the claim PR #2, content PR #3, fixup PR #13, and this close-out PR were/will be human/admin-merged). Filed as a planned follow-up CS so the App is installed before higher-volume CSs (CS02+).
 
-**G4 — `infra/provision.sh` execution:** _pending user action._ Creates `rg-sub-invaders-prod`,
-Storage Account, SWA staging, Budget. User runs locally with their Azure subscription
-context.
+**G4 — `infra/provision.sh` execution:** **completed at close-out** by orchestrator (yoga-si) on 2026-05-11T04:09Z, against subscription `Visual Studio Enterprise Subscription` (sub id `59fa8de9-d89c-42bc-8b8d-ee7bfab00270`). The first run surfaced two real bugs in the script when run from WSL bash on Windows az 2.84:
+  1. CRLF contamination in `az -o tsv` captures broke the RG-tag verification.
+  2. `az consumption budget create` returned HTTP 400 ("Invalid budget configuration, please use filter interface with 2019-05-01-preview version") — the documented R6 risk realised on az 2.84.
 
-**G5 — `AZURE_STATIC_WEB_APPS_API_TOKEN` secret:** _pending user action._ Sourced from the
-SWA resource created by G4 (`az staticwebapp secrets list`); pasted into repo Actions
-secrets. Until G5 lands, `swa-deploy/build-and-deploy` correctly fails with
-`deployment_token was not provided` — this failure is informational, not in the Ruleset's
-required-checks list, and not a merge blocker.
+Both fixed in PR #13 (squash-merged via admin bypass as `a6385b6`); see commit message + PR body for full rationale.
+
+End-to-end idempotent rerun on the fixed script:
+```
+=== Phase 1: Resource group ===
+Resource group 'rg-sub-invaders-prod' already exists — verifying workload tag...
+Tag verified: workload=sub-invaders — OK
+=== Phase 2: Storage account ===
+Storage account 'stsubinvadersee1282': provisioned — OK
+=== Phase 3: Static Web App ===
+Static Web App 'swa-sub-invaders': provisioned — OK
+=== Phase 4: Action group ===
+Action group 'ag-sub-invaders-budget': provisioned — OK
+=== Phase 4: Budget ===
+Budget 'budget-sub-invaders-monthly': provisioned (ARM REST PUT) — OK
+Budget alerts (50,80,100%): configured — OK
+=== Phase 5: Final verification ===
+Resources inside 'rg-sub-invaders-prod':
+  stsubinvadersee1282
+  swa-sub-invaders
+  ag-sub-invaders-budget
+Isolation check — Sub Invaders resources outside 'rg-sub-invaders-prod':
+None found — isolation invariant satisfied.
+```
+
+**Provisioned resource summary:**
+- Resource group: `rg-sub-invaders-prod` (westus2), tagged `workload=sub-invaders`
+- Storage account: `stsubinvadersee1282` (random 6-hex suffix per CS01-5)
+- Static Web App: `swa-sub-invaders` (Free SKU, westus2)
+- SWA hostname: `happy-coast-04ffcaa1e.7.azurestaticapps.net`
+- Action group: `ag-sub-invaders-budget` (short-name `siBudget`)
+- Budget: `budget-sub-invaders-monthly` ($5/month cap, alerts at 50/80/100% to `henrik_metzger@hotmail.com`)
+- Isolation invariant (C16-14): satisfied — no sub-invaders-tagged resources exist outside `rg-sub-invaders-prod`.
+
+**G5 — `AZURE_STATIC_WEB_APPS_API_TOKEN` secret:** **completed at close-out.** Sourced from the SWA resource via `az staticwebapp secrets list ... --query properties.apiKey -o tsv` during the G4 provisioning run. Set on the repo via `gh secret set AZURE_STATIC_WEB_APPS_API_TOKEN --repo henrik-me/sub-invaders` (token piped via stdin; the captured token never appeared in shell history or session-state files — the provision run logs were deleted immediately after the secret was set). `gh secret list --repo henrik-me/sub-invaders` confirms the secret is present (created `2026-05-11T04:03:54Z`).
+
+---
+
+### G7 — first SWA staging deploy + smoke (close-out gate)
+
+**Trigger:** `gh run rerun 25649542236` against the failed `push:main` swa-deploy run on commit `365587b` (the squash-merge of PR #3). The original push-to-main run had been cancelled by the `concurrency: cancel-in-progress` rule when 8 dependabot PRs all opened seconds later.
+
+**Deploy result:** `gh run view 25649542236` →
+```json
+{
+  "status": "completed",
+  "conclusion": "success",
+  "jobs": [
+    {"name": "build-and-deploy", "conclusion": "success"},
+    {"name": "close-pull-request", "conclusion": "skipped"}
+  ]
+}
+```
+
+**Smoke probe (`/api/health`):**
+```
+$ curl -i https://happy-coast-04ffcaa1e.7.azurestaticapps.net/api/health
+HTTP/2 200
+{"status":"ok"}
+```
+
+**Smoke probe (frontend root):**
+```
+$ curl -i https://happy-coast-04ffcaa1e.7.azurestaticapps.net/
+HTTP/2 200
+Content-Length: 2189
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  ...
+  <title>Sub Invaders — coming soon</title>
+  ...
+```
+Full HTML stub (`src/index.html`) renders correctly; matches the deliverable #11 spec ("static placeholder page").
+
+**Outcome:** **PASS** — first SWA staging deploy is live and reachable; the `/api/health` Function returns 200 with the expected `{"status":"ok"}` body; the static frontend renders. CS01 exit criteria #13 ("First SWA staging deploy reachable; `/api/health` returns 200 + `{"status":"ok"}`") is satisfied.
 
 ## Plan-vs-implementation review
 
