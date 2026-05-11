@@ -46,6 +46,7 @@ if [[ -z "${STORAGE_ACCT_NAME:-}" ]]; then
     --resource-group "${RG_NAME}" \
     --query "[?tags.workload=='sub-invaders'].name" \
     -o tsv 2>/dev/null || echo "")
+  EXISTING_STORAGE=${EXISTING_STORAGE//$'\r'/}
   EXISTING_STORAGE_COUNT=$(printf '%s\n' "${EXISTING_STORAGE}" | grep -c . || true)
   if [[ "${EXISTING_STORAGE_COUNT}" -eq 1 ]]; then
     STORAGE_ACCT_NAME="${EXISTING_STORAGE}"
@@ -102,6 +103,10 @@ fi
 
 SUBSCRIPTION_NAME=$(az account show --query name -o tsv)
 SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+# Strip CRs from az -o tsv output (Windows az.cmd via WSL bash emits CRLF;
+# unstripped CRs break string compares, ID arg-passing, and display formatting).
+SUBSCRIPTION_NAME=${SUBSCRIPTION_NAME//$'\r'/}
+SUBSCRIPTION_ID=${SUBSCRIPTION_ID//$'\r'/}
 printf '%s\n' "Active subscription : ${SUBSCRIPTION_NAME} (${SUBSCRIPTION_ID})"
 printf '%s\n' "Verify this is the correct subscription before proceeding."
 
@@ -136,9 +141,11 @@ printf '%s\n' "Alert email        : ${BUDGET_ALERT_EMAIL}"
 printf '\n%s\n' "=== Phase 1: Resource group ==="
 
 RG_EXISTS=$(az group show --name "${RG_NAME}" --query name -o tsv 2>/dev/null || echo "")
+RG_EXISTS=${RG_EXISTS//$'\r'/}
 if [[ -n "${RG_EXISTS}" ]]; then
   printf '%s\n' "Resource group '${RG_NAME}' already exists — verifying workload tag..."
   RG_TAG_VALUE=$(az group show --name "${RG_NAME}" --query "tags.workload" -o tsv 2>/dev/null || echo "")
+  RG_TAG_VALUE=${RG_TAG_VALUE//$'\r'/}
   if [[ "${RG_TAG_VALUE}" != "sub-invaders" ]]; then
     printf '%s\n' "ERROR: RG '${RG_NAME}' exists but lacks tag workload=sub-invaders (found: '${RG_TAG_VALUE}')." >&2
     printf '%s\n' "Refusing to operate on this RG — it may belong to a different project." >&2
@@ -155,6 +162,7 @@ else
     --output none
   # Re-verify tag was applied (fail-closed if missing)
   RG_TAG_VALUE=$(az group show --name "${RG_NAME}" --query "tags.workload" -o tsv 2>/dev/null || echo "")
+  RG_TAG_VALUE=${RG_TAG_VALUE//$'\r'/}
   if [[ "${RG_TAG_VALUE}" != "sub-invaders" ]]; then
     printf '%s\n' "ERROR: RG '${RG_NAME}' created but tag verification failed (found: '${RG_TAG_VALUE}')." >&2
     exit 1
@@ -221,6 +229,7 @@ SWA_TOKEN=$(az staticwebapp secrets list \
   --resource-group "${RG_NAME}" \
   --name "${SWA_NAME}" \
   --query "properties.apiKey" -o tsv 2>/dev/null || echo "")
+SWA_TOKEN=${SWA_TOKEN//$'\r'/}
 
 if [[ -z "${SWA_TOKEN}" ]]; then
   printf '%s\n' "WARNING: Could not retrieve SWA deployment token. Retrieve manually:" >&2
@@ -239,6 +248,7 @@ SWA_HOSTNAME=$(az staticwebapp show \
   --resource-group "${RG_NAME}" \
   --name "${SWA_NAME}" \
   --query "defaultHostname" -o tsv 2>/dev/null || echo "(unavailable)")
+SWA_HOSTNAME=${SWA_HOSTNAME//$'\r'/}
 
 # ============================================================
 # Phase 4 — Action Group + Budget (CS01-7)
@@ -277,6 +287,7 @@ AG_ID=$(az monitor action-group show \
   --resource-group "${RG_NAME}" \
   --name "${ACTION_GROUP_NAME}" \
   --query id -o tsv 2>/dev/null || echo "")
+AG_ID=${AG_ID//$'\r'/}
 
 if [[ -z "${AG_ID}" ]]; then
   printf '%s\n' "ERROR: Could not retrieve Action Group resource ID after create." >&2
@@ -292,41 +303,21 @@ BUDGET_END="$(date -u -d '+5 years' +%Y-%m-01 2>/dev/null \
   || date -u -v+5y +%Y-%m-01 2>/dev/null \
   || echo "2031-01-01")"
 
-# Create budget scoped to the RG (R6: RG-scope via --resource-group in az 2.50+).
-BUDGET_OUT=$(az consumption budget create \
-  --resource-group "${RG_NAME}" \
-  --budget-name "${BUDGET_NAME}" \
-  --amount "${BUDGET_AMOUNT}" \
-  --time-grain Monthly \
-  --start-date "${BUDGET_START}" \
-  --end-date "${BUDGET_END}" \
-  --category cost \
-  --output json 2>&1) && BUDGET_STATUS=0 || BUDGET_STATUS=$?
+# DECISION: Use az rest PUT against ARM Microsoft.Consumption/budgets/{name}
+# (api-version=2023-05-01) for both budget body AND notifications in a
+# single idempotent call. The az consumption budget CLI sub-group is in
+# preview and rejects valid budget bodies on az 2.80+ with HTTP 400
+# "Invalid budget configuration, please use filter interface with
+# 2019-05-01-preview version" (R6 risk realised in CS01 close-out testing
+# on az 2.84). The ARM REST API is the stable interface and is what the
+# CLI ultimately wraps. PUT is idempotent (creates or replaces).
 
-if [[ ${BUDGET_STATUS} -eq 0 ]]; then
-  printf '%s\n' "Budget '${BUDGET_NAME}': provisioned — OK"
-elif printf '%s' "${BUDGET_OUT}" | grep -qi "already exists\|AlreadyExists\|Conflict\|already been created"; then
-  printf '%s\n' "Budget '${BUDGET_NAME}': already exists — OK"
-else
-  printf '%s\n' "ERROR: Budget create failed. Exact command that failed:" >&2
-  printf '%s\n' "  az consumption budget create --resource-group \"${RG_NAME}\" --budget-name \"${BUDGET_NAME}\" --amount \"${BUDGET_AMOUNT}\" --time-grain Monthly --start-date \"${BUDGET_START}\" --end-date \"${BUDGET_END}\" --category cost" >&2
-  printf '%s\n' "${BUDGET_OUT}" >&2
-  printf '%s\n' "R6: RG-scoped budget CLI support varies by az version. Try: az upgrade" >&2
-  printf '%s\n' "    Or configure the budget manually in Azure Portal → Cost Management → Budgets." >&2
-  exit 1
-fi
-
-# Add alert notifications for each threshold via ARM REST API PATCH.
-# az consumption budget create does not expose --notification consistently;
-# the ARM API (api-version=2023-05-01) is the stable interface.
-BUDGET_SCOPE_PATH="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}"
-
+# Build notifications JSON (one per percentage threshold)
 IFS=',' read -ra PERCENTS <<< "${BUDGET_ALERT_PERCENTS}"
-
 NOTIF_JSON="{"
 first=true
 for PCT in "${PERCENTS[@]}"; do
-  PCT="${PCT// /}"  # strip any whitespace
+  PCT="${PCT// /}"
   if [[ "${first}" == "true" ]]; then first=false; else NOTIF_JSON+=","; fi
   NOTIF_JSON+="\"Alert${PCT}Percent\":{"
   NOTIF_JSON+="\"enabled\":true,"
@@ -339,19 +330,38 @@ for PCT in "${PERCENTS[@]}"; do
 done
 NOTIF_JSON+="}"
 
-BUDGET_PATCH_BODY="{\"properties\":{\"notifications\":${NOTIF_JSON}}}"
+BUDGET_BODY=$(cat <<EOF
+{
+  "properties": {
+    "category": "Cost",
+    "amount": ${BUDGET_AMOUNT},
+    "timeGrain": "Monthly",
+    "timePeriod": {
+      "startDate": "${BUDGET_START}T00:00:00Z",
+      "endDate": "${BUDGET_END}T00:00:00Z"
+    },
+    "notifications": ${NOTIF_JSON}
+  }
+}
+EOF
+)
 
-PATCH_OUT=$(az rest \
-  --method PATCH \
-  --url "https://management.azure.com${BUDGET_SCOPE_PATH}/providers/Microsoft.Consumption/budgets/${BUDGET_NAME}?api-version=2023-05-01" \
-  --body "${BUDGET_PATCH_BODY}" \
-  --output json 2>&1) && PATCH_STATUS=0 || PATCH_STATUS=$?
+BUDGET_URL="https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG_NAME}/providers/Microsoft.Consumption/budgets/${BUDGET_NAME}?api-version=2023-05-01"
 
-if [[ ${PATCH_STATUS} -eq 0 ]]; then
+BUDGET_OUT=$(az rest \
+  --method PUT \
+  --url "${BUDGET_URL}" \
+  --body "${BUDGET_BODY}" \
+  --output json 2>&1) && BUDGET_STATUS=0 || BUDGET_STATUS=$?
+
+if [[ ${BUDGET_STATUS} -eq 0 ]]; then
+  printf '%s\n' "Budget '${BUDGET_NAME}': provisioned (ARM REST PUT) — OK"
   printf '%s\n' "Budget alerts (${BUDGET_ALERT_PERCENTS}%): configured — OK"
 else
-  printf '%s\n' "WARNING: Budget alert PATCH returned non-zero (non-fatal). Configure alerts manually in Azure Portal → Cost Management → Budgets." >&2
-  printf '%s\n' "${PATCH_OUT}" >&2
+  printf '%s\n' "ERROR: Budget create via ARM REST failed:" >&2
+  printf '%s\n' "${BUDGET_OUT}" >&2
+  printf '%s\n' "Configure manually in Azure Portal → Cost Management → Budgets." >&2
+  exit 1
 fi
 
 # ============================================================
@@ -368,6 +378,7 @@ STRAY=$(az resource list \
   --tag "${WORKLOAD_TAG}" \
   --query "[?resourceGroup!='${RG_NAME}'].id" \
   -o tsv 2>/dev/null || echo "")
+STRAY=${STRAY//$'\r'/}
 
 if [[ -n "${STRAY}" ]]; then
   printf '%s\n' "WARNING: The following Sub Invaders resources exist outside '${RG_NAME}':" >&2
