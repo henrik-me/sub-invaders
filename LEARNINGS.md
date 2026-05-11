@@ -209,6 +209,128 @@ no longer needed)_
 
 ---
 
+### LRN-008
+
+```yaml
+id: LRN-008
+date: 2026-05-11
+category: tooling
+source_cs: CS01
+status: open
+tags: [azure, swa, github-actions, dependabot, secrets]
+```
+
+**Problem:** `Azure/static-web-apps-deploy@v1` failed with
+`deployment_token was not provided` on every Dependabot PR (and would on
+any fork PR), surfacing as a red `build-and-deploy` check on PRs #4..#12.
+GitHub does not pass repo secrets to workflows triggered by
+`pull_request` events from `dependabot[bot]` or from forks, so
+`${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}` evaluated to an empty
+string.
+
+**Finding:** Pass `skip_deploy_on_missing_secrets: true` on the SWA action
+(both `action: upload` and `action: close` jobs). When the token is
+present, behaviour is unchanged; when absent, the action prints a clear
+"skipped (no token)" message and the check goes green. This is the
+Azure-recommended pattern for Dependabot/fork PRs and avoids visual noise
+on otherwise-passing PRs. Pattern shipped in `swa-deploy.yml` post-PR #15.
+
+**Disposition:** _(open until applied to harness-side SWA deploy template)_
+
+---
+
+### LRN-009
+
+```yaml
+id: LRN-009
+date: 2026-05-11
+category: process
+source_cs: CS01
+status: open
+tags: [dependabot, rebase, multi-bump]
+```
+
+**Problem:** During post-CS01 Dependabot triage, issuing
+`@dependabot rebase` on a multi-bump PR (#9: `Microsoft.Azure.Functions.Worker`
++ 2 others) while another rebase was already in flight — and while the
+single-bump sibling PR (#10: `Microsoft.Azure.Functions.Worker.Sdk`) was
+still open — caused Dependabot to auto-close the multi-bump PR with
+`Looks like this PR is closed.` and not recreate it.
+
+**Finding:** Don't pile `@dependabot rebase` commands on the same PR or
+on overlapping multi/single PRs in quick succession. If a multi-bump PR
+gets auto-closed in this race, Dependabot will not always recreate it
+(at least not until the next scheduled run); fall back to a manual PR
+that bumps the same set of packages so main doesn't get stuck on a mixed
+major-version configuration. Pattern: branch off `main`, edit the
+`.csproj`, commit + push + open PR with title noting the auto-closed
+Dependabot PR being replaced.
+
+**Disposition:** _(open)_
+
+---
+
+### LRN-010
+
+```yaml
+id: LRN-010
+date: 2026-05-11
+category: tooling
+source_cs: CS01
+status: open
+tags: [azure, swa, free-sku, staging-environments]
+```
+
+**Problem:** Azure Static Web Apps Free SKU has a hard cap of 3 preview
+environments. After CS01 close-out (PRs #13 + #14 + #15), the cap was
+reached and the next push:main deploy of PR #16 failed with
+`The content server has rejected the request with: BadRequest. Reason:
+This Static Web App already has the maximum number of staging
+environments`. Despite each PR's `close-pull-request` job firing on PR
+close, Azure did not always reap the staging environment.
+
+**Finding:** Check and clean up SWA staging environments periodically:
+```
+az staticwebapp environment list \
+  --name swa-sub-invaders -g rg-sub-invaders-prod \
+  --query "[].{name:name, sourceBranch:sourceBranch}" -o table
+az staticwebapp environment delete \
+  --name swa-sub-invaders -g rg-sub-invaders-prod \
+  --environment-name <pr-number-or-env-name> --yes
+```
+The `default` environment (sourceBranch `main`) must be left alone.
+
+**Disposition:** _(open; consider an upstream periodic cleanup workflow)_
+
+---
+
+### LRN-011
+
+```yaml
+id: LRN-011
+date: 2026-05-11
+category: tooling
+source_cs: CS01
+status: open
+tags: [github, repo-settings, branches]
+```
+
+**Problem:** New GitHub repos default `delete_branch_on_merge` to `false`,
+so merged PR head branches accumulate indefinitely. Post-CS01 the repo
+had ~10 stale branches (claim, content, fixup, close-out, all merged
+Dependabot branches) that had to be deleted manually with
+`git push origin --delete <branch>` and `git remote prune origin`.
+
+**Finding:** Enable `delete_branch_on_merge` early (ideally as part of
+the bootstrap/CS01 deliverable set) so the repo stays clean:
+`gh api -X PATCH repos/<owner>/<repo> -f delete_branch_on_merge=true`.
+Done post-CS01 on this repo; consider promoting to a CS01 deliverable
+upstream.
+
+**Disposition:** _(open until added to harness-side bootstrap/CS01 plan)_
+
+---
+
 ## Applied
 
 _(no entries yet)_
