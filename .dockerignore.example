@@ -1,0 +1,63 @@
+# .dockerignore — copy to .dockerignore in your repo root and customise.
+#
+# This starter list excludes common files that should not be included in a
+# production container image. Add project-specific paths below.
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# CI / CD
+.github
+.gitlab-ci.yml
+Jenkinsfile
+
+# Local development configs
+.env
+.env.*
+!.env.example
+docker-compose*.yml
+docker-compose*.yaml
+
+# Editor / IDE artefacts
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Dependency lock files that aren't needed at runtime
+# (keep package.json; remove lock files if you install inside the image)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# Test artefacts
+tests/
+test/
+coverage/
+*.test.mjs
+*.spec.mjs
+*.test.js
+*.spec.js
+jest.config.*
+vitest.config.*
+
+# Build / dist (if you copy only the built artefact)
+# Uncomment if your Dockerfile copies from a build stage:
+# dist/
+# build/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Harness files (not needed in the container)
+harness.config.json
+harness.lock.json
+scaffolds/
+template/
+scripts/
+project/

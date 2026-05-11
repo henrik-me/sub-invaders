@@ -1,0 +1,50 @@
+{
+  "$schema": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
+  "_comment": "Replace REPLACE_ME placeholders with your project's values before running harness sync",
+  "version": "v0.1.0",
+  "project": {
+    "name": "my-project",
+    "agent_suffix": "mp",
+    "repo": "REPLACE_ME/REPLACE_ME"
+  },
+  "composed": {
+    "files": [
+      "CONVENTIONS.md",
+      "OPERATIONS.md",
+      "REVIEWS.md"
+    ],
+    "overrides": {
+      "CONVENTIONS.md": {
+        "local_blocks": [
+          "conventions.project"
+        ]
+      },
+      "OPERATIONS.md": {
+        "local_blocks": [
+          "operations.project-deploy"
+        ]
+      },
+      "REVIEWS.md": {
+        "local_blocks": [
+          "reviews.project-gates"
+        ]
+      }
+    }
+  },
+  "templating": {
+    "project_name": "my-project",
+    "agent_suffix": "mp",
+    "agent_suffix_upper": "MP",
+    "repo_owner": "REPLACE_ME",
+    "default_codeowner": "REPLACE_ME",
+    "lib_codeowner": "REPLACE_ME",
+    "repo_short": "REPLACE_ME"
+  },
+  "scaffolds": [
+    "feature-flags",
+    "verify-deploy",
+    "container-validate",
+    "seed",
+    "health-check"
+  ]
+}
