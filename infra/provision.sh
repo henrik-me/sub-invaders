@@ -35,10 +35,29 @@ ACTION_GROUP_NAME="${ACTION_GROUP_NAME:-ag-sub-invaders-budget}"
 # BUDGET_ALERT_EMAIL must be provided — fail-closed if empty.
 BUDGET_ALERT_EMAIL="${BUDGET_ALERT_EMAIL:-}"
 BUDGET_ALERT_PERCENTS="${BUDGET_ALERT_PERCENTS:-50,80,100}"
-# STORAGE_ACCT_NAME: generated below if unset (CS01-5: random 6-char hex suffix).
-# Max Azure storage account name: 24 chars; "stsubinvaders" = 13 chars → 11 left for suffix.
+# STORAGE_ACCT_NAME: discovered or generated below.
+# - If STORAGE_ACCT_NAME is explicitly set, use it (deterministic retry).
+# - Else, on second+ run: discover the existing storage account in this RG
+#   (must be exactly one tagged workload=sub-invaders) and reuse it.
+# - Else, on first run: generate a random name (CS01-5: 6-char hex suffix).
+# - Max Azure storage account name: 24 chars; "stsubinvaders" = 13 chars → 11 left for suffix.
 if [[ -z "${STORAGE_ACCT_NAME:-}" ]]; then
-  STORAGE_ACCT_NAME="stsubinvaders$(openssl rand -hex 3)"
+  EXISTING_STORAGE=$(az storage account list \
+    --resource-group "${RG_NAME}" \
+    --query "[?tags.workload=='sub-invaders'].name" \
+    -o tsv 2>/dev/null || echo "")
+  EXISTING_STORAGE_COUNT=$(printf '%s\n' "${EXISTING_STORAGE}" | grep -c . || true)
+  if [[ "${EXISTING_STORAGE_COUNT}" -eq 1 ]]; then
+    STORAGE_ACCT_NAME="${EXISTING_STORAGE}"
+    printf '%s\n' "Discovered existing storage account in ${RG_NAME}: ${STORAGE_ACCT_NAME} (reusing)"
+  elif [[ "${EXISTING_STORAGE_COUNT}" -gt 1 ]]; then
+    printf '%s\n' "ERROR: Multiple storage accounts tagged workload=sub-invaders in RG '${RG_NAME}':" >&2
+    printf '%s\n' "${EXISTING_STORAGE}" >&2
+    printf '%s\n' "Set STORAGE_ACCT_NAME explicitly to choose one (or remove the duplicates)." >&2
+    exit 1
+  else
+    STORAGE_ACCT_NAME="stsubinvaders$(openssl rand -hex 3)"
+  fi
 fi
 WORKLOAD_TAG="workload=sub-invaders"
 

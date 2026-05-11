@@ -272,8 +272,13 @@ Node 20 + .NET 8 SDK matrix. Jobs run on every PR and push to `main`:
 ### `swa-deploy.yml`
 
 Deploys to Azure Static Web Apps. Depends on G5 secret
-(`AZURE_STATIC_WEB_APPS_API_TOKEN`). Guarded by `if: secrets.AZURE_STATIC_WEB_APPS_API_TOKEN != ''`
-until G5 is complete (C16-16, CS01-9).
+(`AZURE_STATIC_WEB_APPS_API_TOKEN`). Committed **unguarded** by design
+(C16-16, CS01-9 as implemented): before G5 the deploy job fails with a
+`deployment_token was not provided` error. The failure is informational —
+it surfaces the missing-secret state on every PR run so the gate cannot be
+silently forgotten — and `swa-deploy/build-and-deploy` is intentionally
+**not** part of the Ruleset's required-status-checks list, so this expected
+failure does not block PR merge.
 
 ### `workboard-auto-approve.yml`
 
@@ -292,8 +297,11 @@ Weekly cadence for `npm`, `nuget`, and `github-actions` (CS01-4).
   ≥1 approving review, conversation resolution, no force-push, no branch deletion, linear
   history, squash-only merge, explicit repository-admin bypass for owner override (CS01-1,
   C16-13).
-- **Required status checks (CS01-2):** `ci`, `harness lint`, `harness sync --mode=check`,
-  JS tests, .NET tests, PR body, commit trailers, and workflow pin checks.
+- **Required status checks (CS01-2):** the five contexts wired through CI —
+  `ci`, `harness-lint`, `harness-sync-check`, `js-tests`, `dotnet-tests`.
+  Workflow-pin enforcement, PR-body checks, and commit-trailer checks are
+  performed **inside** the `harness-lint` job by the harness CLI rather than
+  as separate Ruleset contexts.
 - **CodeQL:** default setup for JavaScript and C# (CS01-3). Analysis may take up to 24 h
   on first enable; enable in CS01, record API evidence immediately.
 - **Secret scanning + push protection:** enabled (C16-13).
@@ -340,14 +348,14 @@ Weekly cadence for `npm`, `nuget`, and `github-actions` (CS01-4).
 | Decision | Choice | Rationale |
 |---|---|---|
 | CS01-1 — Ruleset API shape | Author `infra/main-protection-ruleset.json` as the Repository Rulesets API request body, mirroring the agent-harness CS15a `main-protection` shape | CS15a proved this shape; C16-13 requires standards parity |
-| CS01-2 — Required checks in Ruleset | Require `ci`, `harness lint`, `harness sync --mode=check`, JS tests, .NET tests, PR body, commit trailers, and workflow pin checks | Enforces contribution discipline while allowing project-specific workflow names |
+| CS01-2 — Required checks in Ruleset | Require the five CI contexts: `ci`, `harness-lint`, `harness-sync-check`, `js-tests`, `dotnet-tests` (workflow-pin/PR-body/trailer enforcement runs inside `harness-lint`, not as separate Ruleset contexts) | Enforces contribution discipline while allowing project-specific workflow names; matches what the harness CLI actually runs |
 | CS01-3 — Code scanning | GitHub CodeQL default setup for JavaScript and C#; no advanced CodeQL workflow unless unavailable | C16-13 calls for default setup; less YAML = less consumer-maintained security plumbing |
 | CS01-4 — Dependabot | `.github/dependabot.yml` for `npm`, `nuget`, `github-actions`; weekly cadence; alerts and version updates enabled | Covers full stack: Node harness/tests, .NET Function, and Actions |
 | CS01-5 — Storage account naming | Default `STORAGE_ACCT_NAME=stsubinvaders$RAND6`; lowercase, no dashes, max 24 chars; env override | Azure global uniqueness + C16-14; env override enables deterministic retries |
 | CS01-6 — Azure resource group | Default `RG_NAME=rg-sub-invaders-prod`; script verifies tag `workload=sub-invaders` before any other resource operation | Hard isolation invariant and cleanup contract from C16-14 |
 | CS01-7 — Budget | RG-scoped monthly Budget `budget-sub-invaders-monthly`, default cap $5, alerts at 50/80/100% via Action Group `ag-sub-invaders-budget` | Spend guardrail is part of first provisioning, not an afterthought |
 | CS01-8 — Rate-limit defaults documented now | Document 30/min defaults for `/api/session` and `/api/score`; implement no rate limiter in CS01 because only `/api/health` exists | Keeps ARCHITECTURE.md ready for CS03 without unused backend code |
-| CS01-9 — Deploy workflow | Commit `swa-deploy.yml` with `if: secrets.AZURE_STATIC_WEB_APPS_API_TOKEN != ''` guard; deploy activates once G5 secret is set | C16 refinement makes token paste a CS01 gate; first real deploy happens here |
+| CS01-9 — Deploy workflow | Commit `swa-deploy.yml` **unguarded**: the deploy job runs on every push/PR and fails with a `deployment_token was not provided` error until G5 is complete. The failure is informational and is excluded from the Ruleset's required-status-checks list, so it does not block merges. (Original plan called for an `if: secrets.AZURE_STATIC_WEB_APPS_API_TOKEN != ''` guard; the implementer deviated to keep the gate visible — see the file header comment in `.github/workflows/swa-deploy.yml`.) | Visible failure surfaces the missing G5 token on every PR run; an `if:` guard would silently skip and the gate could be forgotten |
 | CS01-10 — Stub backend response | `GET /api/health` returns HTTP 200 + JSON `{"status":"ok"}`; version/flag fields deferred | Minimal stable probe for SWA staging and verify-deploy scaffold |
 | CS01-11 — Stub frontend | `src/index.html` is static HTML only; no JS modules, canvas, engine imports, or localStorage | Avoids stealing CS02 scope |
 | CS01-12 — CHANGELOG pilot | Add a dated SI-CS01 entry to `CHANGELOG.md` | Carries forward the LRN-101 pilot pattern from CS16 |

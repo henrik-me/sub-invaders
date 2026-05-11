@@ -1,23 +1,29 @@
 # .github/workflows/workboard-auto-approve.yml — CS01 deliverable #7.
 #
-# FALLBACK / verification layer for workboard-only PRs. This workflow
-# auto-approves and auto-merges PRs that pass all of:
-#   1. PR author is in the actor allowlist (henrik-me).
-#   2. PR has the `workboard-only` label.
-#   3. All changed files are within the workboard-only path allowlist:
+# VALIDATION layer for workboard-only PRs. This workflow validates that a PR
+# tagged `workboard-only`:
+#   1. Was opened by an author in the actor allowlist (henrik-me).
+#   2. Touches only files inside the workboard-only path allowlist:
 #        WORKBOARD.md
 #        project/clickstops/planned/**
 #        project/clickstops/active/**
 #        project/clickstops/done/**
 #
-# This workflow does NOT require the workboard-auto-approve GitHub App (G3).
-# It works with the built-in GITHUB_TOKEN. The separate App (G3) is the
-# preferred mechanism once installed; this workflow is the fallback that
-# keeps the workboard process operational even when the App is not yet
-# installed or has a configuration issue.
+# **Auto-approval and auto-merge are performed by the workboard-auto-approve
+# GitHub App (gate G3), not by this workflow.** GitHub Actions' built-in
+# `GITHUB_TOKEN` cannot create approving pull-request reviews (this is a
+# GitHub platform restriction documented at
+# https://docs.github.com/actions/security-for-github-actions/security-guides/automatic-token-authentication#permissions-for-the-github_token);
+# any attempt by this workflow to approve via `gh pr review --approve` would
+# fail with a 422 "GitHub Actions is not permitted to approve pull requests"
+# error. The App therefore owns approval and merge; this workflow's job is
+# to surface validation failures as early as possible (before the App or a
+# human reviewer touches the PR).
 #
-# If validation fails, the workflow posts an explanatory comment and exits
-# without approving or merging.
+# If validation fails, this workflow posts an explanatory comment and exits
+# non-zero. If validation passes, it posts a brief "ready for App
+# auto-approve" comment and exits zero — the App, when installed, takes
+# over from there.
 
 name: workboard-auto-approve
 
@@ -27,7 +33,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
 
 jobs:
@@ -87,16 +93,12 @@ jobs:
           fi
           echo "Path check: OK."
 
-      - name: Approve PR
+      - name: Post validation-passed comment
         run: |
           set -euo pipefail
-          gh pr review "$PR_NUMBER" --repo "$REPO" \
-            --approve \
-            --body "Auto-approved by workboard-auto-approve workflow."
-
-      - name: Merge PR (squash)
-        run: |
-          set -euo pipefail
-          gh pr merge "$PR_NUMBER" --repo "$REPO" \
-            --squash \
-            --delete-branch
+          # GITHUB_TOKEN cannot approve PRs (platform restriction); the
+          # workboard-auto-approve GitHub App (G3) owns approval+merge.
+          # This workflow's success simply signals to the App that the PR
+          # has cleared author + path validation.
+          gh pr comment "$PR_NUMBER" --repo "$REPO" \
+            --body "workboard-auto-approve: validation passed (author + path allowlist). Ready for App auto-approve + merge."

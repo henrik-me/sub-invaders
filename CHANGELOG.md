@@ -41,28 +41,38 @@ once a tagged release exists.
   `.github/workflows/swa-deploy.yml` (Azure Static Web Apps deploy),
   `.github/workflows/workboard-auto-approve.yml`, and
   `.github/dependabot.yml`.
-- **Azure provisioning.** Added `infra/provision.sh` — RG-first creation,
+- **Azure provisioning script.** Added `infra/provision.sh` — RG-first creation,
   `workload=sub-invaders` tag verification, every `az ... create` scoped to
   `--resource-group "$RG_NAME"`, RG-scoped Budget (`$5/month`, alerts at
   50/80/100% via Action Group), env-var override surface
   (`RG_NAME`/`RG_LOCATION`/`STORAGE_ACCT_NAME`/`SWA_NAME`/`BUDGET_AMOUNT`/
-  `BUDGET_ALERT_EMAIL`), fail-closed error handling.
-- **Azure resources.** User executed `infra/provision.sh` (G4) creating RG
-  `rg-sub-invaders-prod`, Storage account, Static Web App, Action Group, and
-  Budget inside the dedicated resource group.
+  `BUDGET_ALERT_EMAIL`), fail-closed error handling. (Execution is gate G4 —
+  not invoked as part of this PR; runs locally against the user's Azure
+  subscription.)
 - **Stub frontend.** `src/index.html` — minimal accessible "coming soon"
   page; no JS, no canvas, no engine imports.
 - **Stub backend.** `api/` project — .NET 8 isolated Functions worker with
   `HealthFunction.cs` returning HTTP 200 + `{"status":"ok"}` for
   `GET /api/health`. xUnit test project at `api/Sub-invaders.Api.Tests/`
   with at least one passing test.
-- **First deploy.** `swa-deploy.yml` published to SWA staging; smoke probe
-  confirms `/` returns HTTP 200 and `GET /api/health` returns HTTP 200 with
-  `status=ok`.
 - **Repo hygiene.** Added `.gitattributes` (`text=auto eol=lf`) so all
   contributors check out LF regardless of `core.autocrlf` (LRN-006/018/065).
   Replaced `harness.config.json` placeholders with real sub-invaders values
   (`project.name`, `agent_suffix=si`, `repo`, `templating.*`, `constraints`).
+- **Harness pin bump.** Bumped `harness.config.json` from `v0.1.0` to
+  `v0.3.1` to pick up upstream fixes (deps gap, text-encoding gitignore
+  awareness, architecture linter error message). Originally CS04 task #1;
+  brought forward because the v0.1.0 deps gap blocks CI.
+
+### Pending (gated on user actions, will land in CS01 close-out PR)
+
+- **Azure resources** (G4) — user runs `infra/provision.sh` to create
+  `rg-sub-invaders-prod`, Storage account, Static Web App, Action Group,
+  Budget.
+- **First SWA deploy + smoke probe** (G5) — user pastes
+  `AZURE_STATIC_WEB_APPS_API_TOKEN` into Actions secrets; `swa-deploy.yml`
+  publishes to staging; verify-deploy or curl confirms `/` and
+  `GET /api/health` return HTTP 200.
 
 ### Notes
 - This is the LRN-101 changelog pilot pattern: each closed CS appends one
