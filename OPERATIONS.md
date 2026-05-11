@@ -1029,5 +1029,63 @@ the harness and will be overwritten on the next `harness sync`. The block ID
 `composed.overrides["OPERATIONS.md"].local_blocks`.
 
 <!-- harness:local-start id=operations.project-deploy -->
-_(Add project-specific deployment workflow, environment list, secrets handling, etc.)_
+
+## Project-specific deploy operations
+
+### Azure Static Web Apps deploy
+
+- Workflow: `.github/workflows/swa-deploy.yml` triggered on push to `main`.
+- Secret: `AZURE_STATIC_WEB_APPS_API_TOKEN` (G5).
+- Build artifact paths: `app_location: "src"`, `api_location: "api"`,
+  `output_location: ""`.
+
+### .NET 8 isolated Functions build
+
+```bash
+dotnet restore api/
+dotnet build api/ --configuration Release --no-restore
+dotnet test api/ --configuration Release --no-build
+```
+
+### Local dev
+
+- Frontend: open `src/index.html` in a browser, or serve via `npx http-server src` for
+  module loading.
+- Backend: `func start --csharp` from `api/` (requires Azure Functions Core Tools v4 +
+  .NET 8 SDK).
+
+### Azure resource provisioning (G4)
+
+```bash
+infra/provision.sh             # uses defaults: rg-sub-invaders-prod, $5 budget
+RG_NAME=rg-sub-invaders-test STORAGE_ACCT_NAME=stsubinvaderstest$RAND6 \
+  infra/provision.sh           # override via env vars
+```
+
+The script is idempotent: re-running on an existing RG verifies the `workload=sub-invaders`
+tag and skips create operations that already succeeded.
+
+### Storage Tables persistence (CS03+)
+
+- Storage account: `stsubinvaders$RAND6` (CS01-5).
+- Tables: `Leaderboard` (PartitionKey=daily-challenge-key, RowKey=score-id),
+  `Sessions` (PartitionKey=session-id-prefix, RowKey=session-id, TTL=session-ttl).
+- Hourly cleanup Function (CS03) deletes expired sessions.
+
+### Env vars (deploy-time, set in Azure SWA configuration)
+
+| Var | Purpose | When |
+|---|---|---|
+| `STORAGE_CONNECTION_STRING` | Storage Tables access | CS03+ |
+| `RATE_LIMIT_PER_MIN` | Per-IP rate cap (default 30) | CS03+ |
+| `DAILY_CHALLENGE_SEED` | Pin deterministic daily challenge | CS04+ |
+
+### Secret rotation
+
+- `AZURE_STATIC_WEB_APPS_API_TOKEN`: rotate via Azure portal → SWA → Manage deployment
+  token; update GitHub secret immediately.
+- `STORAGE_CONNECTION_STRING`: rotate via Azure portal → Storage account → Access keys;
+  update SWA configuration; rolling update.
+- Never log secrets in workflows; never copy into the active CS file.
+
 <!-- harness:local-end id=operations.project-deploy -->

@@ -143,6 +143,34 @@ accounted for.
 ## Project-specific conventions
 
 <!-- harness:local-start id=conventions.project -->
-_(Add project-specific conventions here. Example: language version, formatter config,
-framework conventions.)_
+
+### JavaScript / browser game code (`src/`)
+
+- ES2022 modules (`.mjs` extension), strict mode by default. Browser-loaded as ES modules;
+  no bundler in v1.
+- Engine code in `src/engine/` MUST NOT import from `src/game/`. Game code may import engine.
+  Cyclic or reverse imports are an error and a learning candidate.
+- Use `const` by default; `let` only when reassignment is necessary; never `var`.
+- Tests live next to modules with `.test.mjs` suffix; run with
+  `node --test src/**/*.test.mjs`.
+
+### .NET / Azure Functions backend (`api/`)
+
+- .NET 8, isolated worker (NOT in-process Azure Functions).
+- C# 12, nullable reference types enabled, file-scoped namespaces.
+- xUnit test project under `api/Sub-invaders.Api.Tests/`; run with `dotnet test api/`.
+- Function classes `*Function.cs`; one Function per file.
+- HTTP routes use `HttpTriggerAttribute`; route prefix `/api/` is implicit.
+
+### Engine isolation invariant
+
+Engine code (`src/engine/`) is a candidate for extraction into a separate package. Keep its
+surface API stable and game-agnostic. The no-reverse-imports rule (engine MUST NOT import
+from `src/game/`) is repeated here explicitly so it survives a future repo split.
+
+### Sprite sheet & assets (CS02+)
+
+Hand-authored PNG only. Do NOT include third-party sprite assets without provenance
+documentation in `ARCHITECTURE.md`.
+
 <!-- harness:local-end id=conventions.project -->
