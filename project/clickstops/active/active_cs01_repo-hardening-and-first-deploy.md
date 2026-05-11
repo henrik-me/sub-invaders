@@ -121,18 +121,18 @@ G6 Ruleset and G7 security settings are orchestrator-runnable via `gh api` durin
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Fill `harness.config.json` placeholders for sub-invaders | planned | orchestrator | project.name=sub-invaders, project.repo=henrik-me/sub-invaders, agent_suffix=si, templating.* — required before composed-blocks sub-agent runs |
-| Author `infra/main-protection-ruleset.json` | planned | sub-agent | agent-id=cs01-ruleset-and-app \| role=ruleset-author \| report-status=pending \| learnings=0 |
-| Enable security & supply-chain settings via `gh api` | planned | sub-agent | agent-id=cs01-security-settings \| role=gh-api-runner \| report-status=pending \| learnings=0 |
-| Author governance docs (SECURITY/CONTRIBUTING/CoC + .github templates + CODEOWNERS) | planned | sub-agent | agent-id=cs01-governance-docs \| role=docs-author \| report-status=pending \| learnings=0 |
-| Author `ARCHITECTURE.md` v1 | planned | sub-agent | agent-id=cs01-architecture-author \| role=docs-author \| report-status=pending \| learnings=0 |
-| Customise composed local blocks (`conventions.project`, `operations.project-deploy`, `reviews.project-gates`) | planned | sub-agent | agent-id=cs01-composed-blocks-customiser \| role=composed-block-author \| report-status=pending \| learnings=0 |
-| Author CI workflows (`ci.yml`, `swa-deploy.yml`, `workboard-auto-approve.yml`, `dependabot.yml`) | planned | sub-agent | agent-id=cs01-ci-workflows-author \| role=ci-author \| report-status=pending \| learnings=0 |
-| Author `infra/provision.sh` | planned | sub-agent | agent-id=cs01-azure-provisioning-script \| role=infra-author \| report-status=pending \| learnings=0 |
-| Author stub frontend + .NET 8 isolated Functions backend + xUnit | planned | sub-agent | agent-id=cs01-stub-frontend-and-backend \| role=full-stack-stub \| report-status=pending \| learnings=0 |
-| Author `CHANGELOG.md` SI-CS01 entry | planned | sub-agent | agent-id=cs01-changelog-author \| role=docs-author \| report-status=pending \| learnings=0 |
-| Post-completion verification (git status / line counts / API spot-check) | planned | orchestrator | OPERATIONS § Post-completion verification |
-| Apply Ruleset + record `gh api` evidence (G6) | planned | orchestrator | After workflows exist so context names are known (OQ1) |
+| Fill `harness.config.json` placeholders for sub-invaders | complete | orchestrator | Done in commit 715f5d3; placeholders replaced with real sub-invaders values |
+| Author `infra/main-protection-ruleset.json` | complete | sub-agent | agent-id=cs01-ruleset-and-app \| role=ruleset-author \| report-status=complete \| learnings=2 \| commit=daff29d |
+| Enable security & supply-chain settings via `gh api` | complete | sub-agent | agent-id=cs01-security-settings \| role=gh-api-runner \| report-status=complete \| learnings=2 \| evidence below |
+| Author governance docs (SECURITY/CONTRIBUTING/CoC + .github templates + CODEOWNERS) | complete | sub-agent | agent-id=cs01-governance-docs \| role=docs-author \| report-status=complete \| learnings=2 \| commit=aed831b |
+| Author `ARCHITECTURE.md` v1 | complete | sub-agent | agent-id=cs01-architecture-author \| role=docs-author \| report-status=complete \| learnings=2 \| commit=deba24b (orchestrator added Data model section to satisfy linter) |
+| Customise composed local blocks (`conventions.project`, `operations.project-deploy`, `reviews.project-gates`) | complete | sub-agent | agent-id=cs01-composed-blocks-customiser \| role=composed-block-author \| report-status=complete \| learnings=2 \| commit=43e83ac |
+| Author CI workflows (`ci.yml`, `swa-deploy.yml`, `workboard-auto-approve.yml`, `dependabot.yml`) | complete | sub-agent | agent-id=cs01-ci-workflows-author \| role=ci-author \| report-status=complete \| learnings=3 \| commit=c5ddd36 |
+| Author `infra/provision.sh` | complete | sub-agent | agent-id=cs01-azure-provisioning-script \| role=infra-author \| report-status=complete \| learnings=3 \| commit=675e1ab |
+| Author stub frontend + .NET 8 isolated Functions backend + xUnit | complete | sub-agent | agent-id=cs01-stub-frontend-and-backend \| role=full-stack-stub \| report-status=complete \| learnings=3 \| commit=d7f64d3 |
+| Author `CHANGELOG.md` SI-CS01 entry | complete | sub-agent | agent-id=cs01-changelog-author \| role=docs-author \| report-status=complete \| learnings=0 \| commit=0e46503 |
+| Post-completion verification (git status / line counts / API spot-check) | complete | orchestrator | All 9 sub-agent outputs verified (line counts within ±20, BOM=False, CR=False, JSON valid, composed-block markers intact, no leaked build artifacts after `rm -rf api/bin api/obj`); harness lint 13/13 pass after fixes |
+| Apply Ruleset + record `gh api` evidence (G6) | planned | orchestrator | After workflows exist so context names are known (OQ1) — defer to after first CI run on content PR |
 | Coordinate user gate G3 (workboard-auto-approve App install) | planned | orchestrator | Pause for user |
 | Coordinate user gate G4 (run `infra/provision.sh`) | planned | orchestrator | Pause for user |
 | Coordinate user gate G5 (paste `AZURE_STATIC_WEB_APPS_API_TOKEN` secret) | planned | orchestrator | Pause for user |
@@ -144,7 +144,126 @@ G6 Ruleset and G7 security settings are orchestrator-runnable via `gh api` durin
 
 ## Notes / Learnings
 
-(filled during execution)
+### Sub-agent self-reported learning candidates (filed at close-out)
+
+- **harness peerDeps gap (A6, A2):** `@henrik-me/agent-harness` declares `ajv`, `ajv-formats`, `js-yaml` as devDependencies only. `npx -y github:henrik-me/agent-harness ...` fails most linters with `ERR_MODULE_NOT_FOUND` until a downstream consumer runs `npm install -g ajv ajv-formats js-yaml`. CI workflow (`ci.yml`) installs them globally before `npx -y github:henrik-me/agent-harness` invocations. Recommended harness fix: declare them as `peerDependencies` (or `dependencies`) so `npx` pulls them.
+- **Line endings on Windows (orchestrator):** Default `core.autocrlf=true` produces CRLF on disk while index stays LF, causing text-encoding linter failures. Fix: `.gitattributes` with `* text=auto eol=lf`, then `core.autocrlf=input`, then `git rm -rf --cached . && git reset --hard HEAD` re-extracts as LF.
+- **Composed-blocks plan wording (A5):** CS01 plan deliverable 6 says "edit `template/composed/CONVENTIONS.md`" (harness-repo perspective) but consumer repos edit root `CONVENTIONS.md` directly. Future plans should use consumer-relative paths.
+- **harness lint scans build artifacts (orchestrator):** `harness lint` text-encoding scanner walks the filesystem without respecting `.gitignore`. Running `dotnet build api/` locally produces `api/bin` and `api/obj` with CRLF JSON files that fail lint. Workaround: clean before lint. Long-term: harness lint should respect `.gitignore`.
+- **SDK glob collision (A8):** `Microsoft.NET.Sdk` default `**/*.cs` glob picks up subdirectory test files. Fix: explicit `<Compile Remove="Sub-invaders.Api.Tests/**" />` in main csproj.
+- **HttpRequestData mocking (A8):** `HttpRequestData` is abstract and requires a live DI container to mock; CS01 test uses constant-string assertion (`HealthFunction.ResponseBody`) as a pragmatic workaround. Real HTTP-shape integration tests deferred to CS03+.
+- **az CLI version drift (A7, R6):** `az consumption budget create --resource-group` scope is unreliable across `az` 2.x minor versions. `provision.sh` uses ARM REST PATCH for budget notifications as a stable fallback (non-fatal if it fails).
+- **Azure SAML blocks `gh api` (A6):** Azure org SAML enforcement blocks `gh api repos/Azure/...` for non-SSO tokens. Use `git ls-remote https://github.com/Azure/<repo>.git refs/tags/<tag>` as the SHA verification fallback for action-pinning.
+- **WORKBOARD section drift (orchestrator):** CS16 bootstrap left `## Queued` and `## Recently Completed` sections in WORKBOARD.md that the harness now forbids (filesystem source-of-truth). Removed in commit `ebe54da`.
+- **PowerShell vs grep regex (A7):** PowerShell `Select-String` uses .NET regex where `\?` is a literal `?`, unlike grep BRE where `\?` is zero-or-one. Self-check patterns must be authored with .NET regex semantics in mind when run from PowerShell.
+- **CodeQL 404 on enable (A2, R1):** CodeQL default-setup PUT returned 404 — likely requires either 24h activation delay or paid plan on this tier. Acceptable per CS01-R1; revisit before close-out.
+- **Workboard-auto-approve App check 401/403 (A2, R2):** Standard `repo`-scope tokens cannot list App installations. G3 verification deferred to manual user step.
+
+## Evidence
+
+### Security & supply-chain settings (G7) — evidence
+
+Recorded by sub-agent `cs01-security-settings` on 2026-05-11T01:58:45Z.
+
+#### Secret scanning + push protection
+
+**Command:** `gh api -X PATCH repos/henrik-me/sub-invaders -F security_and_analysis.secret_scanning.status=enabled -F security_and_analysis.secret_scanning_push_protection.status=enabled`
+
+**Response (abbreviated):** HTTP 200 OK; response body includes:
+```json
+"security_and_analysis": {
+  "secret_scanning": { "status": "enabled" },
+  "secret_scanning_push_protection": { "status": "enabled" },
+  "dependabot_security_updates": { "status": "enabled" }
+}
+```
+
+**Verify:** `gh api repos/henrik-me/sub-invaders --jq '.security_and_analysis'`
+```json
+{
+  "secret_scanning": { "status": "enabled" },
+  "secret_scanning_push_protection": { "status": "enabled" },
+  "dependabot_security_updates": { "status": "enabled" },
+  "secret_scanning_non_provider_patterns": { "status": "disabled" },
+  "secret_scanning_validity_checks": { "status": "disabled" }
+}
+```
+
+**Status:** enabled
+
+#### CodeQL default setup
+
+**Command:** `gh api -X PUT repos/henrik-me/sub-invaders/code-scanning/default-setup --raw-field 'state=configured' --raw-field 'languages=["javascript","csharp"]' --raw-field 'query_suite=default'`
+
+**Response:** HTTP 404 Not Found
+```json
+{ "message": "Not Found", "status": "404" }
+```
+
+**Status:** not-applicable on this tier (per CS01-R1; revisit before close-out)
+
+#### Dependabot alerts
+
+**Command:** `gh api -X PUT repos/henrik-me/sub-invaders/vulnerability-alerts`
+
+**Response:** HTTP 204 No Content
+
+**Verify:** `gh api repos/henrik-me/sub-invaders/vulnerability-alerts -i` → HTTP 204
+
+**Status:** enabled
+
+#### Dependabot security updates
+
+**Command:** `gh api -X PUT repos/henrik-me/sub-invaders/automated-security-fixes`
+
+**Response:** HTTP 200 OK
+
+**Verify:** `gh api repos/henrik-me/sub-invaders/automated-security-fixes -i` →
+```json
+{ "enabled": true, "paused": false }
+```
+
+**Status:** enabled
+
+#### Private Vulnerability Reporting
+
+**Command:** `gh api -X PUT repos/henrik-me/sub-invaders/private-vulnerability-reporting`
+
+**Response:** HTTP 200 OK
+
+**Verify:** `gh api repos/henrik-me/sub-invaders/private-vulnerability-reporting -i` →
+```json
+{ "enabled": true }
+```
+
+**Status:** enabled
+
+#### Final state snapshot
+
+```json
+{
+  "allow_merge_commit": true,
+  "allow_rebase_merge": true,
+  "allow_squash_merge": true,
+  "delete_branch_on_merge": false,
+  "has_discussions": false,
+  "has_issues": true,
+  "has_projects": true,
+  "name": "sub-invaders",
+  "private": false,
+  "security_and_analysis": {
+    "dependabot_security_updates": { "status": "enabled" },
+    "secret_scanning": { "status": "enabled" },
+    "secret_scanning_non_provider_patterns": { "status": "disabled" },
+    "secret_scanning_push_protection": { "status": "enabled" },
+    "secret_scanning_validity_checks": { "status": "disabled" }
+  }
+}
+```
+
+### G3, G4, G5, G6 — evidence
+
+(Filled during execution — G3/G4/G5 require user actions; G6 requires Ruleset application after CI context names are known.)
 
 ## Plan-vs-implementation review
 
