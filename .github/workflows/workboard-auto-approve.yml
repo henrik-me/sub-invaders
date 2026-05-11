@@ -1,0 +1,102 @@
+# .github/workflows/workboard-auto-approve.yml — CS01 deliverable #7.
+#
+# FALLBACK / verification layer for workboard-only PRs. This workflow
+# auto-approves and auto-merges PRs that pass all of:
+#   1. PR author is in the actor allowlist (henrik-me).
+#   2. PR has the `workboard-only` label.
+#   3. All changed files are within the workboard-only path allowlist:
+#        WORKBOARD.md
+#        project/clickstops/planned/**
+#        project/clickstops/active/**
+#        project/clickstops/done/**
+#
+# This workflow does NOT require the workboard-auto-approve GitHub App (G3).
+# It works with the built-in GITHUB_TOKEN. The separate App (G3) is the
+# preferred mechanism once installed; this workflow is the fallback that
+# keeps the workboard process operational even when the App is not yet
+# installed or has a configuration issue.
+#
+# If validation fails, the workflow posts an explanatory comment and exits
+# without approving or merging.
+
+name: workboard-auto-approve
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-approve:
+    name: auto-approve
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'workboard-only')
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Validate actor allowlist
+        run: |
+          set -euo pipefail
+          ALLOWED_AUTHORS="henrik-me"
+          allowed=0
+          for a in $ALLOWED_AUTHORS; do
+            [ "$PR_AUTHOR" = "$a" ] && allowed=1 && break
+          done
+          if [ "$allowed" -ne 1 ]; then
+            gh pr comment "$PR_NUMBER" --repo "$REPO" \
+              --body "workboard-auto-approve: PR author '${PR_AUTHOR}' is not in the actor allowlist. Not approving."
+            echo "::error::Author '${PR_AUTHOR}' not in allowlist; exiting."
+            exit 1
+          fi
+          echo "Actor check: OK (author=${PR_AUTHOR})."
+
+      - name: Validate changed-file paths
+        id: path-check
+        run: |
+          set -euo pipefail
+
+          pr_files=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/files" --jq '.[].filename')
+
+          invalid_files=""
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            ok=0
+            case "$f" in
+              WORKBOARD.md)                        ok=1 ;;
+              project/clickstops/planned/*)        ok=1 ;;
+              project/clickstops/active/*)         ok=1 ;;
+              project/clickstops/done/*)           ok=1 ;;
+            esac
+            if [ "$ok" -eq 0 ]; then
+              invalid_files="${invalid_files}\n  - ${f}"
+            fi
+          done <<< "$pr_files"
+
+          if [ -n "$invalid_files" ]; then
+            msg="workboard-auto-approve: PR touches files outside the workboard-only path allowlist and will NOT be auto-approved.\n\nDisallowed files:${invalid_files}\n\nAllowed paths: \`WORKBOARD.md\`, \`project/clickstops/{planned,active,done}/**\`"
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$msg"
+            echo "::error::Path allowlist violations detected; exiting."
+            exit 1
+          fi
+          echo "Path check: OK."
+
+      - name: Approve PR
+        run: |
+          set -euo pipefail
+          gh pr review "$PR_NUMBER" --repo "$REPO" \
+            --approve \
+            --body "Auto-approved by workboard-auto-approve workflow."
+
+      - name: Merge PR (squash)
+        run: |
+          set -euo pipefail
+          gh pr merge "$PR_NUMBER" --repo "$REPO" \
+            --squash \
+            --delete-branch
