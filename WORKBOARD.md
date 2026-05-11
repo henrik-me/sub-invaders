@@ -10,19 +10,18 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 
 | Agent ID | Machine | Repo Folder | Status | Last Seen |
 |----------|---------|-------------|--------|-----------|
-| _(placeholder — replace with real agent)_ | _(hostname)_ | _(path)_ | ⚪ Offline | _(never)_ |
+| yoga-si | HENRIKM-YOGA | C:\src\sub-invaders | 🟢 Active | 2026-05-11T01:30Z |
 
 ## Active Work
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
-| — | no active CS — populate when claiming | — | — | — | _(set on claim)_ | _(none)_ |
+| CS01 | Repo hardening + first SWA staging deploy | 🟢 active | yoga-si | cs01/content | 2026-05-11T01:30Z | (none) |
 
 ## Queued
 
 | Priority | CS | Title | Notes |
 |----------|----|----|-------|
-| 1 | CS01 | Repo hardening + first SWA staging deploy | Ruleset, App, security settings, governance docs, ARCHITECTURE.md, composed-blocks customisation, CI workflows, Azure provisioning (RG `rg-sub-invaders-prod`), G3+G4+G5 user gates. ≥6 sub-agent fan-out. |
 | 2 | CS02 | Engine + game skeleton + minimal playable Sub Invaders | Custom in-tree engine at `src/engine/`, game at `src/game/`, hand-authored sprite sheet, localStorage high-score, deploy to staging. ≥8 sub-agent fan-out. Depends on CS01. |
 | 3 | CS03 | Backend Function project + persistent leaderboard | .NET 8 isolated Functions, C16-12 replay protection (session token + plausibility + rate limit), Storage Tables persistence, hourly cleanup, leaderboard scene in canvas. ≥8 sub-agent fan-out. Depends on CS01, CS02. |
 | 4 | CS04 | Daily challenge + harness pin-bump + whale-shark + v1 polish | First exercise of `harness sync --mode=apply` from a real consumer (task #1, orchestrator-owned). Then 5 daily modifiers, daily-challenge scene, whale-shark, feature-flags + health-check scaffolds wired up. v1 declared shipped at close. ≥7 sub-agent fan-out. Depends on CS01, CS02, CS03. |
