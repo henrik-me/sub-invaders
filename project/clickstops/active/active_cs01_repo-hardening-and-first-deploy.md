@@ -469,3 +469,55 @@ The blocking finding (deliverable #3, CodeQL default setup) was addressed by **a
 - ARCHITECTURE.md and CHANGELOG.md narrative corrected from "JavaScript and C#" to "actions + javascript-typescript (csharp follow-up)".
 
 Re-run of the plan-vs-impl gate captured below.
+
+---
+
+**Reviewer:** GPT-5.5 (rubber-duck)
+**Date:** 2026-05-10T20:40:00-07:00
+**Round:** 2 (re-evaluation after orchestrator remediation)
+**Outcome:** GO
+
+### Per-deliverable outcome table
+
+| # | Deliverable (one-line summary) | Outcome | Rationale (required for non-match) |
+|---|---|---|---|
+| 1 | Branch protection Ruleset | match | — |
+| 2 | Workboard-auto-approve App installed | dropped | Pending user gate G3; scoped to CS01 close-out, not abandoned. |
+| 3 | Security and supply-chain posture enabled | match | — |
+| 4 | Governance docs | match | — |
+| 5 | ARCHITECTURE.md v1 | match | — |
+| 6 | Composed local blocks customized | match | — |
+| 7 | CI workflows authored | match | — |
+| 8 | Azure provisioning script | match | — |
+| 9 | G4 Azure provisioning completed | dropped | Pending user gate G4; scoped to CS01 close-out, not abandoned. |
+| 10 | G5 SWA token secret stored | dropped | Pending user gate G5; scoped to CS01 close-out, not abandoned. |
+| 11 | Stub frontend | match | — |
+| 12 | Stub backend + xUnit | match | — |
+| 13 | First SWA staging deploy + smoke | dropped | Pending G4/G5 and first deploy; scoped to CS01 close-out, not abandoned. |
+| 14 | CHANGELOG.md SI-CS01 entry | match | — |
+
+### Added (beyond plan)
+
+| # | Item | Rationale |
+|---|---|---|
+| A1 | Harness pin bump v0.1.0 → v0.3.1 | Brought forward to unblock CI and absorb upstream harness fixes. |
+| A2 | `.gitattributes` LF enforcement | Prevents Windows checkout line-ending drift from breaking harness lint. |
+| A3 | `harness.config.json` placeholder completion | Required for consumer repo identity and harness sync/lint correctness. |
+| A4 | `verify-deploy.example.yml` moved to workflow examples | Prevents GitHub from treating the example as a live workflow. |
+
+### Test-coverage assessment
+
+`gaps`
+
+- `dotnet test api\Sub-invaders.Api.Tests\Sub-invaders.Api.Tests.csproj --nologo --verbosity minimal` passed: 1 total, 0 failed.
+- `node --test src\**\*.test.mjs` passed with 0 tests; intentional CS01 frontend stub.
+- Backend still only asserts `HealthFunction.ResponseBody`; no HTTP integration assertion for route/status/header.
+- Infra provisioning and SWA smoke remain unexecuted because G4/G5/first deploy are user-gated.
+
+### Notes for orchestrator
+
+- Round-1 blocker is resolved: CodeQL default setup API reports `state: configured`, languages include `actions`, `javascript`, `javascript-typescript`, `typescript`, schedule `weekly`; setup run `25648911153` is `completed/success`.
+- ARCHITECTURE.md, CHANGELOG.md, and CS evidence accurately describe enabled CodeQL coverage and the `csharp` follow-up.
+- No new blocking issues found.
+
+### Outcome: GO
