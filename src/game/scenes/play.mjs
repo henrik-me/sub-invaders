@@ -230,6 +230,14 @@ function formationInvaders(formation) {
     return formation.entities;
   }
 
+  if (Array.isArray(formation?.enemies)) {
+    return formation.enemies;
+  }
+
+  if (typeof formation?.enemies === 'function') {
+    return formation.enemies();
+  }
+
   return [];
 }
 

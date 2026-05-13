@@ -207,3 +207,41 @@ test('game-over scene stores scores, renders them, and handles prompts', () => {
   assert.equal(restarts, 1);
   assert.equal(menus, 1);
 });
+
+test('play scene wired with REAL formation: torpedo kills the targeted invader', async () => {
+  const { createPlayer } = await import('./player.mjs');
+  const { createFormation } = await import('./invaders.mjs');
+
+  const formation = createFormation();
+  const target = formation.enemies[0];
+  const torpedo = {
+    x: target.x + (target.w / 2) - 2,
+    y: target.y + target.h - 1,
+    w: 4,
+    h: 10,
+    alive: true,
+    update() {},
+  };
+  const fakePlayer = {
+    x: 384, y: 540, w: 32, h: 16, lives: 3, alive: true,
+    update() {},
+    tryFire() { return torpedo; },
+    isDead() { return this.lives <= 0; },
+  };
+
+  const scene = createPlayScene({
+    createPlayer: () => fakePlayer,
+    createFormation: () => formation,
+    createRng: () => ({ next: () => 0.5, range: () => 0, int: () => 0 }),
+    loadSprites: () => ({ submarine: {}, torpedo: {}, enemyShot: {}, lifeIcon: {} }),
+    getHighScore: () => 0,
+    setHighScore: () => {},
+    onGameOver: () => {},
+  });
+
+  scene.enter();
+  scene.update(0, inputWith('Space'));
+
+  assert.equal(target.alive, false, 'invader should be dead after torpedo overlap');
+  assert.equal(scene.state().score, target.points, 'score should equal the killed invader points');
+});
