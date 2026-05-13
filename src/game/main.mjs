@@ -124,7 +124,6 @@ export async function bootstrap(opts = {}) {
     return createFormationFn({
       ...options,
       ...(currentFormationSpeed === undefined ? {} : { baseSpeed: currentFormationSpeed }),
-      wave: currentStartWave,
     });
   }
 

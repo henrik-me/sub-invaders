@@ -115,6 +115,51 @@ test('play enter initialises score, wave, and lives', () => {
   assert.equal(scene.state().lives, 2);
 });
 
+test('play enter applies configured start wave', () => {
+  let resetWave = 0;
+  const scene = createPlayScene({
+    startWave: 3,
+    createPlayer: () => ({
+      x: 384,
+      y: 540,
+      w: 32,
+      h: 16,
+      lives: 3,
+      alive: true,
+      update() {},
+      tryFire() {
+        return null;
+      },
+      isDead() {
+        return this.lives <= 0;
+      },
+    }),
+    createFormation: () => ({
+      invaders: [{ alive: true, x: 0, y: 0, w: 8, h: 8 }],
+      resetForWave(nextWave) {
+        resetWave = nextWave;
+      },
+      update() {},
+      aliveCount() {
+        return this.invaders.filter((invader) => invader.alive !== false).length;
+      },
+      lowestY() {
+        return 120;
+      },
+    }),
+    createRng: () => ({ next: () => 0.5, range: () => 0, int: () => 0 }),
+    loadSprites: () => ({ submarine: {}, torpedo: {}, enemyShot: {}, lifeIcon: {} }),
+    getHighScore: () => 0,
+    setHighScore: () => {},
+    onGameOver: () => {},
+  });
+
+  scene.enter();
+
+  assert.equal(scene.state().wave, 3);
+  assert.equal(resetWave, 3);
+});
+
 test('play update scores when a torpedo collides with an invader', () => {
   const torpedo = { x: 10, y: 10, w: 4, h: 10, alive: true };
   const invaders = [

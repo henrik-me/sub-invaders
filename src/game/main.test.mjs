@@ -248,12 +248,12 @@ test('bootstrap threads query params into play scene setup', async () => {
 
   await harness.run();
   harness.records.menuOptions.onStart();
-  harness.records.playOptions.createFormation({ wave: 1, marker: true });
+  harness.records.playOptions.createFormation({ marker: true });
 
   assert.equal(harness.records.playOptions.seed, 42);
   assert.equal(harness.records.playOptions.startWave, 3);
   assert.equal(harness.records.playOptions.formationSpeed, 0);
-  assert.deepEqual(harness.records.formationOptions, { wave: 3, marker: true, baseSpeed: 0 });
+  assert.deepEqual(harness.records.formationOptions, { marker: true, baseSpeed: 0 });
 });
 
 test('installTestHooks is a no-op without ?test=1', () => {

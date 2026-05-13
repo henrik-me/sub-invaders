@@ -4,6 +4,10 @@ const browserProjects = (process.env.PLAYWRIGHT_BROWSERS ?? 'chromium')
   .split(',')
   .map((browser) => browser.trim())
   .filter(Boolean);
+const baseURL = process.env.BASE_URL ?? 'http://localhost:4173';
+const useWebServer = process.env.USE_WEB_SERVER === undefined
+  ? /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(baseURL)
+  : process.env.USE_WEB_SERVER === '1';
 
 const deviceByProject = {
   chromium: devices['Desktop Chrome'],
@@ -13,14 +17,16 @@ const deviceByProject = {
 
 export default defineConfig({
   testDir: './tests/e2e',
-  webServer: {
-    command: 'npm run serve',
-    url: 'http://localhost:4173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 30_000,
-  },
+  webServer: useWebServer
+    ? {
+      command: 'npm run serve',
+      url: 'http://localhost:4173',
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    }
+    : undefined,
   use: {
-    baseURL: process.env.BASE_URL ?? 'http://localhost:4173',
+    baseURL,
     trace: 'retain-on-failure',
   },
   projects: browserProjects.map((name) => ({

@@ -16,6 +16,10 @@ import { createHud } from '../hud.mjs';
 const noop = () => {};
 const isThenable = (value) => value && typeof value.then === 'function';
 const asScore = (value) => Math.max(0, Math.floor(Number(value) || 0));
+const asStartWave = (value) => {
+  const wave = Number(value);
+  return Number.isFinite(wave) && wave >= 1 ? Math.floor(wave) : 1;
+};
 const isAlive = (entity) => entity?.alive !== false;
 
 let defaultPlayerFactoryPromise;
@@ -303,6 +307,7 @@ export function createPlayScene(opts = {}) {
   const setHighScore = opts.setHighScore ?? noop;
   const onGameOver = opts.onGameOver ?? noop;
   const loadSprites = opts.loadSprites ?? (() => ({}));
+  const startWave = asStartWave(opts.startWave);
   const hud = createHud(opts.hud ?? {});
 
   let player;
@@ -364,7 +369,7 @@ export function createPlayScene(opts = {}) {
     enemyShots = [];
     score = 0;
     high = asScore(getHighScore());
-    wave = 1;
+    wave = startWave;
     ready = false;
     paused = false;
     gameOver = false;
@@ -401,6 +406,12 @@ export function createPlayScene(opts = {}) {
     createFormationFactory = formationFactory;
     player = playerFactory(playerOptions());
     formation = formationFactory(formationOptions());
+    if (wave > 1) {
+      const resetResult = callMaybe(formation?.resetForWave, formation, [wave, formationOptions()]);
+      if (resetResult) {
+        formation = resetResult;
+      }
+    }
     sprites = loadedSprites ?? {};
     ready = true;
     updateHud();

@@ -71,7 +71,19 @@ jobs:
             --description "Nightly Playwright E2E failure" \
             --color d73a4a \
             --force || true
-          gh issue create --repo "$REPO" \
-            --title "Nightly E2E failed: ${GITHUB_RUN_ID}" \
-            --body "The nightly Playwright E2E workflow failed. Run: ${RUN_URL}" \
-            --label e2e-nightly-fail
+          issue_number=$(gh issue list --repo "$REPO" \
+            --state open \
+            --label e2e-nightly-fail \
+            --search "in:title Nightly E2E failed" \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [ -n "${issue_number}" ]; then
+            gh issue comment "${issue_number}" --repo "$REPO" \
+              --body "Nightly Playwright E2E failed again. Run: ${RUN_URL}"
+          else
+            gh issue create --repo "$REPO" \
+              --title "Nightly E2E failed" \
+              --body "The nightly Playwright E2E workflow failed. Run: ${RUN_URL}" \
+              --label e2e-nightly-fail
+          fi
