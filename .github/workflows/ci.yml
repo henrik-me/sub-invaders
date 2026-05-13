@@ -143,5 +143,12 @@ jobs:
     name: ci
     runs-on: ubuntu-latest
     needs: [harness-lint, harness-sync-check, js-tests, dotnet-tests, coverage]
+    if: ${{ always() }}
     steps:
-      - run: echo "All required CI jobs passed."
+      - name: Verify all required jobs succeeded
+        run: |
+          results='${{ toJSON(needs) }}'
+          echo "needs results: $results"
+          echo "$results" | jq -e 'all(.[]; .result == "success")' \
+            || { echo "::error::One or more required jobs did not succeed (skipped or failed)."; exit 1; }
+          echo "All required CI jobs passed."
