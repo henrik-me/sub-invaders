@@ -3,80 +3,72 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sub Invaders — coming soon</title>
+  <title>Sub Invaders</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    html,
     body {
-      background: #050d1a;
-      color: #c8dff5;
-      font-family: system-ui, sans-serif;
-      min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
+      margin: 0;
+      min-height: 100%;
+      overflow: hidden;
     }
-    header {
-      padding: 1.5rem 2rem;
-      border-bottom: 1px solid #1a3050;
-    }
-    header span { font-size: 0.85rem; letter-spacing: 0.08em; color: #4a7ca8; text-transform: uppercase; }
-    main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
+
+    body {
       align-items: center;
+      background: #061525;
+      color: #dffcff;
+      display: flex;
+      flex-direction: column;
+      font-family: system-ui, sans-serif;
       justify-content: center;
-      padding: 2rem;
-      text-align: center;
-      gap: 1.25rem;
+      min-height: 100dvh;
     }
-    h1 {
-      font-size: clamp(2rem, 6vw, 3.5rem);
-      color: #7ecffa;
-      letter-spacing: -0.02em;
+
+    main {
+      align-items: center;
+      display: flex;
+      flex: 1;
+      justify-content: center;
+      padding: 1rem;
+      width: 100%;
     }
-    p { max-width: 48ch; line-height: 1.65; }
-    .badge {
-      display: inline-block;
-      background: #0d2540;
-      border: 1px solid #1a3e60;
-      border-radius: 2em;
-      padding: 0.35em 1em;
-      font-size: 0.8rem;
-      color: #5ab0e0;
-      letter-spacing: 0.06em;
+
+    canvas {
+      background: linear-gradient(180deg, #061525 0%, #0b4f63 62%, #12a7a0 100%);
+      border: 2px solid #12a7a0;
+      box-shadow: 0 0 32px rgb(18 167 160 / 35%);
+      display: block;
+      image-rendering: pixelated;
+      max-height: calc(100dvh - 4rem);
+      max-width: min(100%, 800px);
     }
-    a { color: #7ecffa; }
-    a:hover { color: #b8e6ff; }
+
     footer {
-      padding: 1rem 2rem;
-      text-align: center;
+      color: rgb(223 252 255 / 65%);
       font-size: 0.78rem;
-      color: #2a5070;
-      border-top: 1px solid #1a3050;
+      padding: 0.75rem 1rem 1rem;
+      text-align: center;
+    }
+
+    a {
+      color: #dffcff;
     }
   </style>
 </head>
 <body>
-  <header>
-    <span>henrik-me / sub-invaders</span>
-  </header>
-  <main>
-    <h1>Sub Invaders</h1>
-    <p class="badge">Coming soon — engine + gameplay land in CS02</p>
-    <p>
-      A browser-based submarine shoot-'em-up built with a canvas game engine,
-      a .NET 8 Azure Functions backend, and a daily-challenge leaderboard.
-      The repository is currently being hardened and the first Azure staging
-      environment is being provisioned.
-    </p>
-    <p>
-      <a href="https://github.com/henrik-me/sub-invaders" rel="noopener noreferrer">
-        View on GitHub →
-      </a>
-    </p>
+  <main aria-label="Sub Invaders game">
+    <canvas id="game-canvas" width="800" height="600">
+      Sub Invaders requires a browser with HTML5 Canvas support.
+    </canvas>
   </main>
   <footer>
-    Sub Invaders · CS01 stub · no game logic yet
+    Original CC0 sprites: <a href="./public/sprites.licence">sprite licence</a>
   </footer>
+  <script type="module" src="./game/main.mjs"></script>
 </body>
 </html>
