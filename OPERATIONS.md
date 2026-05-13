@@ -1099,6 +1099,8 @@ dotnet test api/ --configuration Release --no-build
 
 - Frontend: open `src/index.html` in a browser, or serve via `npx http-server src` for
   module loading.
+- Browser E2E: future gameplay-affecting CSes must add at least one Playwright spec
+  for the new surface. A new scene must include a Playwright smoke spec for that scene.
 - Backend: `func start --csharp` from `api/` (requires Azure Functions Core Tools v4 +
   .NET 8 SDK).
 

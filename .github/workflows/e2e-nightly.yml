@@ -1,0 +1,91 @@
+name: e2e-nightly
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: e2e-nightly
+  cancel-in-progress: false
+
+jobs:
+  e2e-nightly:
+    name: e2e-nightly-${{ matrix.browser }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    env:
+      BASE_URL: https://happy-coast-04ffcaa1e.7.azurestaticapps.net
+      PLAYWRIGHT_BROWSERS: ${{ matrix.browser }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install npm dependencies
+        run: npm ci
+      - name: Read Playwright version
+        id: playwright-version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -e "const lock=require('./package-lock.json'); console.log(lock.packages['node_modules/@playwright/test'].version)")
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-${{ matrix.browser }}-${{ hashFiles('package-lock.json') }}
+      - name: Install browser
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Run nightly E2E suite
+        run: npm run test:e2e -- --project=${{ matrix.browser }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: playwright-report-nightly-${{ matrix.browser }}
+          path: playwright-report/
+          if-no-files-found: ignore
+
+  open-issue-on-failure:
+    name: open e2e-nightly failure issue
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: e2e-nightly
+    if: failure()
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Open failure issue
+        run: |
+          set -euo pipefail
+          gh label create e2e-nightly-fail --repo "$REPO" \
+            --description "Nightly Playwright E2E failure" \
+            --color d73a4a \
+            --force || true
+          issue_number=$(gh issue list --repo "$REPO" \
+            --state open \
+            --label e2e-nightly-fail \
+            --search 'Nightly E2E failed in:title' \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [ -n "${issue_number}" ]; then
+            gh issue comment "${issue_number}" --repo "$REPO" \
+              --body "Nightly Playwright E2E failed again. Run: ${RUN_URL}"
+          else
+            gh issue create --repo "$REPO" \
+              --title "Nightly E2E failed" \
+              --body "The nightly Playwright E2E workflow failed. Run: ${RUN_URL}" \
+              --label e2e-nightly-fail
+          fi

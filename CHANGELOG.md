@@ -8,6 +8,24 @@ once a tagged release exists.
 
 ## [Unreleased]
 
+### Added (SI-CS07 — 2026-05-13) — End-to-end Playwright tests
+
+- **Playwright E2E suite.** Added the repo's first npm dev-tooling setup
+  (`package.json` + `package-lock.json`, dev dependencies only) with
+  `@playwright/test`, `http-server`, and scripts for headless, headed, UI,
+  and report runs. The runtime frontend remains zero-runtime-dependency.
+- **Browser gameplay coverage.** Added gated `?test=1` browser hooks plus
+  Chromium specs for smoke loading, player movement, torpedo collision,
+  wave advancement, game over, high-score persistence, and an iPhone 14
+  viewport smoke check.
+- **CS02 regression lock.** `tests/e2e/collision.spec.mjs` drives the real
+  browser game against the real formation API and asserts that a torpedo
+  kills an invader and scores points, covering the `formation.enemies`
+  drift fixed in PR #23.
+- **CI coverage.** Added PR/push E2E workflow, advisory deployed-preview
+  workflow-run coverage, and a nightly Chromium/Firefox/WebKit staging run
+  that opens an `e2e-nightly-fail` issue on failure.
+
 ### Added (SI-CS02 — 2026-05-13) — Engine + minimal playable Sub Invaders
 
 - **Engine slice under `src/engine/`** — vanilla ES2022 + Canvas 2D, no
