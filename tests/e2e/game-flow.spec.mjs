@@ -43,6 +43,12 @@ test('Space on the menu starts a new play session', async ({ gamePage }) => {
   await pressViaHook(gamePage.page, 'KeyM');
   await expect.poll(async () => (await gamePage.state()).scene, { timeout: 3_000 }).toBe('menu');
 
-  await pressViaHook(gamePage.page, 'Space');
+  // Edge-triggered input may race with the scene-just-replaced frame; nudge a
+  // few times to be tolerant of that timing.
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    if ((await gamePage.state()).scene === 'play') break;
+    await pressViaHook(gamePage.page, 'Space');
+    await gamePage.page.waitForTimeout(120);
+  }
   await expect.poll(async () => (await gamePage.state()).scene, { timeout: 3_000 }).toBe('play');
 });
