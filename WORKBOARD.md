@@ -16,7 +16,7 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
-| cs02 | CS02 — Engine + game skeleton + minimal playable Sub Invaders | 🟢 Active | yoga-si | cs02/content | 2026-05-13T01:10Z | — |
+| CS02 | CS02 — Engine + game skeleton + minimal playable Sub Invaders | 🟢 Active | yoga-si | cs02/content | 2026-05-13T01:10Z | — |
 
 > **Note:** Filesystem is the source of truth for queued and completed work.
 > See `project/clickstops/planned/` for the queue and `project/clickstops/done/`
