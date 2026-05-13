@@ -1,9 +1,9 @@
 # CS02 — Engine + game skeleton + minimal playable Sub Invaders
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-si
+**Branch:** cs02/content
+**Started:** 2026-05-13T01:10Z
 **Closed:** —
 **Depends on:** CS01 (Repo hardening + first SWA staging deploy)
 
@@ -149,7 +149,21 @@ None expected. CS01 already cleared infrastructure and deployment gates: Azure r
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time) | planned | — | — |
+| Lane 1 — Engine loop + entity (`src/engine/loop.mjs`, `entity.mjs` + tests) | pending | sub-agent | agent-id=cs02-engine-loop-and-entity \| role=engine-author \| report-status=pending \| learnings=0 |
+| Lane 2 — Engine collision + input (`src/engine/collision.mjs`, `input.mjs` + tests) | pending | sub-agent | agent-id=cs02-engine-collision-and-input \| role=engine-author \| report-status=pending \| learnings=0 |
+| Lane 3 — Engine render + sprite + audio (`src/engine/renderer.mjs`, `sprite.mjs`, `audio.mjs` + tests) | pending | sub-agent | agent-id=cs02-engine-render-sprite-audio \| role=engine-author \| report-status=pending \| learnings=0 |
+| Lane 4 — Engine scene + seed + README (`src/engine/scene.mjs`, `seed.mjs`, `README.md` + tests) | pending | sub-agent | agent-id=cs02-engine-scene-seed-readme \| role=engine-author \| report-status=pending \| learnings=0 |
+| Lane 5 — Game player + invaders (`src/game/player.mjs`, `invaders.mjs` + tests) | pending | sub-agent | agent-id=cs02-game-player-and-invaders \| role=game-author \| report-status=pending \| learnings=0 |
+| Lane 6 — Game hud + scenes + constants (`src/game/hud.mjs`, `scenes/*.mjs`, `constants.mjs` + tests) | pending | sub-agent | agent-id=cs02-game-hud-scenes-constants \| role=game-author \| report-status=pending \| learnings=0 |
+| Lane 7 — Bootstrap glue + score (`src/index.html`, `src/game/main.mjs`, `score.mjs`, `api.mjs` + tests) | pending | sub-agent | agent-id=cs02-bootstrap-glue-and-score \| role=bootstrap-author \| report-status=pending \| learnings=0 |
+| Lane 8 — Sprite asset author (`public/sprites.png`, `public/sprites.licence`) | pending | sub-agent | agent-id=cs02-sprite-asset-author \| role=asset-author \| report-status=pending \| learnings=0 |
+| Lane 9 — Engine isolation linter (`scripts/check-engine-isolation.mjs` + test) | pending | sub-agent | agent-id=cs02-engine-isolation-linter \| role=linter-author \| report-status=pending \| learnings=0 |
+| Post-wave verification (git status / line counts / API spot-check) | pending | orchestrator | After all lanes report; before CHANGELOG edit |
+| CHANGELOG.md SI-CS02 entry | pending | orchestrator | Orchestrator-owned to avoid file races |
+| Verify-deploy probe extension (frontend root + `/api/health`) | pending | orchestrator | Per Deliverable 9; runs post-merge |
+| Plan-vs-implementation review (close-out gate) | pending | orchestrator | OPERATIONS § Plan-vs-implementation review (close-out gate); recorded verbatim before close-out |
+| Close-out: docs + restart state | pending | orchestrator | Update WORKBOARD, CONTEXT, managed/composed roots, feature docs |
+| Close-out: learnings + follow-ups | pending | orchestrator | File LRNs and create planned follow-up CSs for unresolved issues |
 
 ## Notes / Learnings
 
