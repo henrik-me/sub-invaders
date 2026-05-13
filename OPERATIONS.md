@@ -1205,7 +1205,7 @@ unit suite covers them. Each override carries a `_reason` field.
 | `src/engine/seed.mjs` | `range()` / reseed unused in production. | 100 / 100 |
 | `src/engine/sprite.mjs` | `createFrame` / `createAnimation` dead in production. | 100 / 100 |
 | `src/game/hud.mjs` | Trivial label-formatting branches. | 100 / 91 |
-| `src/game/invaders.mjs` | `consumeFireCadence` accumulator-with-numerics branches dead due to issue #35. | 91 / 74 |
+| `src/game/invaders.mjs` | `consumeFireCadence` external-clock branches reachable via API but production play scene uses internal `fireAccumulatorMs`. | 91 / 74 |
 | `src/game/player.mjs` | Input-edge-case branches dead in current E2E. | 96 / 79 |
 | `src/game/score.mjs` | Storage-failure paths dead in production. | 97 / 90 |
 | `src/game/scenes/gameover.mjs` | Input-driven branches partly dead. | 100 / 68 |
