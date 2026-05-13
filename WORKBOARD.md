@@ -2,7 +2,7 @@
 
 Live coordination file for multi-agent work. Only orchestrating agents update this file.
 
-> **Last updated:** 2026-05-13T03:30Z
+> **Last updated:** 2026-05-13T04:04Z
 
 ## Orchestrators
 
@@ -16,8 +16,7 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
-
-_No active CS at this moment. CS02 closed 2026-05-13; CS03 is the next planned clickstop._
+| CS07 | E2E browser tests with Playwright | 🟢 Active | yoga-si + cs07-content-agent | cs07/content | 2026-05-13T04:04Z | — |
 
 > **Note:** Filesystem is the source of truth for queued and completed work.
 > See `project/clickstops/planned/` for the queue and `project/clickstops/done/`
