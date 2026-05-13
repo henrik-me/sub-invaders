@@ -274,7 +274,13 @@ No resources exist outside the RG; no manual sweeps required.
 
 CS03 introduces the first persistent application data. CS01 had no persistent data — the
 stub frontend was static HTML and `/api/health` does not touch storage. CS03 turns on
-Azure Storage Tables inside the existing storage account (`AzureWebJobsStorage`).
+Azure Storage Tables inside the storage account `${STORAGE_ACCT_NAME}` (defaults to
+`stsubinvadersee1282`). The connection string is wired to the SWA via the
+**`SUB_INVADERS_STORAGE`** app setting (Program.cs reads `SUB_INVADERS_STORAGE` first
+with fallback to `AzureWebJobsStorage` for local dev). The name `AzureWebJobsStorage`
+**cannot** be used as a user app setting on SWA — the platform reserves it for the
+SWA-internal Functions storage and rejects user values with HTTP 400. `infra/provision.sh`
+Phase 3.5 sets `SUB_INVADERS_STORAGE` idempotently.
 
 | Table | Partition key | Row key | Purpose | Cleanup |
 |---|---|---|---|---|

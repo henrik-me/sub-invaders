@@ -80,6 +80,19 @@ once a tagged release exists.
 
 ### Fixed (SI-CS03)
 
+- **`SUB_INVADERS_STORAGE` app-setting wiring.** SWA managed Functions reserves
+  `AzureWebJobsStorage` for the platform-internal Functions storage and rejects
+  user values with HTTP 400 (`'AzureWebJobsStorage' are not allowed`). The original
+  CS03 code in `Program.cs` read `AzureWebJobsStorage` only, so the deployed
+  Functions talked to SWA-internal storage where our `Sessions` and `Leaderboard`
+  tables don't live → every `/api/score`, `/api/leaderboard`, `/api/session`
+  request returned 500. Fix: `Program.cs` now reads `SUB_INVADERS_STORAGE` first
+  (with `AzureWebJobsStorage` fallback for local dev parity), `infra/provision.sh`
+  Phase 3.5 sets the SWA app setting idempotently from
+  `az storage account show-connection-string`, and OPERATIONS.md / ARCHITECTURE.md
+  describe the constraint and the canonical setup. Local dev is unchanged
+  (`local.settings.json.example` sets both names to `UseDevelopmentStorage=true`).
+  See LRN-021.
 - **Docs corrected.** `OPERATIONS.md` and `ARCHITECTURE.md` now match the implementation:
   - Provision step uses `az storage table create` with stderr-`grep` for `TableAlreadyExists`,
     not the `--if-not-exists` flag (which does not exist on `az storage table create`).

@@ -278,6 +278,45 @@ SWA_HOSTNAME=$(az staticwebapp show \
 SWA_HOSTNAME=${SWA_HOSTNAME//$'\r'/}
 
 # ============================================================
+# Phase 3.5 — SWA app settings for Functions (CS03)
+# SWA managed Functions reserves the 'AzureWebJobsStorage' app setting
+# (the platform manages it for the SWA-internal Functions storage and
+# rejects user-set values with HTTP 400 'AppSetting with name(s)
+# AzureWebJobsStorage are not allowed.'). Our Functions code (Program.cs)
+# therefore reads 'SUB_INVADERS_STORAGE' first so the operator-managed
+# user-data Tables in ${STORAGE_ACCT_NAME} are reachable. We set that
+# app setting here, idempotently. The connection string is computed
+# fresh from the storage-account keys each provision-script run, so a
+# rotated key is automatically propagated to the SWA on the next run.
+# ============================================================
+printf '\n%s\n' "=== Phase 3.5: SWA app settings ==="
+
+STORAGE_CONN=$(az storage account show-connection-string \
+  --resource-group "${RG_NAME}" \
+  --name "${STORAGE_ACCT_NAME}" \
+  --query connectionString -o tsv 2>/dev/null || echo "")
+STORAGE_CONN=${STORAGE_CONN//$'\r'/}
+
+if [[ -z "${STORAGE_CONN}" ]]; then
+  printf '%s\n' "ERROR: Could not retrieve connection string for ${STORAGE_ACCT_NAME}" >&2
+  exit 1
+fi
+
+APPSET_OUT=$(az staticwebapp appsettings set \
+  --name "${SWA_NAME}" \
+  --setting-names "SUB_INVADERS_STORAGE=${STORAGE_CONN}" \
+  --output json 2>&1) && APPSET_STATUS=0 || APPSET_STATUS=$?
+
+if [[ ${APPSET_STATUS} -eq 0 ]]; then
+  printf '%s\n' "SWA app setting 'SUB_INVADERS_STORAGE': set — OK"
+else
+  printf '%s\n' "ERROR: Failed to set SWA app setting SUB_INVADERS_STORAGE:" >&2
+  printf '%s\n' "${APPSET_OUT}" >&2
+  printf '%s\n' "Tip: Verify the running identity has 'Static Web Apps Contributor' (or higher) on ${SWA_NAME}." >&2
+  exit 1
+fi
+
+# ============================================================
 # Phase 4 — Action Group + Budget (CS01-7)
 # Action group short-name: "siBudget" (8 chars, <= 12 char limit).
 # DECISION: az consumption budget create is used for the budget

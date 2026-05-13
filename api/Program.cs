@@ -25,8 +25,16 @@ var host = Host.CreateDefaultBuilder(args)
 
         services.AddSingleton<ITableClientFactory>(_ =>
         {
-            var connection = Environment.GetEnvironmentVariable("AzureWebJobsStorage")
-                ?? throw new InvalidOperationException("AzureWebJobsStorage app setting is required");
+            // SWA reserves the 'AzureWebJobsStorage' app setting for the
+            // managed Functions internal storage and refuses to let the
+            // operator override it. We therefore read our own
+            // 'SUB_INVADERS_STORAGE' app setting first, falling back to
+            // 'AzureWebJobsStorage' so local dev (where the dev storage
+            // emulator is wired through the Functions runtime variable)
+            // keeps working without two env vars in local.settings.json.
+            var connection = Environment.GetEnvironmentVariable("SUB_INVADERS_STORAGE")
+                ?? Environment.GetEnvironmentVariable("AzureWebJobsStorage")
+                ?? throw new InvalidOperationException("SUB_INVADERS_STORAGE (or AzureWebJobsStorage for local dev) app setting is required");
             return new AzureTableClientFactory(connection);
         });
 

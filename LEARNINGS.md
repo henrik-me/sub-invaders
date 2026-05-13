@@ -716,6 +716,74 @@ scheduler unless a separate Functions app is also in scope.)_
 
 ---
 
+### LRN-021
+
+```yaml
+id: LRN-021
+date: 2026-05-13
+category: architectural
+source_cs: CS03
+status: open
+tags: [azure, swa, functions, app-settings, reserved-names, storage, deploy-gate]
+```
+
+**Problem:** SWA managed Functions reserves a set of app-setting names for
+its own platform configuration and rejects any user attempt to set them
+with HTTP 400 (`InvalidAppSettings`). `AzureWebJobsStorage` is one of
+those reserved names — the SWA platform manages it for the Functions
+runtime's internal storage account (the SWA-internal one, not the
+operator's storage account). CS03 originally followed the standard
+Functions pattern where the user code reads `AzureWebJobsStorage` to
+reach the operator-controlled Storage Tables, but this design **silently
+breaks under SWA**: `/api/health` returns 200 (the DI factory is lazy
+and Health doesn't touch Tables), but the moment any Function tries to
+resolve `ITableClientFactory`, the connection string points at the
+SWA-internal storage account where our `Sessions` and `Leaderboard`
+tables don't exist, and every request returns 500. The failure mode is
+particularly bad because it passes all unit tests, all E2E tests against
+a stubbed `http-server`, and the SWA build-and-deploy step (which
+verifies that triggers are HTTP-only — see LRN-020 — but does not
+exercise the runtime). It only fails when a real probe hits the deployed
+endpoint.
+
+**Finding:** Functions code on SWA must read its storage connection
+string from a **non-reserved** app-setting name (we use
+`SUB_INVADERS_STORAGE`). Three pieces have to line up:
+
+1. `api/Program.cs` reads the custom name first, with a fallback to
+   `AzureWebJobsStorage` so local dev (where the Functions runtime
+   variable is genuinely the dev-storage emulator connection string) is
+   not penalised.
+2. `infra/provision.sh` Phase 3.5 sets the SWA app setting idempotently
+   via `az staticwebapp appsettings set --setting-names
+   "SUB_INVADERS_STORAGE=$(az storage account show-connection-string …
+   -o tsv)"`.
+3. `local.settings.json.example` sets BOTH names to
+   `UseDevelopmentStorage=true` so contributors don't have to know the
+   indirection until they read it.
+
+The full reserved-name list is at
+[learn.microsoft.com `2161641` — managed Functions reserved app
+settings](https://go.microsoft.com/fwlink/?linkid=2161641); the relevant
+operational tell when planning is *"if Azure Functions itself uses the
+setting name, SWA managed Functions probably reserves it"*. The same
+pattern applies to any future user-facing connection string (Service
+Bus, Key Vault references, etc.) — pick a project-prefixed name from
+day one. **Verification:** the only reliable check is to hit the live
+endpoint after deploy. A `verify-deploy` probe that actually calls
+`/api/leaderboard` against the SWA preview slot is the cheapest
+guardrail; CS03's `leaderboard-sequence` check would have caught this
+before merge if it had been wired into a deploy gate (it currently has
+to be invoked manually).
+
+**Disposition:** _(open. Recommend (a) folding a smoke probe of any
+new `/api/*` endpoint into the deploy gate so this class of issue
+fails before merge, and (b) updating any future plans that add
+SWA-managed-Functions app settings to require a project-prefixed name
+in the plan deliverables list, not the Azure-reserved equivalent.)_
+
+---
+
 _(no entries yet)_
 
 ## Obsolete

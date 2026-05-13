@@ -1144,7 +1144,7 @@ tag and skips create operations that already succeeded.
 
 | Var | Purpose | When |
 |---|---|---|
-| `AzureWebJobsStorage` | Storage Tables connection string (Functions worker auto-binds) | CS03+ |
+| `SUB_INVADERS_STORAGE` | Storage Tables connection string for our user-data Tables. Set on the SWA in Phase 3.5 of `infra/provision.sh`. **Cannot use the name `AzureWebJobsStorage`** — SWA reserves it for the platform-managed internal Functions storage and rejects user values with HTTP 400 (`'AzureWebJobsStorage' are not allowed`). Local dev `local.settings.json.example` sets both for parity. | CS03+ |
 | `RATE_LIMIT_PER_MINUTE` | Per-IP rate cap on `/api/session` and `/api/score` (default 30) | CS03+ |
 | `SUB_INVADERS_COMMIT` / `GITHUB_SHA` | Deploy SHA surfaced by `/api/health` | CS03+ |
 | `DAILY_CHALLENGE_SEED` | Pin deterministic daily challenge | CS04+ |
@@ -1153,7 +1153,7 @@ tag and skips create operations that already succeeded.
 
 - `AZURE_STATIC_WEB_APPS_API_TOKEN`: rotate via Azure portal → SWA → Manage deployment
   token; update GitHub secret immediately.
-- `AzureWebJobsStorage`: rotate via Azure portal → Storage account → Access keys; update
+- `SUB_INVADERS_STORAGE`: rotate via Azure portal → Storage account → Access keys; update
   the SWA application settings (the Functions worker re-reads on cold start). Plan a
   rolling key rotation: regenerate key2 first, update settings to key2, then regenerate
   key1.
