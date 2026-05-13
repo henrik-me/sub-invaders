@@ -15,7 +15,7 @@
     "test:e2e:coverage": "playwright test --config=playwright.coverage.config.mjs",
     "test:e2e:report": "playwright show-report",
     "test:unit": "node --test \"src/**/*.test.mjs\"",
-    "test:unit:coverage": "c8 --reporter=text --reporter=text-summary --reporter=json-summary --reporter=lcov --include \"src/**/*.mjs\" --exclude \"src/**/*.test.mjs\" --exclude \"src/game/test-hooks.mjs\" --report-dir=coverage-report-unit node --test \"src/**/*.test.mjs\"",
+    "test:unit:coverage": "c8 --reporter=text --reporter=text-summary --reporter=json-summary --reporter=lcov --include \"src/**/*.mjs\" --exclude \"src/**/*.test.mjs\" --exclude \"src/game/test-hooks.mjs\" --exclude \"src/game/api.mjs\" --report-dir=coverage-report-unit --check-coverage --lines=90 --statements=90 --functions=90 --branches=85 node --test \"src/**/*.test.mjs\"",
     "serve": "http-server src -p 4173 --silent -c-1"
   }
 }

@@ -295,6 +295,8 @@ test('installTestHooks exposes the required methods with ?test=1', () => {
       ready: true,
       paused: false,
       gameOver: false,
+      enemyShots: 0,
+      torpedoes: 0,
     });
   });
 });

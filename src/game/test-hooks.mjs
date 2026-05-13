@@ -95,6 +95,19 @@ function enemySnapshot(enemy, index) {
   };
 }
 
+function projectileSnapshot(projectile, index) {
+  const box = entityBox(projectile);
+
+  return {
+    index,
+    x: box.x,
+    y: box.y,
+    w: box.w,
+    h: box.h,
+    alive: projectile?.alive !== false,
+  };
+}
+
 function playerSnapshot(player, lives = player?.lives ?? 0) {
   const box = entityBox(player);
 
@@ -173,8 +186,12 @@ export function installTestHooks(deps = {}) {
       const state = currentState(deps) ?? {};
       const playScene = sceneName(state) === 'play';
       const gameOver = Boolean(state.gameOver) || sceneName(state) === 'game-over';
-      const high = Number(state.high ?? deps.getHighScore?.() ?? 0) || 0;
+      const liveHigh = Number(deps.getHighScore?.() ?? NaN);
+      const fallbackHigh = Number(state.high ?? 0) || 0;
+      const high = Number.isFinite(liveHigh) ? liveHigh : fallbackHigh;
       const lives = Number(state.lives ?? state.player?.lives ?? 0) || 0;
+      const enemyShotsCount = Array.isArray(state.enemyShots) ? state.enemyShots.length : 0;
+      const torpedoesCount = Array.isArray(state.torpedoes) ? state.torpedoes.length : 0;
 
       return {
         scene: sceneName(state),
@@ -186,12 +203,24 @@ export function installTestHooks(deps = {}) {
         ready: !playScene || state.ready === true,
         paused: Boolean(state.paused),
         gameOver,
+        enemyShots: enemyShotsCount,
+        torpedoes: torpedoesCount,
       };
     },
 
     formation() {
       const state = currentState(deps);
       return getEnemies(state?.formation).map(enemySnapshot);
+    },
+
+    enemyShots() {
+      const state = currentState(deps);
+      return Array.isArray(state?.enemyShots) ? state.enemyShots.map(projectileSnapshot) : [];
+    },
+
+    torpedoes() {
+      const state = currentState(deps);
+      return Array.isArray(state?.torpedoes) ? state.torpedoes.map(projectileSnapshot) : [];
     },
 
     player() {
@@ -229,6 +258,61 @@ export function installTestHooks(deps = {}) {
 
     forceGameOver(score) {
       deps.showGameOver?.(score ?? currentState(deps)?.score ?? 0);
+    },
+
+    forceEnemyFire() {
+      const state = requirePlayState(deps, 'forceEnemyFire');
+      const formation = state.formation;
+
+      if (!formation || !Array.isArray(state.enemyShots)) {
+        return null;
+      }
+
+      const fakeRng = {
+        int: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+        next: () => Math.random(),
+      };
+
+      if (typeof formation.update === 'function') {
+        formation.update(2);
+      }
+
+      const shot = typeof formation.tryFire === 'function'
+        ? formation.tryFire(fakeRng)
+        : null;
+
+      if (shot) {
+        state.enemyShots.push(shot);
+      }
+
+      return shot ? { x: shot.x, y: shot.y, w: shot.w, h: shot.h } : null;
+    },
+
+    loopState() {
+      const loop = deps.loop;
+      if (!loop || typeof loop.isRunning !== 'function') {
+        return { running: false, paused: false };
+      }
+      return {
+        running: Boolean(loop.isRunning()),
+        paused: typeof loop.isPaused === 'function' ? Boolean(loop.isPaused()) : false,
+      };
+    },
+
+    pauseLoop() {
+      deps.loop?.pause?.();
+    },
+
+    resumeLoop() {
+      deps.loop?.resume?.();
+    },
+
+    stopLoop() {
+      deps.loop?.stop?.();
+    },
+
+    startLoop() {
+      deps.loop?.start?.();
     },
   });
 

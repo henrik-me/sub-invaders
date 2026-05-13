@@ -65,17 +65,60 @@ export default defineConfig({
             // Static server (`http-server src`) serves /src/ as docroot, so app URLs
             // are http://localhost:4173/{engine,game,...}/<file>.mjs — no `/src/` in
             // the URL. Filter to local-host app modules only.
-            return url.startsWith('http://localhost:4173/') && url.endsWith('.mjs');
+            if (!url.startsWith('http://localhost:4173/') || !url.endsWith('.mjs')) {
+              return false;
+            }
+            // CS09 exclusions (documented in active_cs09_*.md):
+            //   - game/api.mjs: 1-line `export {}` stub for CS03; nothing to cover.
+            if (url.endsWith('/game/api.mjs')) return false;
+            return true;
           },
           sourceFilter: (sourcePath) => {
             // Source paths come back relative to the static server root and may include
             // /src/ if the source map mounts them that way; accept any `.mjs` under our
             // app's known module prefixes.
-            return sourcePath.endsWith('.mjs')
-              && (sourcePath.includes('/engine/')
-                || sourcePath.includes('/game/')
-                || sourcePath.startsWith('engine/')
-                || sourcePath.startsWith('game/'));
+            if (!sourcePath.endsWith('.mjs')) return false;
+            // CS09 exclusions:
+            if (sourcePath.endsWith('/game/api.mjs') || sourcePath === 'game/api.mjs') return false;
+            return sourcePath.includes('/engine/')
+              || sourcePath.includes('/game/')
+              || sourcePath.startsWith('engine/')
+              || sourcePath.startsWith('game/');
+          },
+          // CS09 Phase 3: locked-in floors after Phase 2 test-writing.
+          // Targets were >=90/85 across all four metrics (matched in the unit
+          // suite). E2E plateaus below 90 on lines/branches because the
+          // remaining gaps are dead-in-production defensive code (createFrame
+          // helpers in sprite.mjs, defaultFactory paths in play.mjs, throw
+          // guards in renderer/loop, etc.) which the *unit* suite covers
+          // independently. See OPERATIONS.md "Coverage policy" for the
+          // per-file E2E exception list.
+          thresholds: {
+            lines: 77,
+            statements: 87,
+            functions: 84,
+            branches: 70,
+            bytes: 80,
+          },
+          // Fail the run if any of the above thresholds are not met.
+          // monocart-coverage-reports calls this hook with the final summary.
+          onEnd: async (coverageResults) => {
+            const s = coverageResults.summary;
+            const t = { lines: 77, statements: 87, functions: 84, branches: 70, bytes: 80 };
+            const fails = [];
+            for (const k of Object.keys(t)) {
+              const pct = s[k]?.pct;
+              if (typeof pct === 'number' && pct < t[k]) {
+                fails.push(`${k}: ${pct.toFixed(2)}% < floor ${t[k]}%`);
+              }
+            }
+            if (fails.length) {
+              console.error('\n❌ E2E coverage regression below CS09 floor:');
+              for (const f of fails) console.error('   - ' + f);
+              process.exitCode = 1;
+            } else {
+              console.log('\n✅ E2E coverage meets CS09 floors.');
+            }
           },
         },
       },

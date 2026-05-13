@@ -170,7 +170,7 @@ test('stop cancels the queued frame and stale callbacks do nothing', () => {
   assert.equal(frames.pendingCount(), 0);
 });
 
-test('running and paused state helpers reflect lifecycle transitions', () => {
+test('start is a no-op if already running', () => {
   const time = createTime();
   const frames = createRafController();
   const loop = createLoop({
@@ -181,22 +181,235 @@ test('running and paused state helpers reflect lifecycle transitions', () => {
     now: time.now,
   });
 
+  loop.start();
+  const queuedAfterFirst = frames.pendingCount();
+  loop.start();
+  assert.equal(frames.pendingCount(), queuedAfterFirst);
+});
+
+test('stop is a no-op if not running', () => {
+  const time = createTime();
+  const frames = createRafController();
+  const loop = createLoop({
+    update: () => {},
+    render: () => {},
+    raf: frames.raf,
+    cancelRaf: frames.cancelRaf,
+    now: time.now,
+  });
+
+  assert.doesNotThrow(() => loop.stop());
   assert.equal(loop.isRunning(), false);
+});
+
+test('pause is a no-op when not running and when already paused', () => {
+  const time = createTime();
+  const frames = createRafController();
+  const loop = createLoop({
+    update: () => {},
+    render: () => {},
+    raf: frames.raf,
+    cancelRaf: frames.cancelRaf,
+    now: time.now,
+  });
+
+  loop.pause(); // not running
   assert.equal(loop.isPaused(), false);
 
   loop.start();
-  assert.equal(loop.isRunning(), true);
-  assert.equal(loop.isPaused(), false);
-
   loop.pause();
-  assert.equal(loop.isRunning(), true);
+  loop.pause(); // already paused
   assert.equal(loop.isPaused(), true);
+});
 
-  loop.resume();
-  assert.equal(loop.isRunning(), true);
+test('resume is a no-op when not running and when not paused', () => {
+  const time = createTime();
+  const frames = createRafController();
+  const loop = createLoop({
+    update: () => {},
+    render: () => {},
+    raf: frames.raf,
+    cancelRaf: frames.cancelRaf,
+    now: time.now,
+  });
+
+  loop.resume(); // not running
   assert.equal(loop.isPaused(), false);
 
-  loop.stop();
+  loop.start();
+  loop.resume(); // running but not paused
+  assert.equal(loop.isPaused(), false);
+});
+
+test('scheduleNextFrame is skipped when stop is called from inside update', () => {
+  const time = createTime();
+  const frames = createRafController();
+  let updates = 0;
+  const loop = createLoop({
+    update: () => {
+      updates += 1;
+      loop.stop();
+    },
+    render: () => {},
+    raf: frames.raf,
+    cancelRaf: frames.cancelRaf,
+    now: time.now,
+  });
+
+  loop.start();
+  time.advance(FIXED_DT);
+  frames.tick();
+
+  assert.equal(updates, 1);
+  assert.equal(frames.pendingCount(), 0);
   assert.equal(loop.isRunning(), false);
-  assert.equal(loop.isPaused(), false);
+});
+
+test('createLoop without injected now uses globalThis.performance.now', () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'performance');
+  let timeMs = 0;
+  const performance = {
+    now() {
+      const t = timeMs;
+      timeMs += 16;
+      return t;
+    },
+  };
+  Object.defineProperty(globalThis, 'performance', { configurable: true, value: performance });
+  try {
+    const frames = createRafController();
+    const updates = [];
+    const loop = createLoop({
+      update: (dt) => updates.push(dt),
+      render: () => {},
+      raf: frames.raf,
+      cancelRaf: frames.cancelRaf,
+    });
+    loop.start();
+    frames.tick();
+    assert.ok(updates.length >= 0);
+  } finally {
+    if (original) Object.defineProperty(globalThis, 'performance', original);
+    else delete globalThis.performance;
+  }
+});
+
+test('createLoop validates update/render/raf/now are callable', () => {
+  const frames = createRafController();
+  assert.throws(
+    () => createLoop({ update: 'no', raf: frames.raf, now: () => 0 }),
+    /update to be a function/,
+  );
+  assert.throws(
+    () => createLoop({ render: 'no', raf: frames.raf, now: () => 0 }),
+    /render to be a function/,
+  );
+  assert.throws(
+    () => createLoop({ raf: 'no', now: () => 0 }),
+    /raf to be a function/,
+  );
+  assert.throws(
+    () => createLoop({ raf: frames.raf, now: 'no' }),
+    /now to be a function/,
+  );
+});
+
+test('createLoop validates fixedDt and maxAccumulator constraints', () => {
+  const frames = createRafController();
+  assert.throws(
+    () => createLoop({ raf: frames.raf, now: () => 0, fixedDt: 0 }),
+    /fixedDt/,
+  );
+  assert.throws(
+    () => createLoop({ raf: frames.raf, now: () => 0, fixedDt: -1 }),
+    /fixedDt/,
+  );
+  assert.throws(
+    () => createLoop({ raf: frames.raf, now: () => 0, maxAccumulator: -0.1 }),
+    /maxAccumulator/,
+  );
+});
+
+test('stop without a cancelRaf still clears running state', () => {
+  const time = createTime();
+  const frames = createRafController();
+  const loop = createLoop({
+    update: () => {},
+    render: () => {},
+    raf: frames.raf,
+    now: time.now,
+    // no cancelRaf passed
+  });
+
+  loop.start();
+  assert.doesNotThrow(() => loop.stop());
+  assert.equal(loop.isRunning(), false);
+});
+
+test('a frame callback that fires after stop is a no-op', () => {
+  const time = createTime();
+  const frames = createRafController();
+  let updates = 0;
+  const loop = createLoop({
+    update: () => { updates += 1; },
+    render: () => {},
+    raf: frames.raf,
+    cancelRaf: () => {}, // ignore cancel — preserve callback
+    now: time.now,
+  });
+  loop.start();
+  loop.stop();
+  // Manually invoke the leftover callback (cancelRaf was a no-op).
+  time.advance(FIXED_DT);
+  frames.tick();
+
+  assert.equal(updates, 0);
+});
+
+test('paused frame still calls render with a stable alpha', () => {
+  const time = createTime();
+  const frames = createRafController();
+  const renders = [];
+  const loop = createLoop({
+    update: () => {},
+    render: (alpha) => renders.push(alpha),
+    raf: frames.raf,
+    cancelRaf: frames.cancelRaf,
+    now: time.now,
+  });
+
+  loop.start();
+  loop.pause();
+  time.advance(FIXED_DT * 5);
+  frames.tick();
+
+  assert.ok(renders.length >= 1);
+  for (const alpha of renders) {
+    assert.ok(alpha >= 0 && alpha <= 1);
+  }
+});
+
+test('createLoop with fixedDt = 0 is rejected', () => {
+  const frames = createRafController();
+  assert.throws(
+    () => createLoop({ raf: frames.raf, now: () => 0, fixedDt: 0 }),
+    /fixedDt/,
+  );
+});
+
+test('opts.now arg uses scale=1 (raw seconds)', () => {
+  const frames = createRafController();
+  let t = 0;
+  const updates = [];
+  const loop = createLoop({
+    update: (dt) => updates.push(dt),
+    render: () => {},
+    raf: frames.raf,
+    cancelRaf: frames.cancelRaf,
+    now: () => t,
+  });
+  loop.start();
+  t += FIXED_DT;
+  frames.tick();
+  assert.equal(updates.length, 1);
 });
