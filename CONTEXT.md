@@ -1,16 +1,23 @@
 # Project Context
 
-> **Last updated:** 2026-05-11 (post-CS01 maintenance: Dependabot wave + SWA fix)
+> **Last updated:** 2026-05-13 (post-CS02 close-out: engine + minimal playable game)
 
 ## Codebase state
+
+**CS02 complete** (merged 2026-05-13) — engine slice + game skeleton + minimal
+playable Sub Invaders. Content shipped via PR #19 (squash-merged as `263aec0`)
+and a follow-up content PR #20 (squash-merged as `49d12a1`) that wired the
+`verify-deploy` scaffold per Deliverable 9 and resolved three NEEDS-FIX items
+from the plan-vs-implementation review. `main` HEAD is `49d12a1` and the
+production deploy on commit `263aec0` is healthy and serving the new game host
+(verified via the wired `verify-deploy` probe — frontend-root, health, sprites
+all 200).
 
 **CS01 complete** (merged 2026-05-11) — repo hardening and first SWA staging
 deploy done. **Post-CS01 maintenance** has also landed: full Dependabot wave
 (7 PRs covering actions + nuget bumps), `swa-deploy.yml` skip-on-missing-
 secrets fix, manual Functions Worker v2 alignment to replace an auto-closed
-multi-bump, and stale-staging-env / stale-branch cleanup. `main` HEAD is
-`e6d8089` and the production deploy on that SHA is healthy (smoke
-verified).
+multi-bump, and stale-staging-env / stale-branch cleanup.
 
 Highlights:
 - Branch protection Ruleset `main-protection` (id 16210336) is active on `main`,
@@ -31,7 +38,8 @@ Highlights:
   trailer requirement), `CODE_OF_CONDUCT.md`, PR template, CODEOWNERS,
   bug + feature issue templates.
 - ARCHITECTURE.md v1 published: game design, engine vs. game split, Azure
-  topology, decision log including CS01-1 .. CS01-14.
+  topology, decision log including CS01-1 .. CS01-14. CS02's engine API
+  matches what was documented; no ARCHITECTURE.md edit required by CS02.
 - Three composed local blocks customised: `CONVENTIONS.md`, `OPERATIONS.md`,
   `REVIEWS.md`.
 - CI workflows live: `ci.yml`, `swa-deploy.yml` (with
@@ -43,9 +51,11 @@ Highlights:
   `budget-sub-invaders-monthly` ($5/month cap, alerts 50/80/100%). Subscription
   `Visual Studio Enterprise Subscription`
   (`59fa8de9-d89c-42bc-8b8d-ee7bfab00270`).
-- Production deploy live on commit `e6d8089` at
-  `https://happy-coast-04ffcaa1e.7.azurestaticapps.net/`. Frontend stub
-  renders; `/api/health` returns 200 + `{"status":"ok"}`.
+- Production deploy live on commit `263aec0` at
+  `https://happy-coast-04ffcaa1e.7.azurestaticapps.net/`. Frontend root now
+  serves the playable game host (canvas#game-canvas + ES-module bootstrap),
+  not the CS01 stub. `/api/health` still returns 200 + `{"status":"ok"}`.
+  Sprite sheet served at `/public/sprites.png` (978 bytes).
 - Functions Worker stack at v2 throughout: `Worker 2.1.0` + `Worker.Sdk 2.0.7`
   + `Extensions.Http 3.3.0` + `Extensions.Http.AspNetCore 2.1.0`; test
   toolchain at `Microsoft.NET.Test.Sdk 18.5.1` + `xunit.runner.visualstudio
@@ -53,9 +63,17 @@ Highlights:
   + `actions/setup-dotnet 5.2.0`.
 - Harness pin: `v0.3.1` (bumped from v0.1.0 mid-CS01 to absorb upstream fixes).
 - Test counts: backend `dotnet test api/` 1/1 passing; frontend `node --test`
-  reports 0 tests (intentional CS01 stub — engine + tests land in CS02).
+  on `src/` + `scripts/` reports **134 tests passing** (was 0 at end of CS01;
+  CS02 added 117, CS02 follow-up PR #20 added another 17 — `constants.test.mjs`
+  + `verify-deploy.checks.test.mjs`).
+- Engine isolation: `node scripts/check-engine-isolation.mjs --dir src/engine
+  --quiet` exits 0 over 18 `.mjs` files. Engine remains game-agnostic.
+- `verify-deploy` scaffold wired (CS02 PR #20): `scripts/verify-deploy.checks.mjs`
+  defines frontend-root (HTML body must contain `#game-canvas` + "Sub Invaders"),
+  health (`/api/health` 200 + non-empty body), sprites (`/public/sprites.png`
+  200 + non-empty body). Live probe against `263aec0` passes 3/3.
 
-**CS02 next** — engine + minimal game (planned in `project/clickstops/planned/planned_cs02_engine-and-minimal-game.md`).
+**CS03 next** — backend + leaderboard (planned in `project/clickstops/planned/planned_cs03_backend-and-leaderboard.md`).
 
 ## Constraints
 
@@ -89,8 +107,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md).
 
 The CS plan files live under `project/clickstops/`:
 - `done/done_cs01_repo-hardening-and-first-deploy.md` — completed.
-- `planned/planned_cs02_engine-and-minimal-game.md` — next.
-- `planned/planned_cs03_backend-and-leaderboard.md`
+- `done/done_cs02_engine-and-minimal-game.md` — completed.
+- `planned/planned_cs03_backend-and-leaderboard.md` — next.
 - `planned/planned_cs04_daily-challenge-and-pin-bump.md`
 - `planned/planned_cs05_re-evaluate-persistence.md`
 - `planned/planned_cs06_re-evaluate-cloudflare-full-stack.md`
