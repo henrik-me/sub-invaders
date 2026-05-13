@@ -1,5 +1,12 @@
 import { expect, test } from './_fixtures.mjs';
 
+async function pressViaHook(page, code) {
+  await page.evaluate((c) => {
+    window.__subInvaders.pressKey(c);
+    setTimeout(() => window.__subInvaders.releaseKey(c), 50);
+  }, code);
+}
+
 test('Space on game-over restarts the play scene with a fresh score', async ({ gamePage }) => {
   await gamePage.goto({ seed: 41, formationSpeed: 0 });
   await gamePage.waitForReady();
@@ -8,7 +15,7 @@ test('Space on game-over restarts the play scene with a fresh score', async ({ g
 
   await expect.poll(async () => (await gamePage.state()).scene, { timeout: 3_000 }).toBe('game-over');
 
-  await gamePage.pressKey('Space', 80);
+  await pressViaHook(gamePage.page, 'Space');
   await expect.poll(async () => (await gamePage.state()).scene, { timeout: 3_000 }).toBe('play');
 
   const state = await gamePage.state();
@@ -23,7 +30,7 @@ test('KeyM on game-over returns to the main menu', async ({ gamePage }) => {
 
   await expect.poll(async () => (await gamePage.state()).scene, { timeout: 3_000 }).toBe('game-over');
 
-  await gamePage.pressKey('KeyM', 80);
+  await pressViaHook(gamePage.page, 'KeyM');
   await expect.poll(async () => (await gamePage.state()).scene, { timeout: 3_000 }).toBe('menu');
 });
 
@@ -33,10 +40,9 @@ test('Space on the menu starts a new play session', async ({ gamePage }) => {
   await gamePage.setLives(0);
 
   await expect.poll(async () => (await gamePage.state()).scene, { timeout: 3_000 }).toBe('game-over');
-  await gamePage.pressKey('KeyM', 80);
+  await pressViaHook(gamePage.page, 'KeyM');
   await expect.poll(async () => (await gamePage.state()).scene, { timeout: 3_000 }).toBe('menu');
 
-  // Use the keyboard fallback used by waitForReady — fires a Space keypress.
-  await gamePage.pressKey('Space', 80);
+  await pressViaHook(gamePage.page, 'Space');
   await expect.poll(async () => (await gamePage.state()).scene, { timeout: 3_000 }).toBe('play');
 });
