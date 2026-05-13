@@ -2,3 +2,12 @@ node_modules/
 playwright-report/
 test-results/
 playwright/.cache/
+# E2E V8 coverage output (npm run test:e2e:coverage)
+coverage-report/
+monocart-report/
+assets/monocart-coverage-app.js
+
+coverage-report-unit/
+
+coverage/
+

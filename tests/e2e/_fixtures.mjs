@@ -1,4 +1,7 @@
 import { expect, test as base } from '@playwright/test';
+import { addCoverageReport } from 'monocart-reporter';
+
+const COVERAGE_ENABLED = process.env.PLAYWRIGHT_COVERAGE === '1';
 
 async function requireHook(page) {
   return page.waitForFunction(() => Boolean(window.__subInvaders), undefined, { timeout: 5_000 });
@@ -17,6 +20,31 @@ async function callHook(page, method, ...args) {
 }
 
 export const test = base.extend({
+  // Automatic V8 coverage capture, opt-in via PLAYWRIGHT_COVERAGE=1.
+  // Zero overhead when disabled. Chromium-only (V8 coverage API).
+  // Set up before `gamePage` so coverage starts before the first navigation.
+  autoCoverage: [
+    async ({ page, browserName }, use) => {
+      const enabled = COVERAGE_ENABLED && browserName === 'chromium';
+      if (enabled) {
+        await page.coverage.startJSCoverage({ resetOnNavigation: false });
+      }
+      await use();
+      if (enabled) {
+        const entries = await page.coverage.stopJSCoverage();
+        // Filter to our app sources only (drop chrome-extension://, data:, vendor noise).
+        // Static server (`http-server src`) serves /src/ as docroot, so app URLs are
+        // http://localhost:4173/{engine,game,...}/<file>.mjs — no `/src/` in the URL.
+        const ours = entries.filter((e) => {
+          const u = e.url ?? '';
+          return u.startsWith('http://localhost:4173/') && u.endsWith('.mjs');
+        });
+        await addCoverageReport(ours, test.info());
+      }
+    },
+    { auto: true },
+  ],
+
   gamePage: async ({ page }, use) => {
     const gamePage = {
       page,
