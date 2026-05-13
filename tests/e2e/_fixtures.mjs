@@ -103,6 +103,14 @@ export const test = base.extend({
         return callHook(page, 'formation');
       },
 
+      enemyShots() {
+        return callHook(page, 'enemyShots');
+      },
+
+      torpedoes() {
+        return callHook(page, 'torpedoes');
+      },
+
       player() {
         return callHook(page, 'player');
       },

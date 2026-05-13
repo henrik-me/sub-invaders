@@ -203,6 +203,7 @@ export async function bootstrap(opts = {}) {
     location,
     scenes,
     input,
+    loop,
     getHighScore: readHighScore,
     setHighScore: writeHighScore,
     setSeed,
