@@ -149,17 +149,19 @@ None expected. CS01 already cleared infrastructure and deployment gates: Azure r
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Lane 1 — Engine loop + entity (`src/engine/loop.mjs`, `entity.mjs` + tests) | pending | sub-agent | agent-id=cs02-engine-loop-and-entity \| role=engine-author \| report-status=pending \| learnings=0 |
-| Lane 2 — Engine collision + input (`src/engine/collision.mjs`, `input.mjs` + tests) | pending | sub-agent | agent-id=cs02-engine-collision-and-input \| role=engine-author \| report-status=pending \| learnings=0 |
-| Lane 3 — Engine render + sprite + audio (`src/engine/renderer.mjs`, `sprite.mjs`, `audio.mjs` + tests) | pending | sub-agent | agent-id=cs02-engine-render-sprite-audio \| role=engine-author \| report-status=pending \| learnings=0 |
-| Lane 4 — Engine scene + seed + README (`src/engine/scene.mjs`, `seed.mjs`, `README.md` + tests) | pending | sub-agent | agent-id=cs02-engine-scene-seed-readme \| role=engine-author \| report-status=pending \| learnings=0 |
-| Lane 5 — Game player + invaders (`src/game/player.mjs`, `invaders.mjs` + tests) | pending | sub-agent | agent-id=cs02-game-player-and-invaders \| role=game-author \| report-status=pending \| learnings=0 |
-| Lane 6 — Game hud + scenes + constants (`src/game/hud.mjs`, `scenes/*.mjs`, `constants.mjs` + tests) | pending | sub-agent | agent-id=cs02-game-hud-scenes-constants \| role=game-author \| report-status=pending \| learnings=0 |
-| Lane 7 — Bootstrap glue + score (`src/index.html`, `src/game/main.mjs`, `score.mjs`, `api.mjs` + tests) | pending | sub-agent | agent-id=cs02-bootstrap-glue-and-score \| role=bootstrap-author \| report-status=pending \| learnings=0 |
-| Lane 8 — Sprite asset author (`public/sprites.png`, `public/sprites.licence`) | pending | sub-agent | agent-id=cs02-sprite-asset-author \| role=asset-author \| report-status=pending \| learnings=0 |
-| Lane 9 — Engine isolation linter (`scripts/check-engine-isolation.mjs` + test) | pending | sub-agent | agent-id=cs02-engine-isolation-linter \| role=linter-author \| report-status=pending \| learnings=0 |
-| Post-wave verification (git status / line counts / API spot-check) | pending | orchestrator | After all lanes report; before CHANGELOG edit |
-| CHANGELOG.md SI-CS02 entry | pending | orchestrator | Orchestrator-owned to avoid file races |
+| Lane 1 — Engine loop + entity (`src/engine/loop.mjs`, `entity.mjs` + tests) | complete | sub-agent | agent-id=cs02-engine-loop-and-entity \| role=engine-author \| report-status=complete \| commit=c595431 \| learnings=0 |
+| Lane 2 — Engine collision + input (`src/engine/collision.mjs`, `input.mjs` + tests) | complete | sub-agent | agent-id=cs02-engine-collision-and-input \| role=engine-author \| report-status=complete \| commit=c595431 \| learnings=1 (windows-cr-eol) |
+| Lane 3 — Engine render + sprite + audio (`src/engine/renderer.mjs`, `sprite.mjs`, `audio.mjs` + tests) | complete | sub-agent | agent-id=cs02-engine-render-sprite-audio \| role=engine-author \| report-status=complete \| commit=c595431 \| learnings=0 |
+| Lane 4 — Engine scene + seed + README (`src/engine/scene.mjs`, `seed.mjs`, `README.md` + tests) | complete | sub-agent | agent-id=cs02-engine-scene-seed-readme \| role=engine-author \| report-status=complete \| commit=c595431 \| learnings=0 |
+| Lane 5 — Game player + invaders (`src/game/player.mjs`, `invaders.mjs` + tests) | complete | sub-agent | agent-id=cs02-game-player-and-invaders \| role=game-author \| report-status=complete \| commit=ac47542 \| learnings=0 |
+| Lane 6 — Game hud + scenes + constants (`src/game/hud.mjs`, `scenes/*.mjs`, `constants.mjs` + tests) | complete | sub-agent | agent-id=cs02-game-hud-scenes-constants \| role=game-author \| report-status=complete \| commit=ac47542 \| learnings=1 (input-keycode-allowlist-gap) |
+| Lane 7 — Bootstrap glue + score (`src/index.html`, `src/game/main.mjs`, `score.mjs`, `api.mjs` + tests) | complete | sub-agent | agent-id=cs02-bootstrap-glue-and-score \| role=bootstrap-author \| report-status=complete \| commit=65bac35 \| learnings=1 (preflight-sha-mid-flight-shift) |
+| Lane 8 — Sprite asset author (`src/public/sprites.png`, `src/public/sprites.licence`) | complete | sub-agent | agent-id=cs02-sprite-asset-author \| role=asset-author \| report-status=complete \| commit=c595431 (relocated under src/ in 2df7297) \| learnings=0 |
+| Lane 9 — Engine isolation linter (`scripts/check-engine-isolation.mjs` + test) | complete | sub-agent | agent-id=cs02-engine-isolation-linter \| role=linter-author \| report-status=complete \| commit=c595431 \| learnings=0 |
+| Post-wave verification (git status / line counts / API spot-check) | complete | orchestrator | All 117 tests pass; isolation linter PASS (18 .mjs); BOM/CR clean across all authored files; engine + game cross-imports verified |
+| Engine input adapter follow-up (Escape + KeyM) | complete | orchestrator | Lane 6 escalation surfaced KeyM/Escape filter gap; orchestrator extended `recognizedCodes` and added test (`ac47542`) |
+| `public/` → `src/public/` relocation for SWA upload | complete | orchestrator | CS01 SWA `app_location: "src"` excluded sibling `public/`; orchestrator `git mv` to `src/public/` (`2df7297`) so deploy serves sprites |
+| CHANGELOG.md SI-CS02 entry | complete | orchestrator | Added under `## [Unreleased]` with Added / Fixed / Changed sections |
 | Verify-deploy probe extension (frontend root + `/api/health`) | pending | orchestrator | Per Deliverable 9; runs post-merge |
 | Plan-vs-implementation review (close-out gate) | pending | orchestrator | OPERATIONS § Plan-vs-implementation review (close-out gate); recorded verbatim before close-out |
 | Close-out: docs + restart state | pending | orchestrator | Update WORKBOARD, CONTEXT, managed/composed roots, feature docs |

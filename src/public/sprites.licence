@@ -1,0 +1,24 @@
+Sub Invaders sprite sheet
+
+Author: orchestrator agent yoga-si (sub-agent cs02-sprite-asset-author)
+Date: 2026-05-13
+
+Authoring method: Programmatically generated via Node stdlib zlib and a hand-rolled PNG encoder. No external assets, no third-party libraries, no AI image generation; the RGBA pixel buffer was hand-coded by the sub-agent.
+
+Dedication: CC0 1.0 Universal public domain dedication.
+Link: https://creativecommons.org/publicdomain/zero/1.0/
+
+Frame layout (x,y,w,h):
+submarine: 0,0,32,16
+torpedo: 40,0,4,10
+enemy_shot: 48,0,4,10
+enemy_shot_alt: 56,0,4,10
+life_icon: 64,0,16,8
+jellyfish: 0,16,24,24
+jellyfish_alt: 24,16,24,24
+anglerfish: 48,16,24,24
+anglerfish_alt: 72,16,24,24
+squid: 0,40,32,24
+squid_alt: 32,40,32,24
+
+No copied third-party assets: all pixels are original CC0 pixel art authored for this repository.
