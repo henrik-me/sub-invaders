@@ -564,6 +564,109 @@ support out of the box; track as an upstream feedback item separate from harness
 
 ---
 
+### LRN-018
+
+```yaml
+id: LRN-018
+date: 2026-05-13
+category: tooling
+source_cs: CS09
+status: open
+tags: [github-actions, branch-protection, ruleset, required-checks, skipped, umbrella-job]
+```
+
+**Problem:** CS09 wired a new `coverage` job into `needs:` of an umbrella `ci` job
+(the only required check on the `main` ruleset), and declared "the gate is enforced
+on merge". After CS09 close-out, a sanity check against PR #34's first push (which
+actually failed `coverage`) revealed the umbrella `ci` job had been reported as
+`conclusion: skipped`, NOT `failure`. **GitHub treats `skipped` required status
+checks as passing.** A regression in `coverage` would not have blocked merge for
+non-admins; the gate was a no-op.
+
+**Finding:** Two compounding gotchas:
+
+1. A job with only `needs:` (no `if:` clause) is *skipped* (not failed) when any
+   `needs:` dependency is `failure`. The default `if: success()` short-circuits.
+2. Branch protection / rulesets count `skipped` required checks as
+   passing-by-default. There is no per-context "skipped == failure" toggle.
+
+**Mitigation (PR #37, two layers of defense):**
+
+- Add `coverage` (and any other underlying check) **directly** to the
+  ruleset's `required_status_checks` list. Don't rely on a roll-up.
+- On the umbrella `ci` job, add `if: ${{ always() }}` plus a jq verifier:
+
+  ```yaml
+  ci:
+    needs: [harness-lint, harness-sync-check, js-tests, dotnet-tests, coverage]
+    if: ${{ always() }}
+    steps:
+      - name: Verify all required jobs succeeded
+        run: |
+          results='${{ toJSON(needs) }}'
+          echo "$results" | jq -e 'all(.[]; .result == "success")' \
+            || { echo "::error::A required job did not succeed (skipped or failed)."; exit 1; }
+  ```
+
+**Disposition:** _(open as a project-level CI convention; consider lifting to
+CONVENTIONS.md or harness-level guidance the next time we work on shared CI
+templates. Already tracked at the harness level under enforcement-gap inventory
+issue henrik-me/agent-harness#145.)_
+
+---
+
+### LRN-019
+
+```yaml
+id: LRN-019
+date: 2026-05-13
+category: process
+source_cs: CS09
+status: open
+tags: [coverage, c8, monocart, per-file, gating, single-source-of-truth, negative-test]
+```
+
+**Problem:** CS09 originally enforced only suite-level coverage totals. A new file
+shipped with 0% coverage would only move the suite total down a few tenths of a
+percent and slip silently through the gate. The phrase "ensure new code adheres
+to these limits and is included in the calculations" required a per-file gate,
+not just a suite-level one.
+
+**Finding:** Both c8 and monocart-coverage-reports emit per-file summaries in JSON.
+A small post-process script (`scripts/coverage-perfile.mjs`, ~120 lines) reads
+either format, normalises file keys to repo-relative `src/...` paths, and applies
+per-file thresholds with two layers:
+
+1. **Per-file defaults** — apply automatically to every file under
+   `src/{engine,game}/*.mjs`. New files inherit defaults.
+2. **Per-file overrides** — explicit lower floors for specific files where dead-
+   in-production code can't realistically reach the default. Each override
+   carries a `_reason` string so the deviation is documented in code.
+
+The combination keeps the gate honest without gold-plating: defaults catch
+regressions and undertested new files; overrides require a deliberate, reviewable
+decision for any documented exception. Suite-level totals stay enforced
+*alongside* per-file (defense in depth: a uniform 1% drop across all files
+would pass per-file but trip the suite total).
+
+**Single source of truth:** `coverage-thresholds.json` at repo root holds the
+suite floors, per-file defaults, and per-file overrides for both suites. The
+c8 CLI flags in `package.json` and the monocart `coverage.thresholds` /
+`onEnd` literal in `playwright.coverage.config.mjs` are duplicates that must
+be hand-synced; the OPERATIONS.md "Coverage policy" how-to-ratchet section
+lists all four locations.
+
+**Negative-test discipline:** before declaring any new gate "enforced", run a
+negative test (temporarily raise a threshold past the current value) and
+confirm `rc=1` with the expected list of misses. CS09 originally skipped this
+step and shipped a no-op gate (see LRN-018).
+
+**Disposition:** _(open as a recommended pattern for any future
+threshold-style gate; the per-file-with-overrides shape generalises beyond
+coverage to perf budgets, bundle size, type-check error counts, etc.)_
+
+---
+
 _(no entries yet)_
 
 ## Obsolete
