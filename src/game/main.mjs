@@ -11,10 +11,46 @@ import { createGameOverScene } from './scenes/gameover.mjs';
 import { createMenuScene } from './scenes/menu.mjs';
 import { createPlayScene } from './scenes/play.mjs';
 import { getHighScore, setHighScore } from './score.mjs';
+import { installTestHooks } from './test-hooks.mjs';
 
 function toScore(value) {
   const score = Number(value);
   return Number.isFinite(score) ? Math.max(0, Math.floor(score)) : 0;
+}
+
+function toPositiveInt(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 1 ? Math.floor(number) : fallback;
+}
+
+function toSeed(value, fallback = 1) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.floor(number) : fallback;
+}
+
+function toNonNegativeNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : undefined;
+}
+
+function locationUrl(locationLike) {
+  const href = typeof locationLike === 'string' ? locationLike : locationLike?.href;
+
+  try {
+    return new URL(href ?? 'about:blank', 'http://localhost/');
+  } catch {
+    return new URL('about:blank');
+  }
+}
+
+function readQueryOptions(locationLike) {
+  const params = locationUrl(locationLike).searchParams;
+
+  return {
+    seed: params.has('seed') ? toSeed(params.get('seed')) : undefined,
+    startWave: params.has('startWave') ? toPositiveInt(params.get('startWave'), 1) : undefined,
+    formationSpeed: params.has('formationSpeed') ? toNonNegativeNumber(params.get('formationSpeed')) : undefined,
+  };
 }
 
 function buildSprites(spriteSheet) {
@@ -34,10 +70,13 @@ export async function bootstrap(opts = {}) {
   const {
     canvas = globalThis.document?.getElementById('game-canvas'),
     window: win = globalThis.window,
+    location = globalThis.location,
     spritesUrl = './public/sprites.png',
     loadSprites = ({ url, imageFactory: factory }) => loadSpriteSheet(url, { imageFactory: factory }),
     storage,
-    seed = 1,
+    seed,
+    startWave,
+    formationSpeed,
     createRendererFn = createRenderer,
     createInputFn = createInput,
     createSceneStackFn = createSceneStack,
@@ -50,6 +89,10 @@ export async function bootstrap(opts = {}) {
     createRngFn = createRng,
     imageFactory,
   } = opts;
+  const queryOptions = readQueryOptions(location);
+  let currentSeed = toSeed(seed ?? queryOptions.seed, 1);
+  const currentStartWave = toPositiveInt(startWave ?? queryOptions.startWave, 1);
+  const currentFormationSpeed = toNonNegativeNumber(formationSpeed ?? queryOptions.formationSpeed);
 
   if (!canvas) {
     throw new Error('bootstrap: canvas is required');
@@ -77,16 +120,26 @@ export async function bootstrap(opts = {}) {
     });
   }
 
+  function createConfiguredFormation(options = {}) {
+    return createFormationFn({
+      ...options,
+      ...(currentFormationSpeed === undefined ? {} : { baseSpeed: currentFormationSpeed }),
+      wave: currentStartWave,
+    });
+  }
+
   function createPlay() {
     return createPlaySceneFn({
       createPlayer: createPlayerFn,
-      createFormation: createFormationFn,
+      createFormation: createConfiguredFormation,
       createRng: createRngFn,
       loadSprites: () => sprites,
       getHighScore: readHighScore,
       setHighScore: writeHighScore,
       onGameOver: showGameOver,
-      seed,
+      seed: currentSeed,
+      startWave: currentStartWave,
+      formationSpeed: currentFormationSpeed,
     });
   }
 
@@ -127,6 +180,11 @@ export async function bootstrap(opts = {}) {
     scenes.replace(createGameOver(score, high));
   }
 
+  function setSeed(nextSeed) {
+    currentSeed = toSeed(nextSeed, currentSeed);
+    startPlay();
+  }
+
   scenes.push(createMenu());
 
   const loop = createLoopFn({
@@ -141,7 +199,18 @@ export async function bootstrap(opts = {}) {
   });
   loop.start();
 
-  return { renderer, input, scenes, loop, sprites };
+  const testHooks = installTestHooks({
+    window: win,
+    location,
+    scenes,
+    input,
+    getHighScore: readHighScore,
+    setHighScore: writeHighScore,
+    setSeed,
+    showGameOver,
+  });
+
+  return { renderer, input, scenes, loop, sprites, testHooks };
 }
 
 if (typeof globalThis.document !== 'undefined') {

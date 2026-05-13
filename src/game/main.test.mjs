@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { CANVAS } from './constants.mjs';
 import { bootstrap } from './main.mjs';
+import { installTestHooks } from './test-hooks.mjs';
 
 function createFakeSceneStack() {
   const stack = [];
@@ -60,6 +61,7 @@ function createHarness(overrides = {}) {
   const records = {
     attachedTarget: undefined,
     endFrameCalls: 0,
+    formationOptions: undefined,
     gameOverScenes: [],
     image: { naturalWidth: 80, naturalHeight: 64 },
     loopOptions: undefined,
@@ -70,6 +72,7 @@ function createHarness(overrides = {}) {
   };
   const canvas = { id: 'game-canvas' };
   const win = { name: 'window' };
+  const location = { href: 'http://localhost/' };
   const renderer = { name: 'renderer' };
   const input = {
     attach(target) {
@@ -88,6 +91,7 @@ function createHarness(overrides = {}) {
   const defaults = {
     canvas,
     window: win,
+    location,
     createRendererFn(options) {
       records.rendererOptions = options;
       return renderer;
@@ -131,7 +135,10 @@ function createHarness(overrides = {}) {
       return scene;
     },
     createPlayerFn: () => ({}),
-    createFormationFn: () => ({}),
+    createFormationFn(options) {
+      records.formationOptions = options;
+      return {};
+    },
     createRngFn: () => ({}),
     loadSprites: async () => ({ image: records.image, width: 80, height: 64 }),
   };
@@ -141,6 +148,27 @@ function createHarness(overrides = {}) {
     records,
     run: () => bootstrap(options),
   };
+}
+
+function withGlobals(values, fn) {
+  const previous = new Map();
+
+  for (const [key, value] of Object.entries(values)) {
+    previous.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
+    Object.defineProperty(globalThis, key, { configurable: true, value, writable: true });
+  }
+
+  try {
+    return fn();
+  } finally {
+    for (const [key, descriptor] of previous) {
+      if (descriptor) {
+        Object.defineProperty(globalThis, key, descriptor);
+      } else {
+        delete globalThis[key];
+      }
+    }
+  }
 }
 
 test('bootstrap resolves without a DOM when required fakes are injected', async () => {
@@ -211,4 +239,62 @@ test('bootstrap starts the loop', async () => {
   await harness.run();
 
   assert.equal(harness.records.loopStarted, true);
+});
+
+test('bootstrap threads query params into play scene setup', async () => {
+  const harness = createHarness({
+    location: { href: 'http://localhost/?seed=42&startWave=3&formationSpeed=0' },
+  });
+
+  await harness.run();
+  harness.records.menuOptions.onStart();
+  harness.records.playOptions.createFormation({ wave: 1, marker: true });
+
+  assert.equal(harness.records.playOptions.seed, 42);
+  assert.equal(harness.records.playOptions.startWave, 3);
+  assert.equal(harness.records.playOptions.formationSpeed, 0);
+  assert.deepEqual(harness.records.formationOptions, { wave: 3, marker: true, baseSpeed: 0 });
+});
+
+test('installTestHooks is a no-op without ?test=1', () => {
+  withGlobals({ window: {}, location: { href: 'http://localhost/' } }, () => {
+    const hooks = installTestHooks({ scenes: createFakeSceneStack() });
+
+    assert.equal(hooks, undefined);
+    assert.equal(Object.hasOwn(globalThis.window, '__subInvaders'), false);
+  });
+});
+
+test('installTestHooks exposes the required methods with ?test=1', () => {
+  const playState = {
+    score: 0,
+    high: 7,
+    lives: 3,
+    wave: 1,
+    ready: true,
+    gameOver: false,
+    player: { x: 10, y: 20, w: 32, h: 16, lives: 3, alive: true },
+    formation: { enemies: [{ x: 80, y: 90, w: 24, h: 24, type: 'jellyfish', alive: true }] },
+  };
+  const scenes = { current: () => ({ state: () => playState }) };
+
+  withGlobals({ window: {}, location: { href: 'http://localhost/?test=1' } }, () => {
+    const hooks = installTestHooks({ scenes, getHighScore: () => 7 });
+
+    assert.equal(hooks, globalThis.window.__subInvaders);
+    for (const method of ['state', 'formation', 'player', 'pressKey', 'releaseKey', 'setSeed']) {
+      assert.equal(typeof hooks[method], 'function');
+    }
+    assert.deepEqual(hooks.state(), {
+      scene: 'play',
+      score: 0,
+      high: 7,
+      lives: 3,
+      wave: 1,
+      alive: true,
+      ready: true,
+      paused: false,
+      gameOver: false,
+    });
+  });
 });
