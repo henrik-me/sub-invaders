@@ -1,9 +1,9 @@
 # CS03 — Backend Function project + persistent leaderboard
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-si
+**Branch:** cs03/content
+**Started:** 2026-05-13
 **Closed:** —
 **Depends on:** CS01 (Repo hardening + first SWA staging deploy), CS02 (Engine + game skeleton + minimal playable game)
 
@@ -129,7 +129,24 @@ None expected. CS01 cleared all infrastructure gates, including Azure subscripti
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time) | planned | — | — |
+| D1 — Verify CS01 Function project scaffold (csproj, Program.cs, host.json, local.settings.json.example) | pending | orchestrator | Inspect-then-extend, not replace. |
+| D2 — `HealthFunction.cs` extended with version+commit | pending | sub-agent (cs03-health-extension) | Inject commit via `SUB_INVADERS_COMMIT` or `GITHUB_SHA`; default `unknown`. |
+| D3 — `SessionFunction.cs` (POST /api/session) | pending | sub-agent (cs03-session-and-score-functions) | Mints `{sessionId, nonce, startedAt}`; rate-limited; persists to `Sessions`. |
+| D4 — `ScoreFunction.cs` (POST /api/score) | pending | sub-agent (cs03-session-and-score-functions) | All C16-12 checks: existence, not-consumed, elapsed window, plausible, rate-limit; ≤1 KB body, strict JSON. |
+| D5 — `LeaderboardFunction.cs` (GET /api/leaderboard) | pending | sub-agent (cs03-leaderboard-function) | period=all top 100 desc; period=daily → 501; unknown → 400. |
+| D6 — `SessionsCleanupFunction.cs` (timer hourly) | pending | sub-agent (cs03-cleanup-function) | NCRONTAB `0 0 * * * *`; delete sessions >24h; trim leaderboard to 10k. |
+| D7 — Rate-limit middleware (sliding window, 30/min/IP) | pending | sub-agent (cs03-rate-limit-middleware) | `ConcurrentDictionary<string, Queue<DateTimeOffset>>` + per-key lock. |
+| D8 — xUnit tests ≥15 (`dotnet test api/` exits 0) | pending | sub-agents | Spread across all backend sub-agents per their owned test files. |
+| D9 — Frontend API client `src/game/api.mjs` + tests | pending | sub-agent (cs03-frontend-api-client) | `startSession()`, `submitScore()`, `getLeaderboard()`; fetch only. |
+| D10 — Frontend leaderboard scene (canvas) + tests | pending | sub-agent (cs03-frontend-leaderboard-scene) | Render through engine renderer (no DOM). |
+| D11 — `infra/provision.sh` extended for `Sessions`+`Leaderboard` tables | pending | sub-agent (cs03-provisioning-extension) | Idempotent `az storage table create --if-not-exists`. |
+| D12 — `CHANGELOG.md` SI-CS03 entry | pending | orchestrator | At close-out. |
+| D13 — `verify-deploy` smoke probe extended for full session→score→leaderboard | pending | orchestrator | Against staging. |
+| D14 — `container-validate` against local Function project | pending | orchestrator | `func start` + `/api/health` + smoke. |
+| D15 — `seed` scaffold against staging Leaderboard | pending | orchestrator | Deterministic, small, non-secret. |
+| D16 — `ARCHITECTURE.md` updated with implemented schema | pending | orchestrator | Tables/keys/replay-flow/rate-limit/cleanup/CORS/upgrade-path. |
+| C1 — Close-out: docs/restart-state refreshed (CHANGELOG, ARCHITECTURE, restart-state files) | pending | orchestrator | Per OPERATIONS.md close-out procedure. |
+| C2 — Close-out: learnings + follow-up issues filed; ## Plan-vs-implementation review filled | pending | orchestrator | Per RETROSPECTIVES.md and OPERATIONS.md close-out procedure. |
 
 ## Notes / Learnings
 
