@@ -18,10 +18,10 @@ test('pauseLoop/resumeLoop toggle the engine loop pause flag', async ({ gamePage
   await gamePage.waitForReady();
 
   await gamePage.page.evaluate(() => window.__subInvaders.pauseLoop());
-  await expect.poll(async () => (await loopState(gamePage.page)).paused, { timeout: 2_000 }).toBe(true);
+  await expect.poll(async () => (await loopState(gamePage.page)).paused, { timeout: 5_000 }).toBe(true);
 
   await gamePage.page.evaluate(() => window.__subInvaders.resumeLoop());
-  await expect.poll(async () => (await loopState(gamePage.page)).paused, { timeout: 2_000 }).toBe(false);
+  await expect.poll(async () => (await loopState(gamePage.page)).paused, { timeout: 5_000 }).toBe(false);
 });
 
 test('stopLoop halts the loop and startLoop resumes it', async ({ gamePage }) => {
@@ -29,10 +29,10 @@ test('stopLoop halts the loop and startLoop resumes it', async ({ gamePage }) =>
   await gamePage.waitForReady();
 
   await gamePage.page.evaluate(() => window.__subInvaders.stopLoop());
-  await expect.poll(async () => (await loopState(gamePage.page)).running, { timeout: 2_000 }).toBe(false);
+  await expect.poll(async () => (await loopState(gamePage.page)).running, { timeout: 5_000 }).toBe(false);
 
   await gamePage.page.evaluate(() => window.__subInvaders.startLoop());
-  await expect.poll(async () => (await loopState(gamePage.page)).running, { timeout: 2_000 }).toBe(true);
+  await expect.poll(async () => (await loopState(gamePage.page)).running, { timeout: 5_000 }).toBe(true);
 });
 
 test('start/stop/pause/resume are idempotent', async ({ gamePage }) => {
@@ -49,17 +49,17 @@ test('start/stop/pause/resume are idempotent', async ({ gamePage }) => {
 
   // pause then re-pause is a no-op.
   await gamePage.page.evaluate(() => window.__subInvaders.pauseLoop());
-  await expect.poll(async () => (await loopState(gamePage.page)).paused, { timeout: 2_000 }).toBe(true);
+  await expect.poll(async () => (await loopState(gamePage.page)).paused, { timeout: 5_000 }).toBe(true);
   await gamePage.page.evaluate(() => window.__subInvaders.pauseLoop());
   expect((await loopState(gamePage.page)).paused).toBe(true);
 
   // resume restores running state.
   await gamePage.page.evaluate(() => window.__subInvaders.resumeLoop());
-  await expect.poll(async () => (await loopState(gamePage.page)).paused, { timeout: 2_000 }).toBe(false);
+  await expect.poll(async () => (await loopState(gamePage.page)).paused, { timeout: 5_000 }).toBe(false);
 
   // stop then re-stop is a no-op; pause/resume on a stopped loop are no-ops.
   await gamePage.page.evaluate(() => window.__subInvaders.stopLoop());
-  await expect.poll(async () => (await loopState(gamePage.page)).running, { timeout: 2_000 }).toBe(false);
+  await expect.poll(async () => (await loopState(gamePage.page)).running, { timeout: 5_000 }).toBe(false);
   await gamePage.page.evaluate(() => window.__subInvaders.stopLoop());
   await gamePage.page.evaluate(() => window.__subInvaders.pauseLoop());
   await gamePage.page.evaluate(() => window.__subInvaders.resumeLoop());

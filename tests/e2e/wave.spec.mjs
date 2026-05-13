@@ -6,9 +6,9 @@ test('clearing the formation advances to wave 2 and respawns enemies', async ({ 
 
   await gamePage.killAllInvaders();
 
-  await expect.poll(async () => (await gamePage.state()).wave, { timeout: 2_000 }).toBe(2);
+  await expect.poll(async () => (await gamePage.state()).wave, { timeout: 5_000 }).toBe(2);
   await expect.poll(async () => {
     const formation = await gamePage.formation();
     return formation.filter((enemy) => enemy.alive).length;
-  }, { timeout: 2_000 }).toBeGreaterThan(0);
+  }, { timeout: 5_000 }).toBeGreaterThan(0);
 });

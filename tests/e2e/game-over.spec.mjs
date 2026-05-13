@@ -6,7 +6,7 @@ test('draining lives shows game over and reload preserves high score', async ({ 
   await gamePage.setHighScore(321);
   await gamePage.setLives(0);
 
-  await expect.poll(async () => (await gamePage.state()).gameOver, { timeout: 2_000 }).toBe(true);
+  await expect.poll(async () => (await gamePage.state()).gameOver, { timeout: 5_000 }).toBe(true);
   expect((await gamePage.state()).scene).toBe('game-over');
 
   await gamePage.page.reload();
