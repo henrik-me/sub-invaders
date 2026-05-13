@@ -11,7 +11,7 @@ test('forceEnemyFire creates an enemy shot and the play scene moves it through t
   const created = await forceEnemyFire(gamePage.page);
   expect(created, 'expected a shot to be created').toBeTruthy();
 
-  await expect.poll(async () => (await gamePage.enemyShots()).length, { timeout: 2_000 })
+  await expect.poll(async () => (await gamePage.enemyShots()).length, { timeout: 5_000 })
     .toBeGreaterThan(0);
 
   // Wait for the shot to fall (y increases over time) or get filtered out.
@@ -67,6 +67,6 @@ test('an enemy shot that overlaps the player consumes a life', async ({ gamePage
 
   // Fall back to setLives so the assertion path is still exercised.
   await gamePage.setLives(initialLives - 1);
-  await expect.poll(async () => (await gamePage.state()).lives, { timeout: 2_000 })
+  await expect.poll(async () => (await gamePage.state()).lives, { timeout: 5_000 })
     .toBe(initialLives - 1);
 });

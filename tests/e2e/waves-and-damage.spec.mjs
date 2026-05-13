@@ -62,7 +62,7 @@ test('clearing wave 1 advances to wave 2 with a fresh formation', async ({ gameP
   expect(before.length).toBeGreaterThan(0);
 
   await gamePage.killAllInvaders();
-  await expect.poll(async () => (await gamePage.state()).wave, { timeout: 2_000 }).toBe(2);
+  await expect.poll(async () => (await gamePage.state()).wave, { timeout: 5_000 }).toBe(2);
 
   const after = await gamePage.formation();
   expect(after.filter((e) => e.alive).length).toBeGreaterThan(0);

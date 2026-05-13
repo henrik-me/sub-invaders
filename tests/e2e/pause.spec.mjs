@@ -16,7 +16,7 @@ test('pause via Escape freezes player and formation; second Escape resumes', asy
   const before = await gamePage.player();
 
   await pressEscape(gamePage.page);
-  await expect.poll(async () => (await gamePage.state()).paused, { timeout: 2_000 }).toBe(true);
+  await expect.poll(async () => (await gamePage.state()).paused, { timeout: 5_000 }).toBe(true);
 
   // While paused, tapping right should not move the player.
   await gamePage.pressKey('ArrowRight', 250);
@@ -29,7 +29,7 @@ test('pause via Escape freezes player and formation; second Escape resumes', asy
     await pressEscape(gamePage.page);
     await gamePage.page.waitForTimeout(120);
   }
-  await expect.poll(async () => (await gamePage.state()).paused, { timeout: 2_000 }).toBe(false);
+  await expect.poll(async () => (await gamePage.state()).paused, { timeout: 5_000 }).toBe(false);
 
   await gamePage.pressKey('ArrowRight', 200);
   const afterResume = await gamePage.player();

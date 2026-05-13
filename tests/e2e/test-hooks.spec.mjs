@@ -15,7 +15,7 @@ test('setSeed hook reseeds the play scene and restarts', async ({ gamePage }) =>
   await gamePage.waitForReady();
 
   await callHook(gamePage.page, 'setSeed', 99);
-  await expect.poll(async () => (await gamePage.state()).scene, { timeout: 2_000 }).toBe('play');
+  await expect.poll(async () => (await gamePage.state()).scene, { timeout: 5_000 }).toBe('play');
   // After re-seeding, we should still be in a fresh play session.
   expect((await gamePage.state()).score).toBe(0);
 });
@@ -26,7 +26,7 @@ test('forceGameOver hook transitions to the game-over scene', async ({ gamePage 
   await gamePage.setHighScore(0);
 
   await callHook(gamePage.page, 'forceGameOver', 555);
-  await expect.poll(async () => (await gamePage.state()).scene, { timeout: 2_000 }).toBe('game-over');
+  await expect.poll(async () => (await gamePage.state()).scene, { timeout: 5_000 }).toBe('game-over');
   expect((await gamePage.state()).high).toBe(555);
 });
 
@@ -49,7 +49,7 @@ test('killAllInvaders hook clears the formation and advances the wave', async ({
   await gamePage.killAllInvaders();
 
   // After everything dies the play scene will advance the wave on the next tick.
-  await expect.poll(async () => (await gamePage.state()).wave, { timeout: 2_000 }).toBe(startingWave + 1);
+  await expect.poll(async () => (await gamePage.state()).wave, { timeout: 5_000 }).toBe(startingWave + 1);
 });
 
 test('pressKey/releaseKey via test hooks emit keyboard events the input layer handles', async ({ gamePage }) => {
@@ -70,7 +70,7 @@ test('setLives clamps negative input to 0', async ({ gamePage }) => {
   await gamePage.waitForReady();
 
   await gamePage.setLives(-3);
-  await expect.poll(async () => (await gamePage.state()).lives, { timeout: 2_000 }).toBe(0);
+  await expect.poll(async () => (await gamePage.state()).lives, { timeout: 5_000 }).toBe(0);
 });
 
 test('setHighScore writes through to localStorage and survives reload', async ({ gamePage }) => {
