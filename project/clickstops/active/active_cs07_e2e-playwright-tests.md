@@ -1,9 +1,9 @@
 # CS07 — End-to-end browser tests with Playwright
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-si (orchestrator) + cs07-content-agent (background sub-agent)
+**Branch:** cs07/content
+**Started:** 2026-05-13T04:04Z
 **Closed:** —
 **Depends on:** CS01 (Repo hardening + first SWA staging deploy), CS02 (Engine + game skeleton + minimal playable game)
 
