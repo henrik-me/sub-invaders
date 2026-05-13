@@ -157,11 +157,9 @@ Filled during execution. At minimum, record: chosen Playwright version, browser 
 
 ## Plan-vs-implementation review
 
-**Verdict:** GO (post-PR #28).
-
 **Reviewer:** GPT-5.5 (5 rounds: R1 No-Go [withdrawn as stale-diff false positive] → R2 Go @ `8c2d35a` → R3 Go @ `c4b892f` → R4 Conditional Go @ `c4b892f` → R5 Go @ `ec26adf`).
-
-**Date closed:** 2026-05-13T05:35Z. Squash-merged as `3a86b84` on main.
+**Date:** 2026-05-13
+**Outcome:** GO (post-PR #28; squash-merged as `3a86b84` on main).
 
 ### Plan-vs-implementation deltas
 
