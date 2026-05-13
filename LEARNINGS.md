@@ -667,6 +667,55 @@ coverage to perf budgets, bundle size, type-check error counts, etc.)_
 
 ---
 
+### LRN-020
+
+```yaml
+id: LRN-020
+date: 2026-05-13
+category: architectural
+source_cs: CS03
+status: open
+tags: [azure, swa, functions, timer-trigger, scheduling, deploy-gate]
+```
+
+**Problem:** CS03 originally shipped `SessionsCleanupFunction` as a
+`[TimerTrigger("0 0 * * * *")]` (NCRONTAB hourly cron), per the CS03 plan
+decision CS03-10. All local gates passed (dotnet 42/42, unit, e2e, lint,
+sync) but the SWA `Azure/static-web-apps-deploy@v1` action failed in CI on
+PR #47 with `Error in processing api build artifacts: the file
+'functions.metadata' has specified an invalid trigger of type 'timerTrigger'
+and direction 'In'. Currently, only httpTriggers are supported.` SWA
+**managed Functions** (the in-platform Functions runtime that piggybacks
+on the SWA App Service plan) is HTTP-only — `timerTrigger`, `queueTrigger`,
+`blobTrigger`, etc. are rejected at the build-and-deploy step. The
+generated `functions.metadata` file is the SWA action's input, so this is
+a hard build-time gate, not a runtime soft-fail.
+
+**Finding:** Any Functions code intended to ship under SWA managed
+Functions **must** be `[HttpTrigger]`. For workloads that need a schedule
+(cron cleanup, daily rollover, retention policies), expose the work as an
+admin HTTP endpoint with `AuthorizationLevel.Function` (function-key
+guard) and drive the cadence from outside SWA: Azure Logic App / Azure
+Scheduler / GitHub Actions cron `workflow_dispatch`-able job that POSTs
+with the function key (`x-functions-key` header or `?code=` query). This
+matches Microsoft's own docs and is how `SessionsCleanupFunction` ships
+post-fix as `POST /api/admin/sessions-cleanup`. Excluded from rate-limit
+allow-list so the scheduler is not throttled. **Local validation:** `dotnet
+build -c Release` then grep `bin/Release/net8.0/functions.metadata` for
+`timerTrigger`/`queueTrigger`/`blobTrigger` — if any non-`httpTrigger`
+appears, the SWA build will fail. Alternative if a future CS truly needs
+a non-HTTP trigger: deploy that Function out-of-band as a separate
+Premium / Consumption Functions app (NOT under SWA), which doubles the
+infra surface but unlocks the full trigger set.
+
+**Disposition:** _(open as a structural constraint for all future
+backend work in this repo. Future `clickstop` plans must call out the
+HTTP-only constraint explicitly when planning Functions, and any 'cron /
+periodic' deliverable should default to admin-HTTP-endpoint + external
+scheduler unless a separate Functions app is also in scope.)_
+
+---
+
 _(no entries yet)_
 
 ## Obsolete
