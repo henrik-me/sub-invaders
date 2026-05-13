@@ -1142,8 +1142,26 @@ tag and skips create operations that already succeeded.
 
 JS coverage is measured for both the Playwright E2E suite (Chromium V8 via
 `monocart-reporter`) and the Node `node --test` unit suite (V8 via `c8`).
-Both are wired into the required `ci` umbrella check on every PR, so a
-regression below the configured floor blocks merge.
+Both are wired into the required `coverage` and umbrella `ci` checks on
+every PR (declared in the `main` ruleset), so any regression below the
+configured floor blocks merge.
+
+There are two layers of enforcement:
+
+1. **Suite-level totals** — c8 `--check-coverage` (unit) and the monocart
+   `onEnd` hook (E2E) fail the run when overall coverage drops below the
+   suite floor.
+2. **Per-file floors** — `scripts/coverage-perfile.mjs` runs after each
+   suite (chained in the npm scripts) and fails the run when any single
+   file under `src/{engine,game}/*.mjs` drops below its per-file floor.
+   New files automatically inherit the per-file defaults — they cannot
+   land below threshold without an explicit, documented override.
+
+**Single source of truth:** [`coverage-thresholds.json`](../coverage-thresholds.json)
+holds the suite floors, per-file defaults, and per-file overrides for both
+suites. Keep it in sync with the c8 CLI flags in `test:unit:coverage` and
+the monocart `coverage.thresholds` / `onEnd` literal in
+`playwright.coverage.config.mjs`.
 
 **Suite-level floors (enforced):**
 
@@ -1155,36 +1173,65 @@ regression below the configured floor blocks merge.
 | Branches | ≥ 85% | ≥ 70% |
 | Bytes | — | ≥ 80% |
 
+**Per-file defaults (enforced — new files start here):**
+
+| Metric | Unit | E2E |
+|---|---:|---:|
+| Statements | ≥ 90% | ≥ 85% |
+| Functions | ≥ 85% | ≥ 80% |
+| Lines | ≥ 90% | ≥ 80% |
+| Branches | ≥ 80% | ≥ 70% |
+| Bytes | — | ≥ 80% |
+
 The unit suite hits the canonical CS09 targets (≥90/85/90/90). The E2E
 suite plateaus below 90 on `lines` and `branches` because the remaining
 gaps are dead-in-production defensive code that the **unit** suite covers
 independently. Per-file effective coverage (union of unit + E2E) is well
-above 90% for all production files.
+above 90% for all production files — see overrides for the specific
+breakdown.
 
-**Per-file E2E exception list** (covered by unit suite; not exercised by
-E2E because the code path isn't reached in a real browser session):
+**Per-file overrides (E2E):** these files have a documented lower floor in
+`coverage-thresholds.json` because the gap is dead-in-production code; the
+unit suite covers them. Each override carries a `_reason` field.
 
-| File | E2E % | Unit % | Why exempted |
-|---|---:|---:|---|
-| `engine/audio.mjs` | 0% | 100% | Not loaded by production code path; unit covers via Web Audio mock. |
-| `engine/sprite.mjs` | 34% | 92% | `createFrame`/`createAnimation` helpers dead in production. |
-| `engine/seed.mjs` | 52% | 100% | `range()` / reseed unused in production. |
-| `game/score.mjs` | 46% | 97% | Defensive `try`/`catch` + parse paths. |
-| `game/scenes/play.mjs` | 67% | 95% | `defaultPlayerFactory` / `LOAD ERROR` / async-setup paths dead in production. |
-| `game/invaders.mjs` | 82% | 99% | `consumeFireCadence` accumulator-with-numerics branches dead in production. |
+| File | Why exempted (E2E only) | Unit % (lines/branches) |
+|---|---|---:|
+| `src/engine/audio.mjs` | Not loaded by production code path; Web Audio mock in unit only. | 100 / 100 |
+| `src/engine/collision.mjs` | Polygon helpers dead in production. | 100 / 84 |
+| `src/engine/entity.mjs` | Factory variants dead in production. | 100 / 100 |
+| `src/engine/input.mjs` | Keyboard/touch fallback paths dead in headless E2E. | 99 / 94 |
+| `src/engine/loop.mjs` | rAF backoff branches dead under deterministic E2E clock. | 98 / 95 |
+| `src/engine/renderer.mjs` | Context-loss recovery dead in production. | 92 / 80 |
+| `src/engine/seed.mjs` | `range()` / reseed unused in production. | 100 / 100 |
+| `src/engine/sprite.mjs` | `createFrame` / `createAnimation` dead in production. | 100 / 100 |
+| `src/game/hud.mjs` | Trivial label-formatting branches. | 100 / 91 |
+| `src/game/invaders.mjs` | `consumeFireCadence` accumulator-with-numerics branches dead due to issue #35. | 91 / 74 |
+| `src/game/player.mjs` | Input-edge-case branches dead in current E2E. | 96 / 79 |
+| `src/game/score.mjs` | Storage-failure paths dead in production. | 97 / 90 |
+| `src/game/scenes/gameover.mjs` | Input-driven branches partly dead. | 100 / 68 |
+| `src/game/scenes/menu.mjs` | Input-driven branches partly dead. | 100 / 75 |
+| `src/game/scenes/play.mjs` | `defaultPlayerFactory` / `LOAD ERROR` / async-setup paths dead in production. | 96 / 89 |
 
-**How to add a new exception:** if a new file legitimately can't reach 90%
-E2E because of dead-in-production code, add a row to the table above with
-the unit % to prove it's covered, lower the suite-level E2E floor in
-`playwright.coverage.config.mjs` only as a last resort, and document the
-why in the close-out CS file.
+**Per-file overrides (unit):** a small number of files carry per-file unit
+overrides where small public surfaces or defensive-only branches make 85%
+unrealistic; see `coverage-thresholds.json` for the full list and reasons
+(notably `engine/loop.mjs`, `game/main.mjs`, `game/scenes/{menu,gameover}.mjs`).
 
-**How to update floors after gains:** if a CS pushes a metric well above
-the floor, raise the floor to lock the gain. Edit:
+**How to add a new file:** just write it under `src/{engine,game}/*.mjs`
+and ship tests. The default per-file floors apply automatically.
 
-- `package.json` → `test:unit:coverage` script's `--lines/--statements/--functions/--branches` flags.
-- `playwright.coverage.config.mjs` → `coverage.thresholds` object AND the
-  `t = { ... }` literal inside `onEnd` (both must match).
+**How to add an exception:** if a new file legitimately can't hit the
+defaults, add a per-file override entry to `coverage-thresholds.json`
+under the relevant suite's `overrides` map with a `_reason` describing
+why. Prefer narrowing only the affected metric (e.g. `branches`) rather
+than skipping the file entirely.
+
+**How to ratchet floors up:** if a CS pushes a metric well above the
+floor, raise the floor to lock the gain. Update **all four** in lockstep:
+1. `coverage-thresholds.json` (suite + perFileDefaults)
+2. `package.json` → `test:unit:coverage` `--lines/--statements/--functions/--branches`
+3. `playwright.coverage.config.mjs` → `coverage.thresholds` object
+4. `playwright.coverage.config.mjs` → `onEnd` `t = { ... }` literal
 
 **Where to find the HTML report:**
 
