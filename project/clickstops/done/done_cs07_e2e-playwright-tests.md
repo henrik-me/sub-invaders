@@ -1,10 +1,10 @@
 # CS07 — End-to-end browser tests with Playwright
 
-**Status:** active
-**Owner:** yoga-si (orchestrator) + cs07-content-agent (background sub-agent)
-**Branch:** cs07/content
+**Status:** done
+**Owner:** yoga-si (orchestrator) + cs07-content-agent (background sub-agent) + cs07-fix-round-agent
+**Branch:** cs07/content (merged PR #28 as `3a86b84`) → cs07/close-out
 **Started:** 2026-05-13T04:04Z
-**Closed:** —
+**Closed:** 2026-05-13T05:35Z
 **Depends on:** CS01 (Repo hardening + first SWA staging deploy), CS02 (Engine + game skeleton + minimal playable game)
 
 ## Goal
@@ -157,4 +157,59 @@ Filled during execution. At minimum, record: chosen Playwright version, browser 
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (5 rounds: R1 No-Go [withdrawn as stale-diff false positive] → R2 Go @ `8c2d35a` → R3 Go @ `c4b892f` → R4 Conditional Go @ `c4b892f` → R5 Go @ `ec26adf`).
+**Date:** 2026-05-13
+**Outcome:** GO (post-PR #28; squash-merged as `3a86b84` on main).
+
+### Plan-vs-implementation deltas
+
+| Plan reference | Implementation reality | Resolution |
+|---|---|---|
+| Plan §6 names `src/main.mjs` | Repo's actual entrypoint from CS02 is `src/game/main.mjs` (CS02 placed game module under `src/game/`, not `src/`). | Implementation used `src/game/main.mjs` and adjacent `src/game/main.test.mjs` without changing `src/index.html`. PR body called out the path correction. Plan section above retains the original wording for historical accuracy. |
+| Plan §7 names `src/main.test.mjs` | Adjacent test placed at `src/game/main.test.mjs` for the same reason. | Same as above. |
+| 7 spec files planned | 8 spec files shipped. | Added `tests/e2e/wave-skip.spec.mjs` (R3 fix round) for explicit `?startWave=N>1` regression coverage when GPT-5.5 R1 surfaced a (false-positive) coverage concern. |
+
+### Reviewer findings — disposition
+
+| Round | Finding | Class | Disposition |
+|---|---|---|---|
+| R1 | "`?startWave=N` plumbed but never consumed by play.mjs" | Blocking (DISPUTED) | False positive: agent had already added the fix in `8a5dee4`/`daa128c` before R1 ran. Live verification at HEAD confirmed `?startWave=3` → `state.wave === 3` and `?startWave=5` → `state.wave === 5` (after `gamePage.waitForReady()`). R2 explicitly withdrew the finding. Root cause: neither R1 nor Copilot's first review stated `ANALYZED HEAD: <sha>`, leaving staleness invisible. |
+| Copilot | 4 review threads (2× startWave-not-applied, 1× webServer-always-on, 1× nightly-issue-spam) | All stale-diff | All 4 threads resolved with explanations referencing the cs07/content commits that already had the fixes. |
+| R4 RECOMMENDED-1 | All 4 e2e jobs missing job-level `timeout-minutes` | Recommended | Fixed in commit `ec26adf`: e2e-local 15m / e2e-deployed 15m / e2e-nightly 20m / open-issue-on-failure 5m. Verified clean in R5. |
+| R4 RECOMMENDED-2 | Squash-merge commit must include Copilot trailer | Recommended | Done at merge: squash body of `3a86b84` includes `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>`. Recovers the 4 fix-round commits (`8a5dee4`, `daa128c`, `c294613`, `8c2d35a`) that omitted it at commit level. |
+| R4 NOTE | `e2e.yml` uploads artifacts on `push:main` failures | Note (DISAGREED) | Deliberately kept: post-merge regressions on main benefit from report preservation; main is trusted; no PR-controlled secrets. The R4 audit criterion was over-specified by the orchestrator and is not a documented policy. |
+
+### Process gaps surfaced + filed for harness enforcement
+
+This CS uncovered six distinct doctrine-without-enforcement gaps. All filed in the harness umbrella issue:
+
+- **harness#145** — comprehensive enforcement-gap inventory (supersedes harness#143 + harness#144). Six groups, ~30 gates, six implementation-ready changes (R1-vs-Rn rounds, mandatory SHA pinning in review evidence, `pr-commits-trailer-coverage` lint, standardized reviewer-dispatch template, orchestrator verification pass CI gate, Copilot engagement procedure with new gate A16). Phase-1 self-test specifically references this PR's failures.
+- **harness#140** — required status checks for review evidence (companion).
+- **harness#141** — `harness review <pr>` CLI subcommand (companion; will host the new `--copilot` extension from #145 Change 6).
+- **harness#142** — ban implementer self-review (companion).
+
+### Acceptance-criteria checklist (post-PR #28)
+
+- [x] Bootstrap `package.json` + `.gitignore` + `package-lock.json` shipped; `node --test src/**/*.test.mjs` still discovers all tests post-`npm install` (135 → 138 tests).
+- [x] `playwright.config.mjs` shipped; `webServer` conditionalized on baseURL (localhost only) so deployed/nightly runs don't try to spin up a local server.
+- [x] Test hooks shipped (`src/game/test-hooks.mjs`); `?test=1` gating proven by `src/game/main.test.mjs`.
+- [x] `src/game/main.mjs` parses `?seed`, `?startWave`, `?formationSpeed`; `?startWave=N>1` actually advances scene to wave N (verified by R3 + `tests/e2e/wave-skip.spec.mjs`).
+- [x] E2E fixtures (`tests/e2e/_fixtures.mjs`) ship the `gamePage` fixture with `waitForReady()` discipline.
+- [x] 8 spec files shipped: smoke, collision (CS02 regression contract), wave, wave-skip, game-over, persistence, mobile.
+- [x] CI workflows (`e2e.yml` PR + `e2e-nightly.yml` cron) shipped with SHA-pinned actions, scoped permissions, hardened `workflow_run` checkout (commit `dc58fdf`), nightly issue de-dup, all jobs with `timeout-minutes`.
+- [x] README + OPERATIONS + CHANGELOG updated; OPERATIONS records the "future gameplay-affecting CSes must add a Playwright spec" rule.
+- [x] CS02 collision regression locked: `tests/e2e/collision.spec.mjs` drives the real formation API; reverting `play.mjs::formationInvaders()` to omit `formation.enemies` causes `expect(target).toBeTruthy()` to fail.
+- [ ] `e2e-local` flipped to required check on branch protection — **deferred** until 5 green PR runs accumulate (G-required-check gate).
+- [x] `harness lint` clean (13 pass).
+- [x] `dotnet test api/ --no-build` clean (1 pass).
+
+### Notes / Learnings
+
+- **Stale-diff trap with two reviewers (R1 + Copilot first pass):** both reviewed an older snapshot and reported a false-positive blocker on a fix that had already landed. Will recur until harness#145 Change 2 (mandatory `ANALYZED HEAD: <sha>` in review evidence + `review-evidence-sha-current` PR-side check) ships.
+- **Co-authored-by trailer drift on fix rounds:** orchestrator forgot the trailer on 4 fix-round commits (`8a5dee4`, `daa128c`, `c294613`, `8c2d35a`). Recovered at squash-merge by including the trailer in the body, but the per-commit history is non-compliant. Will recur until harness#145 Change 3 (`pr-commits-trailer-coverage` lint) ships.
+- **Reviewer summary-pass on YAML / package.json / per-test files:** R2 and R3 marked deliverables as "match" without enumerating per-file. R4 with a forced per-file checklist caught the missing `timeout-minutes`. Will recur until harness#145 Change 1 (R1 comprehensive vs Rn delta with forced enumeration) + Change 4 (standardized reviewer-dispatch template) ship.
+- **Local-clean-then-Copilot ordering violated:** R3 + Copilot were dispatched in parallel instead of strictly serial. Wasted Copilot reviewer cycles on a state about to change. Will recur until harness#145 gate A5 (timestamp-ordering check) ships.
+- **No documented procedure for engaging Copilot:** three different mechanisms tried; only one (PR comment with `@copilot review`) ever produced a review and only on the first call. Re-trigger at HEAD `ec26adf` was silent for 10+ minutes. Will recur until harness#145 Change 6 (Copilot engagement procedure + GraphQL `requestReviews` mutation + `harness review --copilot` subcommand) ships.
+- **Test-hook default value trap:** `src/game/test-hooks.mjs:184` returns `wave: Math.max(1, Math.floor(Number(state.wave) || 1))` — when title scene is current, `state.wave` is undefined, so the hook defaults to `1`. Tests that call `state()` before `waitForReady()` see `wave: 1` regardless of `?startWave=N`. Both R1 and Copilot's first pass were tripped by this. Documented in `tests/e2e/wave-skip.spec.mjs` and `_fixtures.mjs::waitForReady()`.
+
+> _Original placeholder: filled at close-out per the gate._
