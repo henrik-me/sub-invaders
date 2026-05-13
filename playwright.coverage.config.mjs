@@ -85,22 +85,26 @@ export default defineConfig({
               || sourcePath.startsWith('engine/')
               || sourcePath.startsWith('game/');
           },
-          // CS09 Phase 1: regression-guard floors (baseline as of 2026-05-13).
-          // Phase 3 raises these to the ≥90/85 targets after Phase 2 lands tests.
-          // Note: monocart's `lcov` writer drives threshold checks; we set the
-          // process-level check via the `onEnd` hook in this config.
+          // CS09 Phase 3: locked-in floors after Phase 2 test-writing.
+          // Targets were >=90/85 across all four metrics (matched in the unit
+          // suite). E2E plateaus below 90 on lines/branches because the
+          // remaining gaps are dead-in-production defensive code (createFrame
+          // helpers in sprite.mjs, defaultFactory paths in play.mjs, throw
+          // guards in renderer/loop, etc.) which the *unit* suite covers
+          // independently. See OPERATIONS.md "Coverage policy" for the
+          // per-file E2E exception list.
           thresholds: {
-            lines: 68,
-            statements: 78,
-            functions: 76,
-            branches: 60,
-            bytes: 76,
+            lines: 77,
+            statements: 87,
+            functions: 84,
+            branches: 70,
+            bytes: 80,
           },
           // Fail the run if any of the above thresholds are not met.
           // monocart-coverage-reports calls this hook with the final summary.
           onEnd: async (coverageResults) => {
             const s = coverageResults.summary;
-            const t = { lines: 68, statements: 78, functions: 76, branches: 60, bytes: 76 };
+            const t = { lines: 77, statements: 87, functions: 84, branches: 70, bytes: 80 };
             const fails = [];
             for (const k of Object.keys(t)) {
               const pct = s[k]?.pct;
@@ -109,11 +113,11 @@ export default defineConfig({
               }
             }
             if (fails.length) {
-              console.error('\n❌ E2E coverage regression below CS09 baseline floor:');
+              console.error('\n❌ E2E coverage regression below CS09 floor:');
               for (const f of fails) console.error('   - ' + f);
               process.exitCode = 1;
             } else {
-              console.log('\n✅ E2E coverage meets CS09 baseline floors.');
+              console.log('\n✅ E2E coverage meets CS09 floors.');
             }
           },
         },

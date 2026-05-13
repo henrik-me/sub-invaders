@@ -1138,4 +1138,61 @@ tag and skips create operations that already succeeded.
   update SWA configuration; rolling update.
 - Never log secrets in workflows; never copy into the active CS file.
 
+### Coverage policy (CS09)
+
+JS coverage is measured for both the Playwright E2E suite (Chromium V8 via
+`monocart-reporter`) and the Node `node --test` unit suite (V8 via `c8`).
+Both are wired into the required `ci` umbrella check on every PR, so a
+regression below the configured floor blocks merge.
+
+**Suite-level floors (enforced):**
+
+| Metric | Unit (c8) | E2E (monocart) |
+|---|---:|---:|
+| Statements | ≥ 90% | ≥ 87% |
+| Functions | ≥ 90% | ≥ 84% |
+| Lines | ≥ 90% | ≥ 77% |
+| Branches | ≥ 85% | ≥ 70% |
+| Bytes | — | ≥ 80% |
+
+The unit suite hits the canonical CS09 targets (≥90/85/90/90). The E2E
+suite plateaus below 90 on `lines` and `branches` because the remaining
+gaps are dead-in-production defensive code that the **unit** suite covers
+independently. Per-file effective coverage (union of unit + E2E) is well
+above 90% for all production files.
+
+**Per-file E2E exception list** (covered by unit suite; not exercised by
+E2E because the code path isn't reached in a real browser session):
+
+| File | E2E % | Unit % | Why exempted |
+|---|---:|---:|---|
+| `engine/audio.mjs` | 0% | 100% | Not loaded by production code path; unit covers via Web Audio mock. |
+| `engine/sprite.mjs` | 34% | 92% | `createFrame`/`createAnimation` helpers dead in production. |
+| `engine/seed.mjs` | 52% | 100% | `range()` / reseed unused in production. |
+| `game/score.mjs` | 46% | 97% | Defensive `try`/`catch` + parse paths. |
+| `game/scenes/play.mjs` | 67% | 95% | `defaultPlayerFactory` / `LOAD ERROR` / async-setup paths dead in production. |
+| `game/invaders.mjs` | 82% | 99% | `consumeFireCadence` accumulator-with-numerics branches dead in production. |
+
+**How to add a new exception:** if a new file legitimately can't reach 90%
+E2E because of dead-in-production code, add a row to the table above with
+the unit % to prove it's covered, lower the suite-level E2E floor in
+`playwright.coverage.config.mjs` only as a last resort, and document the
+why in the close-out CS file.
+
+**How to update floors after gains:** if a CS pushes a metric well above
+the floor, raise the floor to lock the gain. Edit:
+
+- `package.json` → `test:unit:coverage` script's `--lines/--statements/--functions/--branches` flags.
+- `playwright.coverage.config.mjs` → `coverage.thresholds` object AND the
+  `t = { ... }` literal inside `onEnd` (both must match).
+
+**Where to find the HTML report:**
+
+- Locally: `npm run test:e2e:coverage` writes `coverage-report/index.html`;
+  `npm run test:unit:coverage` writes `coverage-report-unit/lcov-report/index.html`.
+- CI: the `coverage` job uploads both as the `coverage-reports` workflow
+  artifact (14-day retention).
+- Weekly trend: the separate `e2e-coverage` workflow runs Sundays at
+  04:00 UTC and on `workflow_dispatch`; same artifact name, same retention.
+
 <!-- harness:local-end id=operations.project-deploy -->
