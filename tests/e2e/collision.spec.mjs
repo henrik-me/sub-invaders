@@ -29,9 +29,12 @@ test('torpedo kills a real formation invader and scores points', async ({ gamePa
   await movePlayerCenterTo(gamePage, target.x + (target.w / 2));
   await gamePage.pressKey('Space', 80);
 
-  await expect.poll(async () => (await gamePage.state()).score, { timeout: 2_000 }).toBeGreaterThan(0);
+  // Timeout 5s (not 2s): nightly runs against deployed staging where round-
+  // trips through hooks and frame ticks add latency over localhost runs.
+  // Webkit was the canary that flagged this as a real cross-browser flake.
+  await expect.poll(async () => (await gamePage.state()).score, { timeout: 5_000 }).toBeGreaterThan(0);
   await expect.poll(async () => {
     const enemies = await gamePage.formation();
     return enemies.find((enemy) => enemy.index === target.index)?.alive;
-  }, { timeout: 2_000 }).toBe(false);
+  }, { timeout: 5_000 }).toBe(false);
 });
