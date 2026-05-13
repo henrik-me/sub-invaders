@@ -17,6 +17,7 @@ jobs:
   e2e-nightly:
     name: e2e-nightly-${{ matrix.browser }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -57,6 +58,7 @@ jobs:
   open-issue-on-failure:
     name: open e2e-nightly failure issue
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: e2e-nightly
     if: failure()
     env:
