@@ -462,11 +462,12 @@ export function createPlayScene(opts = {}) {
       player,
       wave,
     }]));
-    addProjectiles(enemyShots, callMaybe(formation?.tryFire, formation, [rng, player, {
-      canvas: CANVAS,
-      enemyShot: ENEMY_SHOT,
-      wave,
-    }]));
+    // Issue #35: previously passed `player` as accumulatorState, which made
+    // consumeFireCadence enter the object branch and short-circuit to false
+    // (player has no nowMs/dtMs/dt/elapsedMs fields), so enemies never fired
+    // in production. Drop player + the unused options object so the formation
+    // uses its internal fireAccumulatorMs (incremented by formation.update).
+    addProjectiles(enemyShots, callMaybe(formation?.tryFire, formation, [rng]));
     addProjectiles(enemyShots, callMaybe(formation?.fire, formation, [rng, player, wave]));
   }
 

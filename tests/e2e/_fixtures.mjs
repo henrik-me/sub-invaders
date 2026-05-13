@@ -49,7 +49,7 @@ export const test = base.extend({
     const gamePage = {
       page,
 
-      async goto({ seed, startWave, formationSpeed, test = 1 } = {}) {
+      async goto({ seed, startWave, formationSpeed, fireIntervalMs, test = 1 } = {}) {
         const params = new URLSearchParams();
 
         if (test !== undefined) {
@@ -63,6 +63,9 @@ export const test = base.extend({
         }
         if (formationSpeed !== undefined) {
           params.set('formationSpeed', String(formationSpeed));
+        }
+        if (fireIntervalMs !== undefined) {
+          params.set('fireIntervalMs', String(fireIntervalMs));
         }
 
         const suffix = params.toString() ? `?${params}` : '';

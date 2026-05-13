@@ -78,14 +78,14 @@ async function killByType(gamePage, type, expectedPoints) {
 }
 
 test('killing a jellyfish (row 3-4) awards 10 points', async ({ gamePage }) => {
-  await gamePage.goto({ seed: 31, formationSpeed: 0 });
+  await gamePage.goto({ seed: 31, formationSpeed: 0, fireIntervalMs: 999_999 });
   await gamePage.waitForReady();
 
   await killByType(gamePage, 'jellyfish', 10);
 });
 
 test('killing an anglerfish (row 1-2) awards 20 points', async ({ gamePage }) => {
-  await gamePage.goto({ seed: 32, formationSpeed: 0 });
+  await gamePage.goto({ seed: 32, formationSpeed: 0, fireIntervalMs: 999_999 });
   await gamePage.waitForReady();
   await settleTorpedoes(gamePage);
 
@@ -130,7 +130,7 @@ test('killing an anglerfish (row 1-2) awards 20 points', async ({ gamePage }) =>
 });
 
 test('killing a squid (row 0) awards 40 points', async ({ gamePage }) => {
-  await gamePage.goto({ seed: 33, formationSpeed: 0 });
+  await gamePage.goto({ seed: 33, formationSpeed: 0, fireIntervalMs: 999_999 });
   await gamePage.waitForReady();
   await settleTorpedoes(gamePage);
 
@@ -174,7 +174,7 @@ test('killing a squid (row 0) awards 40 points', async ({ gamePage }) => {
 });
 
 test('high score is updated when score exceeds existing high', async ({ gamePage }) => {
-  await gamePage.goto({ seed: 34, formationSpeed: 0 });
+  await gamePage.goto({ seed: 34, formationSpeed: 0, fireIntervalMs: 999_999 });
   await gamePage.waitForReady();
   await gamePage.setHighScore(0);
 

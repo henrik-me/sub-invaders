@@ -50,6 +50,9 @@ function readQueryOptions(locationLike) {
     seed: params.has('seed') ? toSeed(params.get('seed')) : undefined,
     startWave: params.has('startWave') ? toPositiveInt(params.get('startWave'), 1) : undefined,
     formationSpeed: params.has('formationSpeed') ? toNonNegativeNumber(params.get('formationSpeed')) : undefined,
+    fireIntervalMs: params.has('fireIntervalMs')
+      ? toNonNegativeNumber(params.get('fireIntervalMs'))
+      : undefined,
   };
 }
 
@@ -77,6 +80,7 @@ export async function bootstrap(opts = {}) {
     seed,
     startWave,
     formationSpeed,
+    fireIntervalMs,
     createRendererFn = createRenderer,
     createInputFn = createInput,
     createSceneStackFn = createSceneStack,
@@ -93,6 +97,7 @@ export async function bootstrap(opts = {}) {
   let currentSeed = toSeed(seed ?? queryOptions.seed, 1);
   const currentStartWave = toPositiveInt(startWave ?? queryOptions.startWave, 1);
   const currentFormationSpeed = toNonNegativeNumber(formationSpeed ?? queryOptions.formationSpeed);
+  const currentFireIntervalMs = toNonNegativeNumber(fireIntervalMs ?? queryOptions.fireIntervalMs);
 
   if (!canvas) {
     throw new Error('bootstrap: canvas is required');
@@ -124,6 +129,7 @@ export async function bootstrap(opts = {}) {
     return createFormationFn({
       ...options,
       ...(currentFormationSpeed === undefined ? {} : { baseSpeed: currentFormationSpeed }),
+      ...(currentFireIntervalMs === undefined ? {} : { fireIntervalMs: currentFireIntervalMs }),
     });
   }
 
