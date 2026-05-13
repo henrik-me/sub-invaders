@@ -8,6 +8,70 @@ once a tagged release exists.
 
 ## [Unreleased]
 
+### Added (SI-CS02 — 2026-05-13) — Engine + minimal playable Sub Invaders
+
+- **Engine slice under `src/engine/`** — vanilla ES2022 + Canvas 2D, no
+  npm runtime deps, designed for future extraction to a standalone
+  `henrik-me/canvas-game-engine` package. Modules: `loop.mjs`
+  (fixed 60Hz logic + variable-rate render with accumulator clamp),
+  `entity.mjs` (base `Entity`), `collision.mjs` (`aabbOverlap`,
+  `groupCollisions`), `input.mjs` (keyboard + touch adapter recognising
+  arrows / WASD / Space / Escape / KeyM), `renderer.mjs` (DPR-aware
+  Canvas 2D wrapper), `sprite.mjs` (loader + frame helpers + animation
+  clock), `audio.mjs` (HTML `<audio>` pool), `scene.mjs` (duck-typed
+  scene stack), `seed.mjs` (Mulberry32 RNG). Every module has
+  `*.test.mjs` coverage runnable via `node --test`.
+- **Sub Invaders game modules under `src/game/`** — `player.mjs`
+  (submarine + torpedo factories with single-shot rule, fire cooldown,
+  invulnerability blink, lives), `invaders.mjs` (5×11 formation with
+  lock-step movement, wall-reverse + descend, alive-count speed
+  scaling, column-front enemy fire, per-wave reset), `hud.mjs`
+  (SCORE / HIGH / WAVE labels + LIVES icons), `scenes/menu.mjs`,
+  `scenes/play.mjs`, `scenes/gameover.mjs`, `constants.mjs` (CANVAS,
+  PALETTE, PLAYER, TORPEDO, ENEMY_SHOT, FORMATION, ENEMY_TYPES,
+  SCORING, SPRITES), `score.mjs` (local high score in
+  `localStorage.subInvadersHighScore` with malformed-value-as-zero
+  resilience and an injectable storage seam), `api.mjs` (empty CS03
+  stub), `main.mjs` (browser bootstrap that builds renderer, input,
+  sprites, scenes, and starts the engine loop). Every module has
+  `*.test.mjs` coverage; tests stay browser-free via injection seams.
+- **Bootstrap glue.** Replaced the CS01 stub at `src/index.html` with
+  a minimal game host: dark sea background, centred 800×600 canvas
+  with accessible fallback text, CC0 sprite licence link, ES-module
+  entry script `<script type="module" src="./game/main.mjs">`.
+  No bundler, no transpiler, no external CDN.
+- **Hand-authored CC0 sprite sheet.** `src/public/sprites.png` —
+  128×64 RGBA, 11 frames covering submarine, torpedo, enemy shot,
+  life icon, jellyfish, anglerfish, squid (two-frame variants for
+  enemies). 978 bytes, well under the 16 KB budget.
+  `src/public/sprites.licence` records original-CC0 provenance + the
+  exact frame layout. Located under `src/` so the SWA upload
+  (`app_location: "src"`) serves the assets.
+- **Engine isolation linter.** `scripts/check-engine-isolation.mjs` —
+  fail-closed ESM static-import boundary linter with `requireValue`
+  guard on `--dir`, `--quiet` / `--help` flags, and exit codes 0 / 1 /
+  2. Scans `src/engine/` for any `import` whose specifier resolves
+  outside the engine directory; CI exit 0 confirms the engine
+  remains game-agnostic. Has its own `node:test` coverage at
+  `scripts/check-engine-isolation.test.mjs`.
+
+### Fixed (SI-CS02 — 2026-05-13)
+
+- **`src/engine/input.mjs` recognises `Escape` and `KeyM`** in addition
+  to the movement and fire codes. Discovered during Wave 2 sub-agent
+  fan-out: `scenes/play.mjs` uses Escape for pause and
+  `scenes/gameover.mjs` uses KeyM for menu return, but the input
+  adapter's allowlist filtered both out. Allowlist extended +
+  test added to `src/engine/input.test.mjs` (10 → 11 input tests).
+
+### Changed (SI-CS02 — 2026-05-13)
+
+- **`public/` relocated to `src/public/`.** SWA `app_location: "src"`
+  meant the original lane-8 path `public/sprites.png` was outside the
+  upload tree. Moved the directory so deploy-time URLs resolve
+  (`./public/sprites.png` from `/index.html` → `/public/sprites.png`
+  on the deployed origin).
+
 ### Added (post-CS01 maintenance — 2026-05-11) — Dependabot wave + SWA fix
 
 - **Functions Worker stack aligned at v2** (PR #16, replaces auto-closed
