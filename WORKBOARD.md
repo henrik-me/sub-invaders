@@ -2,7 +2,7 @@
 
 Live coordination file for multi-agent work. Only orchestrating agents update this file.
 
-> **Last updated:** 2026-05-13T01:10Z
+> **Last updated:** 2026-05-13T03:30Z
 
 ## Orchestrators
 
@@ -10,13 +10,14 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 
 | Agent ID | Machine | Repo Folder | Status | Last Seen |
 |----------|---------|-------------|--------|-----------|
-| yoga-si | HENRIKM-YOGA | C:\src\sub-invaders | 🟢 Active | 2026-05-13T01:10Z |
+| yoga-si | HENRIKM-YOGA | C:\src\sub-invaders | 🟢 Active | 2026-05-13T03:30Z |
 
 ## Active Work
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
-| CS02 | CS02 — Engine + game skeleton + minimal playable Sub Invaders | 🟢 Active | yoga-si | cs02/content | 2026-05-13T01:10Z | — |
+
+_No active CS at this moment. CS02 closed 2026-05-13; CS03 is the next planned clickstop._
 
 > **Note:** Filesystem is the source of truth for queued and completed work.
 > See `project/clickstops/planned/` for the queue and `project/clickstops/done/`
