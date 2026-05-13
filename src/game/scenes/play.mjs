@@ -407,7 +407,7 @@ export function createPlayScene(opts = {}) {
     player = playerFactory(playerOptions());
     formation = formationFactory(formationOptions());
     if (wave > 1) {
-      const resetResult = callMaybe(formation?.resetForWave, formation, [wave, formationOptions()]);
+      const resetResult = callMaybe(formation?.resetForWave, formation, [wave]);
       if (resetResult) {
         formation = resetResult;
       }
@@ -526,7 +526,7 @@ export function createPlayScene(opts = {}) {
     torpedoes = [];
     enemyShots = [];
 
-    const resetResult = callMaybe(formation?.resetForWave, formation, [wave, formationOptions()]);
+    const resetResult = callMaybe(formation?.resetForWave, formation, [wave]);
     if (resetResult) {
       formation = resetResult;
     } else if (formationAliveCount(formation) === 0 && createFormationFactory) {
