@@ -162,7 +162,7 @@ None expected. CS01 already cleared infrastructure and deployment gates: Azure r
 | Engine input adapter follow-up (Escape + KeyM) | complete | orchestrator | Lane 6 escalation surfaced KeyM/Escape filter gap; orchestrator extended `recognizedCodes` and added test (`ac47542`) |
 | `public/` → `src/public/` relocation for SWA upload | complete | orchestrator | CS01 SWA `app_location: "src"` excluded sibling `public/`; orchestrator `git mv` to `src/public/` (`2df7297`) so deploy serves sprites |
 | CHANGELOG.md SI-CS02 entry | complete | orchestrator | Added under `## [Unreleased]` with Added / Fixed / Changed sections |
-| Verify-deploy probe extension (frontend root + `/api/health`) | pending | orchestrator | Per Deliverable 9; runs post-merge |
+| Verify-deploy probe extension (frontend root + `/api/health`) | complete | orchestrator | Wired `scripts/verify-deploy.checks.mjs` (frontend-root, health, sprites checks), extended `scripts/verify-deploy.mjs` to support `expect.body` validators, ran live probe `node scripts/verify-deploy.mjs --url https://happy-coast-04ffcaa1e.7.azurestaticapps.net --expected-version 263aec0 --checks frontend-root,health,sprites` → 3/3 passed (exit 0) against deployed commit `263aec0` |
 | Plan-vs-implementation review (close-out gate) | pending | orchestrator | OPERATIONS § Plan-vs-implementation review (close-out gate); recorded verbatim before close-out |
 | Close-out: docs + restart state | pending | orchestrator | Update WORKBOARD, CONTEXT, managed/composed roots, feature docs |
 | Close-out: learnings + follow-ups | pending | orchestrator | File LRNs and create planned follow-up CSs for unresolved issues |
