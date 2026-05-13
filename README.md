@@ -33,6 +33,39 @@ npm start
 
 For a full list of commands and options, see the docs or run `--help`.
 
+## End-to-end tests
+
+Install the dev-time test tooling and Chromium browser once:
+
+```sh
+npm install
+npx playwright install chromium
+```
+
+Run the browser suite headlessly, headed, or in the Playwright UI:
+
+```sh
+npm run test:e2e
+npm run test:e2e:headed
+npm run test:e2e:ui
+```
+
+Use `npm run test:e2e:report` to reopen the last HTML report. The npm
+server script is `npm run serve`; without npm you can also serve the app with
+`python -m http.server 4173 --directory src`.
+
+New specs should import the shared fixture:
+
+```js
+import { expect, test } from './_fixtures.mjs';
+
+test('new gameplay surface works', async ({ gamePage }) => {
+  await gamePage.goto({ seed: 123 });
+  await gamePage.waitForReady();
+  expect((await gamePage.state()).lives).toBe(3);
+});
+```
+
 ## Architecture
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for an overview of the system design,
