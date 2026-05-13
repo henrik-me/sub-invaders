@@ -34,7 +34,8 @@
           { "context": "harness-lint" },
           { "context": "harness-sync-check" },
           { "context": "js-tests" },
-          { "context": "dotnet-tests" }
+          { "context": "dotnet-tests" },
+          { "context": "e2e-local" }
         ]
       }
     }
