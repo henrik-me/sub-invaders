@@ -19,8 +19,8 @@ once a tagged release exists.
   arrows / WASD / Space / Escape / KeyM), `renderer.mjs` (DPR-aware
   Canvas 2D wrapper), `sprite.mjs` (loader + frame helpers + animation
   clock), `audio.mjs` (HTML `<audio>` pool), `scene.mjs` (duck-typed
-  scene stack), `seed.mjs` (Mulberry32 RNG). Every module has
-  `*.test.mjs` coverage runnable via `node --test`.
+  scene stack), `seed.mjs` (Mulberry32 RNG). Every engine module has
+  an adjacent `*.test.mjs` covered by `node --test`.
 - **Sub Invaders game modules under `src/game/`** — `player.mjs`
   (submarine + torpedo factories with single-shot rule, fire cooldown,
   invulnerability blink, lives), `invaders.mjs` (5×11 formation with
@@ -33,8 +33,9 @@ once a tagged release exists.
   `localStorage.subInvadersHighScore` with malformed-value-as-zero
   resilience and an injectable storage seam), `api.mjs` (empty CS03
   stub), `main.mjs` (browser bootstrap that builds renderer, input,
-  sprites, scenes, and starts the engine loop). Every module has
-  `*.test.mjs` coverage; tests stay browser-free via injection seams.
+  sprites, scenes, and starts the engine loop). All non-stub modules
+  ship adjacent `*.test.mjs` coverage (`api.mjs` is an empty CS03 stub);
+  tests stay browser-free via injection seams.
 - **Bootstrap glue.** Replaced the CS01 stub at `src/index.html` with
   a minimal game host: dark sea background, centred 800×600 canvas
   with accessible fallback text, CC0 sprite licence link, ES-module

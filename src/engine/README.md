@@ -16,19 +16,20 @@ rule in CI; lane 9 of the CS02 fan-out authors that linter.
 
 ## API surface
 
-Other CS02 lanes are writing several modules in parallel. The named exports below are the expected
-surface from the CS02 plan Deliverable 1; the orchestrator will reconcile the exact exports
-post-wave.
+The named exports below are the actual surface shipped by CS02 (commit `263aec0`,
+PR #19). Update this table in lock-step with any change to engine module exports —
+`src/game/main.mjs` (game bootstrap) and any future engine consumer treats this as
+the contract.
 
 | Module | Named exports | Purpose |
 |---|---|---|
-| `loop.mjs` | `createLoop` | Fixed-timestep update plus variable-rate render loop. |
+| `loop.mjs` | `createLoop` | Fixed-timestep update plus variable-rate render loop with accumulator clamp. |
 | `entity.mjs` | `Entity` | Base entity with position, velocity, dimensions, AABB, and alive state. |
-| `collision.mjs` | `aabbOverlap`, `findCollisionPairs` | AABB tests and group collision queries. |
-| `input.mjs` | `createInput` | Keyboard and touch input state with per-frame reset. |
-| `renderer.mjs` | `createRenderer` | DPR-aware Canvas 2D drawing wrapper. |
-| `sprite.mjs` | `loadSpriteSheet`, `createAnimation`, `getFrameIndex` | Sprite loading and frame selection. |
-| `audio.mjs` | `createAudioPool` | HTML audio element pool for future SFX hooks. |
+| `collision.mjs` | `aabbOverlap`, `groupCollisions` | Closed-interval AABB overlap test and group-vs-group collision iteration. |
+| `input.mjs` | `createInput` | Keyboard + touch input with per-frame edge state; recognised codes: ArrowLeft/Right, KeyA/D, Space, KeyW, ArrowUp, Escape, KeyM. |
+| `renderer.mjs` | `createRenderer` | DPR-aware Canvas 2D drawing wrapper (`clear`, `drawSprite`, `drawRect`, `drawText`). |
+| `sprite.mjs` | `loadSpriteSheet`, `createFrame`, `createAnimation` | Sprite loading, single-frame helper, and animation clock. |
+| `audio.mjs` | `createAudioPool` | HTML `<audio>` element pool for future SFX hooks. |
 | `scene.mjs` | `createSceneStack` | Duck-typed scene stack with lifecycle and input forwarding. |
 | `seed.mjs` | `createRng` | Mulberry32 seedable random number generator. |
 

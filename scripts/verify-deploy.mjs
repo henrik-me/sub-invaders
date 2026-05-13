@@ -158,7 +158,8 @@ function httpGet(url) {
  *   path: string,
  *   expect: {
  *     status: number,
- *     json?: (body: unknown, ctx: CheckContext) => string | null
+ *     json?: (body: unknown, ctx: CheckContext) => string | null,
+ *     body?: (text: string, ctx: CheckContext) => string | null
  *   }
  * }} CheckDef
  */
@@ -200,6 +201,13 @@ async function runCheck(check, ctx) {
     }
   }
 
+  if (check.expect.body) {
+    const failure = check.expect.body(res.body, ctx);
+    if (failure != null) {
+      return { name: check.name, passed: false, message: failure };
+    }
+  }
+
   return { name: check.name, passed: true, message: 'ok' };
 }
 
@@ -207,10 +215,8 @@ async function runCheck(check, ctx) {
 // Load checks
 // ---------------------------------------------------------------------------
 
-// TODO: customize — rename scripts/verify-deploy.checks.example.mjs to
-// scripts/verify-deploy.checks.mjs, then update this import path to match.
 const checksModule = await import(
-  pathToFileURL(path.join(__dirname, 'verify-deploy.checks.example.mjs')).href
+  pathToFileURL(path.join(__dirname, 'verify-deploy.checks.mjs')).href
 );
 
 /** @type {CheckDef[]} */
