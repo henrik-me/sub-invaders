@@ -101,14 +101,31 @@ jobs:
         shell: bash
         run: npx playwright install --with-deps chromium
       # CS09 Phase 1 regression guard: c8 fails the step if unit coverage
-      # drops below the baseline floor (lines=86, stmts=86, funcs=84,
-      # branches=74). Phase 3 raises these to ≥90/85 once Phase 2 tests land.
+      # drops below the CS09 target (lines=90, stmts=90, funcs=90, branches=85).
+      # Bash glob expansion needed (Node 20 does NOT auto-glob "src/**/*.test.mjs").
       - name: Unit test coverage (with threshold guard)
         shell: bash
-        run: npm run test:unit:coverage
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          files=(src/**/*.test.mjs)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No JS tests — skipping"
+            exit 0
+          fi
+          npx c8 \
+            --reporter=text --reporter=text-summary --reporter=json-summary --reporter=lcov \
+            --include "src/**/*.mjs" \
+            --exclude "src/**/*.test.mjs" \
+            --exclude "src/game/test-hooks.mjs" \
+            --exclude "src/game/api.mjs" \
+            --report-dir=coverage-report-unit \
+            --check-coverage --lines=90 --statements=90 --functions=90 --branches=85 \
+            node --test "${files[@]}"
       # CS09 Phase 1 regression guard: monocart-reporter onEnd hook fails the
-      # step if E2E coverage drops below baseline floor (lines=68, stmts=78,
-      # funcs=76, branches=60, bytes=76). Phase 3 raises these to targets.
+      # step if E2E coverage drops below CS09 floor (lines=77, stmts=87,
+      # funcs=84, branches=70, bytes=80). Per-file E2E exception list in
+      # OPERATIONS.md "Coverage policy".
       - name: E2E test coverage (with threshold guard)
         shell: bash
         run: npm run test:e2e:coverage
