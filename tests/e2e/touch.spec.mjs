@@ -6,6 +6,11 @@ delete iphone.defaultBrowserType;
 
 test.use(iphone);
 
+test.skip(
+  ({ browserName }) => browserName === 'firefox',
+  'Firefox in Playwright does not support options.isMobile (mobile emulation).',
+);
+
 async function dispatchTouch(page, type, touches) {
   await page.evaluate(({ type, touches }) => {
     const event = new Event(type, { bubbles: true, cancelable: true });

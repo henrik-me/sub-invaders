@@ -5,6 +5,11 @@ const iphone = { ...devices['iPhone 14'] };
 delete iphone.defaultBrowserType;
 test.use(iphone);
 
+test.skip(
+  ({ browserName }) => browserName === 'firefox',
+  'Firefox in Playwright does not support options.isMobile (mobile emulation).',
+);
+
 test('game loads on an iPhone viewport and the canvas scales down', async ({ gamePage }) => {
   await gamePage.goto({ seed: 3 });
   await gamePage.waitForReady();
