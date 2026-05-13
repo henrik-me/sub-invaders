@@ -1129,9 +1129,16 @@ tag and skips create operations that already succeeded.
     `<invertedScore D8>_<submissionUuid>` so the natural ascending Table Storage sort
     returns top scores first (inverted score = `99_999_999 - score`, zero-padded to 8 digits).
     Columns: `Score` (int), `FinishedAt` (ISO-8601), `SessionId` (string).
-- Hourly cleanup Function (`SessionsCleanup`, CRON `0 0 * * * *`) deletes Sessions older
-  than 24 h **and** trims the `Leaderboard` table to the top 10 000 rows (`LeaderboardCap`).
-  Azure Tables has no native TTL; the cleanup Function is the source of truth.
+- Cleanup Function (`SessionsCleanup`, `POST /api/admin/sessions-cleanup`,
+  `AuthorizationLevel.Function`) deletes Sessions older than 24 h **and** trims the
+  `Leaderboard` table to the top 10 000 rows (`LeaderboardCap`). Azure Tables has no native
+  TTL; the cleanup Function is the source of truth. SWA managed Functions does not support
+  `timerTrigger` (the build emits *"Currently, only httpTriggers are supported"*), so the
+  hourly cadence is driven by an external scheduler (Azure Logic App / GitHub Actions cron)
+  that POSTs to the admin endpoint with the function key (`x-functions-key` header or
+  `?code=` query). Mitigation if the scheduler is offline: Sessions are still single-use, so
+  storage grows linearly but correctness is preserved; the next successful invocation
+  reclaims the backlog.
 
 ### Env vars (deploy-time, set in Azure SWA configuration)
 

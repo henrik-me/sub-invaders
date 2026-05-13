@@ -1,9 +1,12 @@
 namespace SubInvaders.Api;
 
 using System;
+using System.Net;
 using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using SubInvaders.Api.Common;
 using SubInvaders.Api.Storage;
 
 public class SessionsCleanupFunction
@@ -25,8 +28,15 @@ public class SessionsCleanupFunction
         _logger = logger;
     }
 
+    // SWA managed Functions does not support timerTrigger ('Currently, only
+    // httpTriggers are supported.'). The cleanup is therefore exposed as an
+    // admin-key-protected HTTP endpoint that is invoked on a schedule by an
+    // external scheduler (GitHub Actions cron / Azure Logic App). The route
+    // is intentionally not part of the public /api surface (no Route attr)
+    // and AuthorizationLevel.Function requires a function key.
     [Function("SessionsCleanup")]
-    public async Task Run([TimerTrigger("0 0 * * * *")] TimerInfo timer)
+    public async Task<HttpResponseData> Run(
+        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "admin/sessions-cleanup")] HttpRequestData req)
     {
         var cutoff = DateTimeOffset.UtcNow - SessionTtl;
         _logger.LogInformation("SessionsCleanup: pass 1 — deleting Sessions older than {Cutoff:o}", cutoff);
@@ -35,5 +45,12 @@ public class SessionsCleanupFunction
         _logger.LogInformation("SessionsCleanup: pass 2 — trimming Leaderboard to top {Cap}", LeaderboardCap);
         var trimmed = await _leaderboard.TrimAsync(LeaderboardCap).ConfigureAwait(false);
         _logger.LogInformation("SessionsCleanup: deleted {Trimmed} leaderboard rows beyond cap", trimmed);
+
+        return await JsonResponse.Write(req, HttpStatusCode.OK, new CleanupResult(
+            "ok",
+            cutoff.ToString("o"),
+            trimmed)).ConfigureAwait(false);
     }
+
+    public sealed record CleanupResult(string Status, string SessionsCutoff, int LeaderboardRowsTrimmed);
 }

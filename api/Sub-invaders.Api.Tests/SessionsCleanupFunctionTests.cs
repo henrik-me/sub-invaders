@@ -1,6 +1,7 @@
 namespace SubInvaders.Api.Tests;
 
 using System;
+using System.Net;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using SubInvaders.Api;
@@ -9,6 +10,9 @@ using Xunit;
 
 public class SessionsCleanupFunctionTests
 {
+    private static FakeHttpRequestData NewRequest() =>
+        new("POST", "http://localhost/api/admin/sessions-cleanup");
+
     [Fact]
     public async Task Cleanup_deletes_sessions_older_than_24h()
     {
@@ -21,8 +25,9 @@ public class SessionsCleanupFunctionTests
         Assert.Equal(2, sessions.Count);
 
         var fn = new SessionsCleanupFunction(sessions, leaderboard, NullLogger<SessionsCleanupFunction>.Instance);
-        await fn.Run(null!);
+        var resp = await fn.Run(NewRequest());
 
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         Assert.Equal(1, sessions.Count);
         Assert.Null(await sessions.GetAsync(SessionEntity.PartitionKeyFor(oldStarted), "old"));
         Assert.NotNull(await sessions.GetAsync(SessionEntity.PartitionKeyFor(newStarted), "new"));
@@ -46,8 +51,13 @@ public class SessionsCleanupFunctionTests
         Assert.Equal(cap + 25, leaderboard.Count);
 
         var fn = new SessionsCleanupFunction(sessions, leaderboard, NullLogger<SessionsCleanupFunction>.Instance);
-        await fn.Run(null!);
+        var resp = await fn.Run(NewRequest());
 
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         Assert.Equal(cap, leaderboard.Count);
+        var body = ((FakeHttpResponseData)resp).ReadBodyAs<SessionsCleanupFunction.CleanupResult>();
+        Assert.NotNull(body);
+        Assert.Equal("ok", body!.Status);
+        Assert.Equal(25, body.LeaderboardRowsTrimmed);
     }
 }

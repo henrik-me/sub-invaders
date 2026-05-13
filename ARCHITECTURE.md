@@ -89,7 +89,7 @@ only. CS03 adds session, score, leaderboard, and cleanup Functions.
 | `SessionFunction.cs` | `POST /api/session` | CS03 |
 | `ScoreFunction.cs` | `POST /api/score` | CS03 |
 | `LeaderboardFunction.cs` | `GET /api/leaderboard` | CS03 |
-| `SessionsCleanupFunction.cs` | Timer — hourly | CS03 |
+| `SessionsCleanupFunction.cs` | `POST /api/admin/sessions-cleanup` (function key) | CS03 |
 
 ### Persistence (CS03 — implemented)
 
@@ -102,8 +102,11 @@ Azure Storage Tables inside `rg-sub-invaders-prod`. Tables are created idempoten
   (cryptographically random GUID). Columns: `Nonce`, `StartedAt`, `Consumed`, `ConsumedAt`.
   Single-use; the score-submission path performs an ETag-conditional
   `UpdateEntityAsync(Replace)` so the second concurrent submitter receives 412 → mapped to
-  HTTP 409 `already_consumed`. Azure Tables has no native TTL; the hourly
-  `SessionsCleanupFunction` (CRON `0 0 * * * *`) deletes rows older than 24 h.
+  HTTP 409 `already_consumed`. Azure Tables has no native TTL; cleanup is performed by the
+  admin Function `POST /api/admin/sessions-cleanup` (`AuthorizationLevel.Function`), which
+  deletes rows older than 24 h. SWA managed Functions does not support `timerTrigger`
+  ('Currently, only httpTriggers are supported.'), so the cron schedule is driven externally
+  (Azure Logic App / GitHub Actions cron) invoking the admin endpoint with the function key.
 - **`Leaderboard`** — top scores. `PartitionKey = "all"` (single hot partition acceptable up
   to ~10k rows per the Azure Tables guidance); `RowKey = <invertedScore D8>_<submissionUuid>`
   where `invertedScore = 99_999_999 - score` zero-padded to 8 digits, so Table Storage's
@@ -275,8 +278,8 @@ Azure Storage Tables inside the existing storage account (`AzureWebJobsStorage`)
 
 | Table | Partition key | Row key | Purpose | Cleanup |
 |---|---|---|---|---|
-| `Sessions` | `yyyyMMdd` (UTC day) | `sessionId` (GUID) | Replay-protection token + nonce (C16-12). Columns: `Nonce`, `StartedAt`, `Consumed`, `ConsumedAt`. Single-use via ETag-conditional update. `Nonce` is currently reserved metadata; replay protection itself is keyed off `sessionId` consumption. | Hourly `SessionsCleanupFunction` (CRON `0 0 * * * *`) deletes rows older than 24 h. Azure Tables has no native TTL. |
-| `Leaderboard` | `"all"` (single hot partition) | `<invertedScore D8>_<submissionUuid>` | Top-100 all-time scores. `invertedScore = 99_999_999 - score` so ascending RowKey sort returns top scores first. Columns: `Score` (int), `FinishedAt` (ISO-8601), `SessionId` (string, audit trail). | Same hourly `SessionsCleanupFunction` trims to `LeaderboardCap = 10 000` rows per pass. CS04 introduces `daily-YYYY-MM-DD` partitions. |
+| `Sessions` | `yyyyMMdd` (UTC day) | `sessionId` (GUID) | Replay-protection token + nonce (C16-12). Columns: `Nonce`, `StartedAt`, `Consumed`, `ConsumedAt`. Single-use via ETag-conditional update. `Nonce` is currently reserved metadata; replay protection itself is keyed off `sessionId` consumption. | Admin Function `POST /api/admin/sessions-cleanup` (`AuthorizationLevel.Function`) deletes rows older than 24 h. Triggered by an external scheduler (SWA managed Functions does not support `timerTrigger`). Azure Tables has no native TTL. |
+| `Leaderboard` | `"all"` (single hot partition) | `<invertedScore D8>_<submissionUuid>` | Top-100 all-time scores. `invertedScore = 99_999_999 - score` so ascending RowKey sort returns top scores first. Columns: `Score` (int), `FinishedAt` (ISO-8601), `SessionId` (string, audit trail). | Same admin cleanup Function trims to `LeaderboardCap = 10 000` rows per invocation. CS04 introduces `daily-YYYY-MM-DD` partitions. |
 
 Both tables are created idempotently by `infra/provision.sh` Phase 2.5 so a fresh deploy
 into an empty RG produces a working backend without manual setup.

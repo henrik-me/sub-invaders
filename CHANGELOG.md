@@ -13,8 +13,12 @@ once a tagged release exists.
 - **CS03 Functions (`api/`)** — `.NET 8` isolated worker adds `POST /api/session`
   (issues replay-protection token + nonce + `startedAt`), `POST /api/score` (strict-JSON
   body ≤ 1 KB; validates session + plausibility + accept rate), `GET /api/leaderboard?period=all`
-  (top-100 entries, score desc; `period=daily` returns 501 in CS03), and the timer-driven
-  `SessionsCleanupFunction` (CRON `0 0 * * * *`) that prunes 24 h-old session rows.
+  (top-100 entries, score desc; `period=daily` returns 501 in CS03), and an admin
+  `POST /api/admin/sessions-cleanup` (`AuthorizationLevel.Function`) that prunes 24 h-old
+  session rows. SWA managed Functions does not support `timerTrigger` (build error:
+  *"Currently, only httpTriggers are supported."*), so the hourly cadence is driven by an
+  external scheduler (Azure Logic App / GitHub Actions cron) POSTing to the admin endpoint
+  with the function key.
 - **Replay protection (C16-12).** ETag-conditional `UpdateEntityAsync(Replace)` on the
   `Sessions` row marks a session consumed atomically; the second concurrent submitter
   receives 412 → mapped to HTTP 409 `already_consumed`. Plausibility window enforces
