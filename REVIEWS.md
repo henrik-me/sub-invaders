@@ -289,6 +289,15 @@ The following gates apply IN ADDITION TO the universal harness review process:
 - **Budget gate** — any CS that changes the budget cap, alert thresholds, or Action Group
   recipients MUST include the new RG-scoped Budget JSON snapshot in the PR body.
 
+- **Negative-test-the-gate gate (CS09+)** — any CS that introduces a new CI gate (required
+  status check, threshold-style enforcement, build-time guard, etc.) MUST include in the
+  close-out PR body evidence that the gate was negative-tested: a scenario that *should*
+  trip the gate (e.g., bump a threshold past current values, remove a required file, push
+  a known-bad value) was run, the gate reported `failure`, and the merge was blocked. Without
+  this evidence the gate may be a no-op — see `LEARNINGS.md` LRN-018 for the CS09 close-out
+  precedent where a coverage required check silently let regressions through because the
+  umbrella job was reported as `skipped`.
+
 These gates are enforced by reviewer discipline; mechanical checks may follow in a later CS.
 
 <!-- harness:local-end id=reviews.project-gates -->

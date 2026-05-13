@@ -297,6 +297,40 @@ and the `invaders.mjs` exception can be dropped from the table.
 - Issue #35 — `play.mjs` passes `player` as `accumulatorState` to
   `formation.tryFire` (source-side fix; out of scope for CS09).
 
+## Post-close-out follow-ups
+
+CS09 close-out (PR #36) was merged with the claim "the `coverage` job is
+in `needs:` of the umbrella `ci` job which is the required check, so a
+regression blocks merge." A sanity check shortly after revealed this was
+**not actually true** — see LRN-018. Two follow-up PRs corrected the gap:
+
+- **PR #37** `8215852` — `ci: harden umbrella ci job + make coverage a
+  directly required check`. Added `if: ${{ always() }}` + jq dep
+  verification to the umbrella `ci` job (so it FAILS instead of being
+  SKIPPED when any dep fails) AND added `coverage` directly to the
+  `main` ruleset's required-status-checks (id 16210336). Two layers of
+  defense.
+- **PR #39** `9bfc405` — `ci: per-file coverage gate (default + per-file
+  overrides)`. Added a per-file enforcement layer on top of the suite-
+  level totals so a brand-new file with 0% coverage no longer slips
+  through by only diluting suite totals. New files automatically inherit
+  per-file defaults; lower floors require an explicit `_reason` override
+  in `coverage-thresholds.json`. See LRN-019.
+
+**Honest framing:** CS09 *delivered* coverage measurement, suite-level
+threshold enforcement, and the test count delta described above, but
+*shipped a no-op required-check gate*. The gate became real only after
+PR #37. The per-file enforcement layer (PR #39) is a separate enhancement
+prompted by reviewer pushback ("coverage should include all code,
+especially new code"). Both follow-ups are recorded as open LEARNINGS
+entries (LRN-018, LRN-019) so the same mistake isn't repeated on the
+next gate-introduction CS.
+
+**Process correction:** REVIEWS.md Phase 3 close-out checklist was
+updated in the same PR to add "Negative-test any newly-introduced gate"
+so future close-outs explicitly require a positive-and-negative test
+before declaring a gate enforced.
+
 ## Co-authored-by
 
 Co-authored-by: Copilot &lt;223556219+Copilot@users.noreply.github.com&gt;
