@@ -131,6 +131,7 @@ export async function bootstrap(opts = {}) {
   function createMenu() {
     return createMenuSceneFn({
       onStart: startPlay,
+      onLeaderboard: apiClient ? showLeaderboard : undefined,
       getHighScore: readHighScore,
     });
   }

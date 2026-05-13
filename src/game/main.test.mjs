@@ -193,6 +193,23 @@ test('bootstrap pushes the menu scene first', async () => {
   assert.equal(scenes.current()?.tag, 'menu');
 });
 
+test('menu wiring exposes onLeaderboard when apiClient is available', async () => {
+  const apiClient = { startSession: () => {}, submitScore: () => {}, getLeaderboard: () => {} };
+  const harness = createHarness({ apiClient });
+
+  await harness.run();
+
+  assert.equal(typeof harness.records.menuOptions.onLeaderboard, 'function');
+});
+
+test('menu wiring omits onLeaderboard when no apiClient is available', async () => {
+  const harness = createHarness({ apiClient: null });
+
+  await harness.run();
+
+  assert.equal(harness.records.menuOptions.onLeaderboard, undefined);
+});
+
 test('menu onStart replaces the current scene with a play scene', async () => {
   const playSentinel = { tag: 'play-sentinel' };
   const harness = createHarness({

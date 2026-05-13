@@ -105,6 +105,49 @@ test('menu render draws the title', () => {
   assert.ok(textValues(renderer).includes('SUB INVADERS'));
 });
 
+test('menu fires onLeaderboard when KeyL is pressed and callback is provided', () => {
+  let leaderboards = 0;
+  const scene = createMenuScene({
+    onStart: () => {},
+    onLeaderboard: () => { leaderboards += 1; },
+    getHighScore: () => 0,
+    now: () => 0,
+  });
+
+  scene.handleInput(inputWith('KeyL'));
+  assert.equal(leaderboards, 1);
+
+  const renderer = createFakeRenderer();
+  scene.render(renderer);
+  const labels = textValues(renderer);
+  assert.ok(
+    labels.some((t) => /PRESS L FOR LEADERBOARD/.test(t)),
+    'leaderboard hint is rendered when onLeaderboard is provided',
+  );
+});
+
+test('menu ignores KeyL and hides the hint when onLeaderboard is absent', () => {
+  const scene = createMenuScene({
+    onStart: () => {},
+    getHighScore: () => 0,
+    now: () => 0,
+  });
+
+  assert.doesNotThrow(() => scene.handleInput(inputWith('KeyL')));
+
+  const renderer = createFakeRenderer();
+  scene.render(renderer);
+  const labels = textValues(renderer);
+  assert.ok(
+    !labels.some((t) => /PRESS L FOR LEADERBOARD/.test(t)),
+    'leaderboard hint is hidden when onLeaderboard is absent',
+  );
+  assert.ok(
+    labels.some((t) => /PRESS SPACE TO START/.test(t)),
+    'start hint is still shown',
+  );
+});
+
 test('play enter initialises score, wave, and lives', () => {
   const scene = createPlayHarness({ player: { lives: 2 }, invaders: [{ alive: true, x: 0, y: 0, w: 8, h: 8 }] });
 

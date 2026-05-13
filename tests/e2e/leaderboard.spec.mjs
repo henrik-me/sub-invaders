@@ -149,3 +149,26 @@ test('CS03/D10: leaderboard surfaces error phase when /api/leaderboard returns 5
   await expect.poll(async () => (await gamePage.state()).scene, { timeout: 5_000 }).toBe('leaderboard');
   await expect.poll(async () => (await gamePage.state()).phase, { timeout: 5_000 }).toBe('error');
 });
+
+test('CS03: pressing L from the start menu opens the leaderboard scene', async ({ gamePage }) => {
+  const calls = await stubApi(gamePage.page);
+  await gamePage.goto({ seed: 25, formationSpeed: 0 });
+
+  // Do NOT call waitForReady — that advances past the menu by spamming Space.
+  await expect.poll(async () => (await gamePage.state()).scene, { timeout: 5_000 }).toBe('menu');
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    if ((await gamePage.state()).scene === 'leaderboard') break;
+    await pressViaHook(gamePage.page, 'KeyL');
+    await gamePage.page.waitForTimeout(120);
+  }
+
+  await expect.poll(async () => (await gamePage.state()).scene, { timeout: 5_000 }).toBe('leaderboard');
+  await expect.poll(async () => (await gamePage.state()).phase, { timeout: 5_000 }).toBe('ready');
+
+  const state = await gamePage.state();
+  expect(state.entriesCount).toBe(LEADERBOARD_FIXTURE.entries.length);
+  expect(calls.leaderboard).toBeGreaterThanOrEqual(1);
+  // Reaching leaderboard from the menu must not have started a play session.
+  expect(calls.session).toBe(0);
+});

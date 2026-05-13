@@ -77,6 +77,13 @@ once a tagged release exists.
   and lowered functions to 65 / branches to 70.** CS03 boot-time wiring
   (`createLeaderboard`, `showLeaderboard`, `apiClient ?` ternary) is only exercised in
   the real browser (covered by `e2e-local`). Reason recorded in `coverage-thresholds.json`.
+- **Start-screen leaderboard entry point.** The menu now responds to `KeyL` and
+  shows `PRESS SPACE TO START  •  PRESS L FOR LEADERBOARD` when an apiClient is
+  available, so players can browse the leaderboard without having to die first.
+  Wiring mirrors the game-over `onLeaderboard` callback in `main.mjs`. Covered by
+  two new unit tests in `scenes.test.mjs`, two `bootstrap` wiring assertions in
+  `main.test.mjs`, and a Playwright spec that drives menu → `KeyL` → leaderboard
+  without entering play (so `/api/session` is never called).
 
 ### Fixed (SI-CS03)
 
