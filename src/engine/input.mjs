@@ -8,6 +8,7 @@ const recognizedCodes = new Set([
   'ArrowUp',
   'Escape',
   'KeyM',
+  'KeyL',
 ]);
 
 const touchOptions = { passive: true };

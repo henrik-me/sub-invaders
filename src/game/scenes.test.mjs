@@ -253,6 +253,44 @@ test('game-over scene stores scores, renders them, and handles prompts', () => {
   assert.equal(menus, 1);
 });
 
+test('game-over scene fires onLeaderboard when KeyL is pressed and callback is provided', () => {
+  let leaderboards = 0;
+  const scene = createGameOverScene({
+    onRestart: () => {},
+    onMenu: () => {},
+    onLeaderboard: () => { leaderboards += 1; },
+  });
+  scene.enter({ score: 50, high: 100 });
+
+  scene.handleInput(inputWith('KeyL'));
+  assert.equal(leaderboards, 1);
+
+  const renderer = createFakeRenderer();
+  scene.render(renderer);
+  const labels = textValues(renderer);
+  assert.ok(
+    labels.some((t) => /PRESS L FOR LEADERBOARD/.test(t)),
+    'leaderboard hint is rendered when onLeaderboard is provided',
+  );
+});
+
+test('game-over scene ignores KeyL when onLeaderboard is not provided', () => {
+  const scene = createGameOverScene({
+    onRestart: () => {},
+    onMenu: () => {},
+  });
+  scene.enter({ score: 0, high: 0 });
+  assert.doesNotThrow(() => scene.handleInput(inputWith('KeyL')));
+
+  const renderer = createFakeRenderer();
+  scene.render(renderer);
+  const labels = textValues(renderer);
+  assert.ok(
+    !labels.some((t) => /PRESS L FOR LEADERBOARD/.test(t)),
+    'leaderboard hint is hidden when onLeaderboard is absent',
+  );
+});
+
 test('play scene wired with REAL formation: torpedo kills the targeted invader', async () => {
   const { createPlayer } = await import('./player.mjs');
   const { createFormation } = await import('./invaders.mjs');

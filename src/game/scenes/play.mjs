@@ -309,6 +309,8 @@ export function createPlayScene(opts = {}) {
   const loadSprites = opts.loadSprites ?? (() => ({}));
   const startWave = asStartWave(opts.startWave);
   const hud = createHud(opts.hud ?? {});
+  const apiClient = opts.apiClient ?? null;
+  const now = typeof opts.now === 'function' ? opts.now : () => new Date();
 
   let player;
   let formation;
@@ -327,6 +329,12 @@ export function createPlayScene(opts = {}) {
   let lastInput;
   let setupPromise;
   let createFormationFactory;
+  let sessionId = null;
+  let sessionStartedAt = null;
+  let sessionError = null;
+  let submission = { attempted: false, status: 'idle', error: null };
+  let pendingSessionPromise = null;
+  let pendingSubmissionPromise = null;
 
   function playerOptions() {
     return {
@@ -376,7 +384,78 @@ export function createPlayScene(opts = {}) {
     loadError = undefined;
     lastInput = undefined;
     setupPromise = undefined;
+    sessionId = null;
+    sessionStartedAt = null;
+    sessionError = null;
+    submission = { attempted: false, status: 'idle', error: null };
+    pendingSessionPromise = null;
+    pendingSubmissionPromise = null;
     updateHud();
+  }
+
+  function startSession() {
+    if (!apiClient || typeof apiClient.startSession !== 'function') {
+      return null;
+    }
+    pendingSessionPromise = Promise.resolve()
+      .then(() => apiClient.startSession())
+      .then((result) => {
+        if (exited) {
+          return;
+        }
+        sessionId = typeof result?.sessionId === 'string' ? result.sessionId : null;
+        sessionStartedAt = typeof result?.startedAt === 'string' ? result.startedAt : null;
+        sessionError = null;
+      })
+      .catch((err) => {
+        sessionId = null;
+        sessionStartedAt = null;
+        sessionError = err?.message ?? String(err);
+      });
+    return pendingSessionPromise;
+  }
+
+  function performSubmit(sid, finalScore, finishedAt) {
+    submission = { attempted: true, status: 'pending', error: null };
+    pendingSubmissionPromise = Promise.resolve()
+      .then(() => apiClient.submitScore({ sessionId: sid, score: finalScore, finishedAt }))
+      .then(() => {
+        submission = { attempted: true, status: 'ok', error: null };
+      })
+      .catch((err) => {
+        submission = { attempted: true, status: 'error', error: err?.message ?? String(err) };
+      });
+    return pendingSubmissionPromise;
+  }
+
+  function submitScore() {
+    if (!apiClient || typeof apiClient.submitScore !== 'function') {
+      return null;
+    }
+    const finishedAt = now().toISOString();
+    const finalScore = score;
+
+    if (sessionId) {
+      return performSubmit(sessionId, finalScore, finishedAt);
+    }
+
+    // Race: game over fired before startSession resolved. Queue the
+    // submission behind the pending session so we don't drop the score.
+    if (pendingSessionPromise) {
+      submission = { attempted: true, status: 'pending', error: null };
+      pendingSubmissionPromise = pendingSessionPromise.then(() => {
+        if (exited) return null;
+        if (sessionId) {
+          return performSubmit(sessionId, finalScore, finishedAt);
+        }
+        submission = { attempted: false, status: 'skipped', error: sessionError };
+        return null;
+      });
+      return pendingSubmissionPromise;
+    }
+
+    submission = { attempted: false, status: 'skipped', error: sessionError };
+    return null;
   }
 
   function finishGame() {
@@ -394,6 +473,7 @@ export function createPlayScene(opts = {}) {
     }
 
     updateHud();
+    submitScore();
     onGameOver(score);
   }
 
@@ -539,6 +619,7 @@ export function createPlayScene(opts = {}) {
     enter() {
       exited = false;
       resetState();
+      startSession();
       return resolveResources();
     },
 
@@ -639,6 +720,10 @@ export function createPlayScene(opts = {}) {
         formation,
         torpedoes,
         enemyShots,
+        sessionId,
+        sessionStartedAt,
+        sessionError,
+        submission: { ...submission },
       };
     },
   };

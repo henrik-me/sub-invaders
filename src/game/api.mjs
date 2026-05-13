@@ -1,3 +1,125 @@
-// CS02 stub. CS03 will own the backend integration surface.
-// Intentionally empty: do not add session, leaderboard, or telemetry shapes here yet — that scope belongs to CS03.
-export {};
+/**
+ * src/game/api.mjs — Sub Invaders backend client.
+ *
+ * Wraps the CS03 Functions API (`/api/session`, `/api/score`, `/api/leaderboard`).
+ * Browser `fetch()` only — no runtime dependencies. Errors are normalized into
+ * Error subclasses so game scenes can surface predictable messages.
+ */
+
+const DEFAULT_BASE = '/api';
+
+export class ApiError extends Error {
+  constructor(message, { status = 0, code = 'unknown', cause } = {}) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    if (cause) this.cause = cause;
+  }
+}
+
+function isPositiveInt(value) {
+  return Number.isInteger(value) && value >= 0;
+}
+
+function normalizeBase(base) {
+  const value = typeof base === 'string' && base.length > 0 ? base : DEFAULT_BASE;
+  return value.replace(/\/+$/, '');
+}
+
+async function readJson(response) {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (cause) {
+    throw new ApiError('response body is not valid JSON', {
+      status: response.status,
+      code: 'invalid_json',
+      cause,
+    });
+  }
+}
+
+async function request(fetchFn, baseUrl, path, init = {}) {
+  let response;
+  try {
+    response = await fetchFn(`${baseUrl}${path}`, init);
+  } catch (cause) {
+    throw new ApiError(`network error contacting ${path}`, {
+      status: 0,
+      code: 'network_error',
+      cause,
+    });
+  }
+  const body = await readJson(response);
+  if (!response.ok) {
+    const code = body?.error ?? `http_${response.status}`;
+    const message = body?.message ?? `request to ${path} failed (${response.status})`;
+    throw new ApiError(message, { status: response.status, code });
+  }
+  return body;
+}
+
+export function createApiClient(opts = {}) {
+  const fetchFn = opts.fetch ?? globalThis.fetch?.bind(globalThis);
+  if (typeof fetchFn !== 'function') {
+    throw new Error('createApiClient: fetch is not available');
+  }
+  const baseUrl = normalizeBase(opts.baseUrl);
+
+  async function startSession() {
+    const body = await request(fetchFn, baseUrl, '/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!body || typeof body.sessionId !== 'string' || typeof body.startedAt !== 'string') {
+      throw new ApiError('startSession: malformed response', {
+        code: 'malformed_response',
+      });
+    }
+    return {
+      sessionId: body.sessionId,
+      nonce: body.nonce ?? '',
+      startedAt: body.startedAt,
+    };
+  }
+
+  async function submitScore({ sessionId, score, finishedAt } = {}) {
+    if (typeof sessionId !== 'string' || sessionId.length === 0) {
+      throw new ApiError('submitScore: sessionId is required', { code: 'invalid_argument' });
+    }
+    if (!isPositiveInt(score)) {
+      throw new ApiError('submitScore: score must be a non-negative integer', { code: 'invalid_argument' });
+    }
+    if (typeof finishedAt !== 'string' || finishedAt.length === 0) {
+      throw new ApiError('submitScore: finishedAt must be ISO-8601 string', { code: 'invalid_argument' });
+    }
+    return request(fetchFn, baseUrl, '/score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, score, finishedAt }),
+    });
+  }
+
+  async function getLeaderboard({ period = 'all' } = {}) {
+    const body = await request(fetchFn, baseUrl, `/leaderboard?period=${encodeURIComponent(period)}`, {
+      method: 'GET',
+    });
+    if (!body || !Array.isArray(body.entries)) {
+      throw new ApiError('getLeaderboard: malformed response', { code: 'malformed_response' });
+    }
+    return {
+      period: body.period ?? period,
+      entries: body.entries.map((row) => ({
+        rank: Number(row.rank) || 0,
+        score: Number(row.score) || 0,
+        finishedAt: typeof row.finishedAt === 'string' ? row.finishedAt : '',
+      })),
+    };
+  }
+
+  return { startSession, submitScore, getLeaderboard };
+}
+
+export const __forTesting = { normalizeBase, isPositiveInt };
