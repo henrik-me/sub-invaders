@@ -199,6 +199,33 @@ else
 fi
 
 # ============================================================
+# Phase 2.5 — CS03 Tables (Sessions, Leaderboard)
+# Idempotent via --if-not-exists. Uses the management plane (account-key
+# auth resolved implicitly from the az session). No secrets passed on the
+# command line, so the table create is safe to keep in source control.
+# ============================================================
+printf '\n%s\n' "=== Phase 2.5: Tables ==="
+
+for TABLE_NAME in Sessions Leaderboard; do
+  TABLE_OUT=$(az storage table create \
+    --account-name "${STORAGE_ACCT_NAME}" \
+    --name "${TABLE_NAME}" \
+    --auth-mode login \
+    --output json 2>&1) && TABLE_STATUS=0 || TABLE_STATUS=$?
+
+  if [[ ${TABLE_STATUS} -eq 0 ]]; then
+    printf '%s\n' "Table '${TABLE_NAME}': ready — OK"
+  elif printf '%s' "${TABLE_OUT}" | grep -qi "TableAlreadyExists\|already exists"; then
+    printf '%s\n' "Table '${TABLE_NAME}': already exists — OK"
+  else
+    printf '%s\n' "ERROR: Table create failed for '${TABLE_NAME}':" >&2
+    printf '%s\n' "${TABLE_OUT}" >&2
+    printf '%s\n' "Tip: Ensure the running identity has 'Storage Table Data Contributor' (or higher) on ${STORAGE_ACCT_NAME}, or re-run with shared-key auth." >&2
+    exit 1
+  fi
+done
+
+# ============================================================
 # Phase 3 — Static Web App
 # az staticwebapp create does NOT require --source or --branch;
 # it creates a disconnected SWA suitable for CI/CD-based deploy

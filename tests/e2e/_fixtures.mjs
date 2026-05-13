@@ -3,6 +3,52 @@ import { addCoverageReport } from 'monocart-reporter';
 
 const COVERAGE_ENABLED = process.env.PLAYWRIGHT_COVERAGE === '1';
 
+const DEFAULT_SESSION_BODY = {
+  sessionId: 'fixture-default-session',
+  nonce: 'fixturenonce',
+  startedAt: '2026-05-13T00:00:00.000Z',
+};
+const DEFAULT_SCORE_BODY = {
+  status: 'accepted',
+  score: 0,
+  submissionId: 'fixture-default-submission',
+};
+const DEFAULT_LEADERBOARD_BODY = { period: 'all', entries: [] };
+
+async function installDefaultApiStubs(page) {
+  await page.route('**/api/session', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(DEFAULT_SESSION_BODY),
+    });
+  });
+
+  await page.route('**/api/score', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(DEFAULT_SCORE_BODY),
+    });
+  });
+
+  await page.route('**/api/leaderboard*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(DEFAULT_LEADERBOARD_BODY),
+    });
+  });
+}
+
 async function requireHook(page) {
   return page.waitForFunction(() => Boolean(window.__subInvaders), undefined, { timeout: 5_000 });
 }
@@ -20,6 +66,19 @@ async function callHook(page, method, ...args) {
 }
 
 export const test = base.extend({
+  // Default `/api/**` stubs so the dev server (which returns 405 for POST) doesn't
+  // produce spurious console errors when play.mjs fires fire-and-forget startSession/
+  // submitScore. Specific tests register their own page.route('**/api/...') later,
+  // and Playwright uses the most recently registered handler for matching requests
+  // so this baseline does not interfere with leaderboard.spec.mjs overrides.
+  defaultApiStubs: [
+    async ({ page }, use) => {
+      await installDefaultApiStubs(page);
+      await use();
+    },
+    { auto: true },
+  ],
+
   // Automatic V8 coverage capture, opt-in via PLAYWRIGHT_COVERAGE=1.
   // Zero overhead when disabled. Chromium-only (V8 coverage API).
   // Set up before `gamePage` so coverage starts before the first navigation.
