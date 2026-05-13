@@ -1,9 +1,9 @@
 # CS09 — coverage hardening to ≥90% + required gates
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-si
+**Branch:** cs09/content
+**Started:** 2026-05-13
 **Closed:** —
 **Depends on:** CS07 (E2E Playwright tests), `chore/e2e-coverage` PR #31 (coverage measurement infrastructure)
 
@@ -153,6 +153,48 @@ Per-file:
 
 - CS07 (e2e suite) — done.
 - `chore/e2e-coverage` PR — measurement infrastructure; in flight.
+
+## Tasks
+
+| Task | State | Owner | Notes |
+|---|---|---|---|
+| Phase 1a: codify exclusion lists in both coverage configs | planned | sub-agent #1 | `playwright.coverage.config.mjs` + c8 `--exclude` flags; document each exclusion inline. |
+| Phase 1b: add baseline-floor thresholds (regression guard) | planned | sub-agent #1 | c8 `--check-coverage --lines=86 --statements=86 --functions=84 --branches=74`; monocart `coverage.thresholds = { lines: 68, statements: 78, functions: 77, branches: 60 }`. |
+| Phase 1c: wire `coverage` step into the `ci` umbrella | planned | sub-agent #1 | Existing required `ci` job fails on regression; no new required-status-check context. |
+| Phase 2a: E2E `engine/audio.mjs` user-gesture fixture (0% → 90%) | planned | sub-agent #2 | New fixture taps canvas before page loads audio.mjs; spec asserts AudioContext init. |
+| Phase 2b: E2E `engine/sprite.mjs` (34% → 90%) | planned | sub-agent #2 | New test hook for atlas/frame state; specs exercise different frames. |
+| Phase 2c: E2E `game/score.mjs` (46% → 90%) | planned | sub-agent #2 | Specs that kill each enemy type (jellyfish, anglerfish, giant squid, mystery) and assert score increments. |
+| Phase 2d: E2E `engine/seed.mjs` (52% → 90%) | planned | sub-agent #2 | Specs across multiple seeds; verify PRNG branches. |
+| Phase 2e: E2E `engine/loop.mjs` (53% → 90%) | planned | sub-agent #3 | Pause/resume, visibility-change, frame-skipping. New test hook for loop state. |
+| Phase 2f: E2E `engine/input.mjs` (62% → 90%) | planned | sub-agent #3 | Specs for all key bindings (left/right/space/escape/p) + key-state edge cases. |
+| Phase 2g: E2E `engine/collision.mjs` (63% → 90%) | planned | sub-agent #3 | Specs for boundary touches, no-overlap, axis-aligned tangents. |
+| Phase 2h: E2E `game/scenes/play.mjs` (62% → 90%) | planned | sub-agent #4 | 537-LOC file. Specs for pause overlay, debug overlay, scene transitions, game-over → restart cycle. |
+| Phase 2i: E2E `game/invaders.mjs` + `player.mjs` (66/71% → 90%) | planned | sub-agent #4 | Fire-pattern variations, formation movement edges, torpedo cooldown, off-screen torpedoes. |
+| Phase 2j: Unit `engine/audio.mjs` (84% → 90%) | planned | sub-agent #5 | Web Audio API mock; cover error fallback paths. |
+| Phase 2k: Unit `engine/sprite.mjs` (68% → 90%) | planned | sub-agent #5 | `fetch` mock for atlas JSON; exercise atlas-lookup paths. |
+| Phase 2l: Unit `engine/loop.mjs` (84% → 90%) | planned | sub-agent #5 | `document.visibilitychange` lifecycle paths. |
+| Phase 2m: Unit `game/scenes/play.mjs` (67% → 90%) | planned | sub-agent #5 | Scene state machine, transition guards, debug-overlay pure formatters. |
+| Phase 3a: raise both threshold sets to targets (≥90/85) | planned | orchestrator | Bump c8 + monocart thresholds after Phase 2. |
+| Phase 3b: flip coverage gate to required on `main` ruleset | planned | orchestrator | Either fold coverage into `e2e-local` job OR add `e2e-coverage` to `infra/main-protection-ruleset.json` + live ruleset id `16210336`. |
+| Phase 3c: document coverage policy in `OPERATIONS.md` | planned | orchestrator | New "Coverage policy" subsection: thresholds, exceptions, how to update, where to find HTML report. |
+| 3-run rerun stability check | planned | orchestrator | Exit criterion: no flakes in `e2e-coverage` over 3 consecutive CI runs. |
+| Close-out docs + restart state | planned | orchestrator | Workboard + active CS notes. |
+| Close-out learnings + follow-ups | planned | orchestrator | File any per-file shortfall as a new follow-up issue if 90% can't be reached. |
+
+## Notes / Learnings
+
+Filled during execution. At minimum, record: per-file delta from baseline,
+any files that plateau below 90% and why, the wall-clock cost of running
+coverage in the required `e2e-local` job, any new test hooks added for
+introspection.
+
+## Plan-vs-implementation review
+
+**Reviewer:** —
+**Date:** —
+**Outcome:** —
+
+(Filled at close-out per OPERATIONS.md three-PR shape.)
 
 ## Co-authored-by
 
