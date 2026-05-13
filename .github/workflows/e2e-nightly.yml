@@ -74,7 +74,7 @@ jobs:
           issue_number=$(gh issue list --repo "$REPO" \
             --state open \
             --label e2e-nightly-fail \
-            --search "\"Nightly E2E failed\" in:title" \
+            --search 'Nightly E2E failed in:title' \
             --json number \
             --jq '.[0].number // empty')
 
