@@ -32,8 +32,13 @@ permissions:
   pull-requests: write
 
 concurrency:
+  # Push to main: never cancel - queue production deploys so every merged
+  # commit reaches staging. Back-to-back merges with cancel-in-progress=true
+  # caused all PR #34..#40 deploys to be cancelled, leaving staging stale
+  # and the nightly E2E suite failing against missing test hooks (see
+  # Issue #38, LRN-020). PR previews can still cancel-in-progress safely.
   group: swa-deploy-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-and-deploy:
