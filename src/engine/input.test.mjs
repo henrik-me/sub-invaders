@@ -115,6 +115,20 @@ test('unrecognized keys are ignored and do not prevent default', () => {
   assert.equal(event.defaultPrevented, undefined);
 });
 
+test('Escape and KeyM are recognized for pause and menu return', () => {
+  const input = createInput();
+  const target = new StubTarget({ tagName: 'CANVAS' });
+  input.attach(target);
+
+  target.dispatchEvent('keydown', { code: 'Escape' });
+  target.dispatchEvent('keydown', { code: 'KeyM' });
+
+  assert.equal(input.pressed('Escape'), true);
+  assert.equal(input.pressed('KeyM'), true);
+  assert.equal(input.down('Escape'), true);
+  assert.equal(input.down('KeyM'), true);
+});
+
 test('recognized keys prevent default on canvas targets', () => {
   const input = createInput();
   const target = new StubTarget({ nodeName: 'canvas' });
