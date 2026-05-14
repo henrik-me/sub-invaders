@@ -1338,8 +1338,9 @@ test('CS04 PvI: fog-of-war modifier renders a halo overlay after main scene', ()
 
 test('CS04 PvI: whaleshark is created in daily mode and updates on each tick', () => {
   let createdWith = null;
+  const observedDts = [];
   const fakeWhaleshark = {
-    update() { this.updateCalls = (this.updateCalls ?? 0) + 1; },
+    update(dt) { observedDts.push(dt); },
     render() {},
     checkHit() { return { hit: false }; },
     state: { active: false, shark: null },
@@ -1355,8 +1356,36 @@ test('CS04 PvI: whaleshark is created in daily mode and updates on each tick', (
   scene.enter();
   assert.equal(createdWith.dailyMode, true);
   assert.equal(createdWith.spawnIntervalMs, 12345);
+  // PvI R2 fix: whaleshark.update() takes SECONDS (not ms). A 16ms frame
+  // (dt=0.016) must be forwarded as 0.016, not 16.
   scene.update(0.016);
-  assert.equal(fakeWhaleshark.updateCalls, 1);
+  assert.equal(observedDts.length, 1);
+  assert.equal(observedDts[0], 0.016);
+});
+
+// CS04 PvI R2 fix: integration with the real createWhaleShark — a single
+// 16ms frame must NOT cause the shark to spawn-then-despawn. Previously,
+// passing dt*1000 made the spawn timer (15-30s) decrement by 16,000 in one
+// frame, exhausting the timer immediately and the shark would cross + despawn
+// in the next tick.
+test('CS04 PvI: real whaleshark does not spawn after one 16ms frame in normal-spawn mode', async () => {
+  const { createWhaleShark } = await import('../whaleshark.mjs');
+  const rng = {
+    next: () => 0.5,
+    range: (lo, hi) => (lo + hi) / 2,
+    int: (lo, hi) => Math.floor((lo + hi) / 2),
+  };
+  // Use a fixed spawnIntervalMs of 15000ms (15s). After one 16ms frame in
+  // seconds (dt=0.016), the timer should still be ~14984ms — no spawn.
+  const ws = createWhaleShark({
+    rng,
+    canvasWidth: 800,
+    canvasHeight: 600,
+    dailyMode: true,
+    spawnIntervalMs: 15000,
+  });
+  ws.update(0.016); // 16ms in seconds
+  assert.equal(ws.state.active, false, 'shark must not be active after one 16ms frame');
 });
 
 test('CS04 PvI: whaleshark hit awards points (multiplied by scoreMultiplier)', () => {

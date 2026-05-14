@@ -59,3 +59,27 @@ test('fog-of-war: renderOverlay no-ops when renderer or player missing', () => {
   renderOverlay(null, { player: { x: 0, y: 0 }, canvasWidth: 1, canvasHeight: 1 });
   renderOverlay({}, { player: null, canvasWidth: 1, canvasHeight: 1 });
 });
+
+// CS04 PvI R2 fix: renderer exposes ctx as a FUNCTION (renderer.mjs:89-91),
+// not a property. Both shapes must work.
+test('fog-of-war: renderOverlay supports renderer.ctx as a function (real renderer contract)', () => {
+  const calls = [];
+  const ctx = {
+    save: () => calls.push('save'),
+    restore: () => calls.push('restore'),
+    beginPath: () => calls.push('beginPath'),
+    rect: (...args) => calls.push(['rect', ...args]),
+    arc: (...args) => calls.push(['arc', ...args]),
+    fill: (rule) => calls.push(['fill', rule]),
+    set fillStyle(v) { calls.push(['fillStyle', v]); },
+  };
+  const renderer = { ctx: () => ctx };
+  const player = { x: 100, y: 200, w: 16, h: 16 };
+  renderOverlay(renderer, { player, canvasWidth: 480, canvasHeight: 640, haloRadius: 60 });
+  assert.equal(calls[0], 'save');
+  assert.equal(calls.at(-1), 'restore');
+  const arcCall = calls.find((c) => Array.isArray(c) && c[0] === 'arc');
+  assert.equal(arcCall[1], 108);
+  assert.equal(arcCall[2], 208);
+  assert.equal(arcCall[3], 60);
+});

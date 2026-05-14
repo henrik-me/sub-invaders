@@ -15,8 +15,9 @@ export function apply(state, { haloRadius = DEFAULT_HALO_RADIUS } = {}) {
 }
 
 export function renderOverlay(renderer, { player, canvasWidth, canvasHeight, haloRadius = DEFAULT_HALO_RADIUS } = {}) {
-  if (!renderer || typeof renderer.ctx === 'undefined' || !player) return;
-  const ctx = renderer.ctx;
+  if (!renderer || !player) return;
+  const ctx = typeof renderer.ctx === 'function' ? renderer.ctx() : renderer.ctx;
+  if (!ctx || typeof ctx.save !== 'function') return;
   const px = player.x + (player.w ?? 0) / 2;
   const py = player.y + (player.h ?? 0) / 2;
 

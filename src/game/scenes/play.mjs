@@ -756,7 +756,7 @@ export function createPlayScene(opts = {}) {
       updateFormation(dt);
       updateProjectiles(dt);
       if (whaleshark) {
-        whaleshark.update((Number(dt) || 0) * 1000);
+        whaleshark.update(Number(dt) || 0);
       }
       handleTorpedoCollisions();
       handlePlayerCollisions();
