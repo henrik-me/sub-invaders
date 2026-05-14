@@ -199,6 +199,33 @@ else
 fi
 
 # ============================================================
+# Phase 2.5 — CS03 Tables (Sessions, Leaderboard)
+# Idempotent via --if-not-exists. Uses the management plane (account-key
+# auth resolved implicitly from the az session). No secrets passed on the
+# command line, so the table create is safe to keep in source control.
+# ============================================================
+printf '\n%s\n' "=== Phase 2.5: Tables ==="
+
+for TABLE_NAME in Sessions Leaderboard; do
+  TABLE_OUT=$(az storage table create \
+    --account-name "${STORAGE_ACCT_NAME}" \
+    --name "${TABLE_NAME}" \
+    --auth-mode login \
+    --output json 2>&1) && TABLE_STATUS=0 || TABLE_STATUS=$?
+
+  if [[ ${TABLE_STATUS} -eq 0 ]]; then
+    printf '%s\n' "Table '${TABLE_NAME}': ready — OK"
+  elif printf '%s' "${TABLE_OUT}" | grep -qi "TableAlreadyExists\|already exists"; then
+    printf '%s\n' "Table '${TABLE_NAME}': already exists — OK"
+  else
+    printf '%s\n' "ERROR: Table create failed for '${TABLE_NAME}':" >&2
+    printf '%s\n' "${TABLE_OUT}" >&2
+    printf '%s\n' "Tip: Ensure the running identity has 'Storage Table Data Contributor' (or higher) on ${STORAGE_ACCT_NAME}, or re-run with shared-key auth." >&2
+    exit 1
+  fi
+done
+
+# ============================================================
 # Phase 3 — Static Web App
 # az staticwebapp create does NOT require --source or --branch;
 # it creates a disconnected SWA suitable for CI/CD-based deploy
@@ -249,6 +276,45 @@ SWA_HOSTNAME=$(az staticwebapp show \
   --name "${SWA_NAME}" \
   --query "defaultHostname" -o tsv 2>/dev/null || echo "(unavailable)")
 SWA_HOSTNAME=${SWA_HOSTNAME//$'\r'/}
+
+# ============================================================
+# Phase 3.5 — SWA app settings for Functions (CS03)
+# SWA managed Functions reserves the 'AzureWebJobsStorage' app setting
+# (the platform manages it for the SWA-internal Functions storage and
+# rejects user-set values with HTTP 400 'AppSetting with name(s)
+# AzureWebJobsStorage are not allowed.'). Our Functions code (Program.cs)
+# therefore reads 'SUB_INVADERS_STORAGE' first so the operator-managed
+# user-data Tables in ${STORAGE_ACCT_NAME} are reachable. We set that
+# app setting here, idempotently. The connection string is computed
+# fresh from the storage-account keys each provision-script run, so a
+# rotated key is automatically propagated to the SWA on the next run.
+# ============================================================
+printf '\n%s\n' "=== Phase 3.5: SWA app settings ==="
+
+STORAGE_CONN=$(az storage account show-connection-string \
+  --resource-group "${RG_NAME}" \
+  --name "${STORAGE_ACCT_NAME}" \
+  --query connectionString -o tsv 2>/dev/null || echo "")
+STORAGE_CONN=${STORAGE_CONN//$'\r'/}
+
+if [[ -z "${STORAGE_CONN}" ]]; then
+  printf '%s\n' "ERROR: Could not retrieve connection string for ${STORAGE_ACCT_NAME}" >&2
+  exit 1
+fi
+
+APPSET_OUT=$(az staticwebapp appsettings set \
+  --name "${SWA_NAME}" \
+  --setting-names "SUB_INVADERS_STORAGE=${STORAGE_CONN}" \
+  --output json 2>&1) && APPSET_STATUS=0 || APPSET_STATUS=$?
+
+if [[ ${APPSET_STATUS} -eq 0 ]]; then
+  printf '%s\n' "SWA app setting 'SUB_INVADERS_STORAGE': set — OK"
+else
+  printf '%s\n' "ERROR: Failed to set SWA app setting SUB_INVADERS_STORAGE:" >&2
+  printf '%s\n' "${APPSET_OUT}" >&2
+  printf '%s\n' "Tip: Verify the running identity has 'Static Web Apps Contributor' (or higher) on ${SWA_NAME}." >&2
+  exit 1
+fi
 
 # ============================================================
 # Phase 4 — Action Group + Budget (CS01-7)

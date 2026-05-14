@@ -9,6 +9,7 @@ const asScore = (value) => Math.max(0, Math.floor(Number(value) || 0));
 export function createGameOverScene(opts = {}) {
   const onRestart = opts.onRestart ?? (() => {});
   const onMenu = opts.onMenu ?? (() => {});
+  const onLeaderboard = opts.onLeaderboard ?? null;
 
   let score = asScore(opts.score);
   let high = asScore(opts.high);
@@ -26,6 +27,10 @@ export function createGameOverScene(opts = {}) {
 
       if (input?.pressed?.('KeyM')) {
         onMenu();
+      }
+
+      if (onLeaderboard && input?.pressed?.('KeyL')) {
+        onLeaderboard();
       }
     },
 
@@ -51,7 +56,10 @@ export function createGameOverScene(opts = {}) {
         align: 'center',
         baseline: 'middle',
       });
-      renderer.drawText('PRESS SPACE TO RESTART  •  PRESS M FOR MENU', width / 2, 336, {
+      const hint = onLeaderboard
+        ? 'PRESS SPACE TO RESTART  •  PRESS L FOR LEADERBOARD  •  PRESS M FOR MENU'
+        : 'PRESS SPACE TO RESTART  •  PRESS M FOR MENU';
+      renderer.drawText(hint, width / 2, 336, {
         font: '16px monospace',
         fill: PALETTE.ui,
         align: 'center',

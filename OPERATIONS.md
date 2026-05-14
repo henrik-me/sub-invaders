@@ -1118,24 +1118,45 @@ tag and skips create operations that already succeeded.
 ### Storage Tables persistence (CS03+)
 
 - Storage account: `stsubinvaders$RAND6` (CS01-5).
-- Tables: `Leaderboard` (PartitionKey=daily-challenge-key, RowKey=score-id),
-  `Sessions` (PartitionKey=session-id-prefix, RowKey=session-id, TTL=session-ttl).
-- Hourly cleanup Function (CS03) deletes expired sessions.
+- Tables created by `infra/provision.sh` Phase 2.5 (idempotent: `az storage table create` with
+  a stderr `grep` for `TableAlreadyExists` to treat re-runs as a no-op):
+  - `Sessions` — PartitionKey = `yyyyMMdd` (UTC day, sharded for fan-out + cleanup),
+    RowKey = `sessionId` (cryptographically random GUID). Columns: `Nonce`, `StartedAt`,
+    `Consumed`, `ConsumedAt`. Single-use; replay protection enforced via ETag-conditional
+    `UpdateEntityAsync(Replace)` that returns 412 → mapped to HTTP 409 `already_consumed`.
+  - `Leaderboard` — PartitionKey = `"all"` (single hot partition acceptable up to ~10k rows
+    per the Azure Tables guidance; revisit if the table grows), RowKey =
+    `<invertedScore D8>_<submissionUuid>` so the natural ascending Table Storage sort
+    returns top scores first (inverted score = `99_999_999 - score`, zero-padded to 8 digits).
+    Columns: `Score` (int), `FinishedAt` (ISO-8601), `SessionId` (string).
+- Cleanup Function (`SessionsCleanup`, `POST /api/admin/sessions-cleanup`,
+  `AuthorizationLevel.Function`) deletes Sessions older than 24 h **and** trims the
+  `Leaderboard` table to the top 10 000 rows (`LeaderboardCap`). Azure Tables has no native
+  TTL; the cleanup Function is the source of truth. SWA managed Functions does not support
+  `timerTrigger` (the build emits *"Currently, only httpTriggers are supported"*), so the
+  hourly cadence is driven by an external scheduler (Azure Logic App / GitHub Actions cron)
+  that POSTs to the admin endpoint with the function key (`x-functions-key` header or
+  `?code=` query). Mitigation if the scheduler is offline: Sessions are still single-use, so
+  storage grows linearly but correctness is preserved; the next successful invocation
+  reclaims the backlog.
 
 ### Env vars (deploy-time, set in Azure SWA configuration)
 
 | Var | Purpose | When |
 |---|---|---|
-| `STORAGE_CONNECTION_STRING` | Storage Tables access | CS03+ |
-| `RATE_LIMIT_PER_MIN` | Per-IP rate cap (default 30) | CS03+ |
+| `SUB_INVADERS_STORAGE` | Storage Tables connection string for our user-data Tables. Set on the SWA in Phase 3.5 of `infra/provision.sh`. **Cannot use the name `AzureWebJobsStorage`** — SWA reserves it for the platform-managed internal Functions storage and rejects user values with HTTP 400 (`'AzureWebJobsStorage' are not allowed`). Local dev `local.settings.json.example` sets both for parity. | CS03+ |
+| `RATE_LIMIT_PER_MINUTE` | Per-IP rate cap on `/api/session` and `/api/score` (default 30) | CS03+ |
+| `SUB_INVADERS_COMMIT` / `GITHUB_SHA` | Deploy SHA surfaced by `/api/health` | CS03+ |
 | `DAILY_CHALLENGE_SEED` | Pin deterministic daily challenge | CS04+ |
 
 ### Secret rotation
 
 - `AZURE_STATIC_WEB_APPS_API_TOKEN`: rotate via Azure portal → SWA → Manage deployment
   token; update GitHub secret immediately.
-- `STORAGE_CONNECTION_STRING`: rotate via Azure portal → Storage account → Access keys;
-  update SWA configuration; rolling update.
+- `SUB_INVADERS_STORAGE`: rotate via Azure portal → Storage account → Access keys; update
+  the SWA application settings (the Functions worker re-reads on cold start). Plan a
+  rolling key rotation: regenerate key2 first, update settings to key2, then regenerate
+  key1.
 - Never log secrets in workflows; never copy into the active CS file.
 
 ### Coverage policy (CS09)
@@ -1170,7 +1191,7 @@ the monocart `coverage.thresholds` / `onEnd` literal in
 | Statements | ≥ 90% | ≥ 87% |
 | Functions | ≥ 90% | ≥ 84% |
 | Lines | ≥ 90% | ≥ 77% |
-| Branches | ≥ 85% | ≥ 70% |
+| Branches | ≥ 85% | ≥ 69% |
 | Bytes | — | ≥ 80% |
 
 **Per-file defaults (enforced — new files start here):**

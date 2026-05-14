@@ -104,6 +104,8 @@ function createScene(opts = {}) {
     onGameOver: opts.onGameOver ?? (() => {}),
     startWave: opts.startWave,
     seed: opts.seed,
+    apiClient: opts.apiClient,
+    now: opts.now,
   };
   const scene = createPlayScene(sceneOpts);
   return { scene, player, formation, sprites };
@@ -895,4 +897,252 @@ test('lives drop to 0 after damage triggers game over', () => {
 
   assert.equal(scene.state().gameOver, true);
   assert.equal(finalScore, 0);
+});
+
+// ---------------------------------------------------------------------------
+// CS03 D9 — backend API integration: startSession at enter, submitScore at game over
+// ---------------------------------------------------------------------------
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+async function flushMicrotasks() {
+  // Drain a generous number of microtask ticks. The integration chains
+  // Promise.resolve().then(api.startSession).then(store).catch(err) so several
+  // queues need to fire before observable state updates.
+  for (let i = 0; i < 10; i += 1) {
+    await Promise.resolve();
+  }
+  // Ensure any setImmediate-scheduled work (none today, but safe) runs too.
+  await new Promise((resolve) => setImmediate(resolve));
+}
+
+function fakeApiClient() {
+  const calls = { startSession: 0, submitScore: [] };
+  let startSessionResponse = { sessionId: 'sess-001', nonce: 'aabb', startedAt: '2026-05-13T00:00:00.000Z' };
+  let startSessionError = null;
+  let submitScoreError = null;
+
+  return {
+    calls,
+    setStartSessionResponse(value) { startSessionResponse = value; startSessionError = null; },
+    setStartSessionError(err) { startSessionError = err; },
+    setSubmitScoreError(err) { submitScoreError = err; },
+    startSession() {
+      calls.startSession += 1;
+      if (startSessionError) return Promise.reject(startSessionError);
+      return Promise.resolve(startSessionResponse);
+    },
+    submitScore(args) {
+      calls.submitScore.push(args);
+      if (submitScoreError) return Promise.reject(submitScoreError);
+      return Promise.resolve({ status: 'accepted', score: args.score, submissionId: 'sub-001' });
+    },
+  };
+}
+
+test('CS03/D9: enter() calls apiClient.startSession exactly once and stores sessionId+startedAt', async () => {
+  const api = fakeApiClient();
+  const { scene } = createScene({ apiClient: api });
+  scene.enter();
+  await flushMicrotasks();
+
+  assert.equal(api.calls.startSession, 1);
+  const state = scene.state();
+  assert.equal(state.sessionId, 'sess-001');
+  assert.equal(state.sessionStartedAt, '2026-05-13T00:00:00.000Z');
+  assert.equal(state.sessionError, null);
+});
+
+test('CS03/D9: startSession failure leaves sessionId null and records sessionError; game still plays', async () => {
+  const api = fakeApiClient();
+  api.setStartSessionError(Object.assign(new Error('network down'), { code: 'network_error' }));
+  const { scene } = createScene({ apiClient: api });
+  scene.enter();
+  await flushMicrotasks();
+
+  const state = scene.state();
+  assert.equal(state.sessionId, null);
+  assert.equal(state.sessionStartedAt, null);
+  assert.equal(state.sessionError, 'network down');
+  assert.equal(state.ready, true); // game still loaded
+});
+
+test('CS03/D9: finishGame submits the final score with apiClient.submitScore(sessionId, score, finishedAt)', async () => {
+  const api = fakeApiClient();
+  const fixedTime = new Date('2026-05-13T00:01:00.000Z');
+  const player = createFakePlayer({ lives: 1, isDead() { return this.lives <= 0; } });
+  const formation = createFakeFormation({
+    tryFire() { return { x: 384, y: 540, w: 4, h: 10, alive: true }; },
+  });
+  const { scene } = createScene({
+    apiClient: api,
+    now: () => fixedTime,
+    playerInstance: player,
+    formationInstance: formation,
+  });
+  scene.enter();
+  await flushMicrotasks();
+  assert.equal(api.calls.startSession, 1);
+
+  scene.update(0.001); // collide → finishGame
+  await flushMicrotasks();
+
+  assert.equal(api.calls.submitScore.length, 1);
+  const submitted = api.calls.submitScore[0];
+  assert.equal(submitted.sessionId, 'sess-001');
+  assert.equal(submitted.score, scene.state().score);
+  assert.equal(submitted.finishedAt, '2026-05-13T00:01:00.000Z');
+  const state = scene.state();
+  assert.equal(state.submission.attempted, true);
+  assert.equal(state.submission.status, 'ok');
+  assert.equal(state.submission.error, null);
+});
+
+test('CS03/D9: submitScore failure is captured in state.submission.error without throwing', async () => {
+  const api = fakeApiClient();
+  api.setSubmitScoreError(Object.assign(new Error('rate limited'), { code: 'rate_limited' }));
+  const player = createFakePlayer({ lives: 1, isDead() { return this.lives <= 0; } });
+  const formation = createFakeFormation({
+    tryFire() { return { x: 384, y: 540, w: 4, h: 10, alive: true }; },
+  });
+  const { scene } = createScene({
+    apiClient: api,
+    playerInstance: player,
+    formationInstance: formation,
+  });
+  scene.enter();
+  await flushMicrotasks();
+  scene.update(0.001);
+  await flushMicrotasks();
+
+  const state = scene.state();
+  assert.equal(state.submission.attempted, true);
+  assert.equal(state.submission.status, 'error');
+  assert.equal(state.submission.error, 'rate limited');
+});
+
+test('CS03/D9: finishGame skips submitScore when startSession previously failed (no sessionId)', async () => {
+  const api = fakeApiClient();
+  api.setStartSessionError(new Error('offline'));
+  const player = createFakePlayer({ lives: 1, isDead() { return this.lives <= 0; } });
+  const formation = createFakeFormation({
+    tryFire() { return { x: 384, y: 540, w: 4, h: 10, alive: true }; },
+  });
+  const { scene } = createScene({
+    apiClient: api,
+    playerInstance: player,
+    formationInstance: formation,
+  });
+  scene.enter();
+  await flushMicrotasks();
+  scene.update(0.001);
+  await flushMicrotasks();
+
+  assert.equal(api.calls.submitScore.length, 0);
+  const state = scene.state();
+  assert.equal(state.submission.attempted, false);
+  assert.equal(state.submission.status, 'skipped');
+  assert.equal(state.submission.error, 'offline');
+});
+
+test('CS03/D9: no apiClient option leaves session/submission in idle state and never calls anything', () => {
+  const { scene } = createScene(); // no apiClient
+  scene.enter();
+  const state = scene.state();
+  assert.equal(state.sessionId, null);
+  assert.equal(state.sessionStartedAt, null);
+  assert.equal(state.sessionError, null);
+  assert.equal(state.submission.attempted, false);
+  assert.equal(state.submission.status, 'idle');
+});
+
+test('CS03/D9: scene.exit() before startSession resolves prevents sessionId leak into state', async () => {
+  const api = fakeApiClient();
+  const pending = deferred();
+  api.startSession = () => {
+    api.calls.startSession += 1;
+    return pending.promise;
+  };
+  const { scene } = createScene({ apiClient: api });
+  scene.enter();
+  scene.exit();
+  pending.resolve({ sessionId: 'late-sess', nonce: 'aa', startedAt: '2026-05-13T00:00:00.000Z' });
+  await flushMicrotasks();
+
+  assert.equal(scene.state().sessionId, null);
+});
+
+test('CS03/D9: finishGame queues score submission when game ends before startSession resolves', async () => {
+  const api = fakeApiClient();
+  const pending = deferred();
+  api.startSession = () => {
+    api.calls.startSession += 1;
+    return pending.promise;
+  };
+  const fixedTime = new Date('2026-05-13T00:01:00.000Z');
+  const player = createFakePlayer({ lives: 1, isDead() { return this.lives <= 0; } });
+  const formation = createFakeFormation({
+    tryFire() { return { x: 384, y: 540, w: 4, h: 10, alive: true }; },
+  });
+  const { scene } = createScene({
+    apiClient: api,
+    now: () => fixedTime,
+    playerInstance: player,
+    formationInstance: formation,
+  });
+  scene.enter();
+  // Trigger game over before startSession resolves.
+  scene.update(0.001);
+  await flushMicrotasks();
+
+  // Submission was queued, not skipped.
+  assert.equal(api.calls.submitScore.length, 0);
+  assert.equal(scene.state().submission.status, 'pending');
+  assert.equal(scene.state().submission.attempted, true);
+
+  // Now the session resolves — submission should fire with the late sessionId.
+  pending.resolve({ sessionId: 'late-sess', nonce: 'aa', startedAt: '2026-05-13T00:00:00.000Z' });
+  await flushMicrotasks();
+
+  assert.equal(api.calls.submitScore.length, 1);
+  assert.equal(api.calls.submitScore[0].sessionId, 'late-sess');
+  assert.equal(api.calls.submitScore[0].finishedAt, '2026-05-13T00:01:00.000Z');
+  assert.equal(scene.state().submission.status, 'ok');
+});
+
+test('CS03/D9: queued submission resolves to skipped when startSession ultimately rejects', async () => {
+  const api = fakeApiClient();
+  const pending = deferred();
+  api.startSession = () => {
+    api.calls.startSession += 1;
+    return pending.promise;
+  };
+  const player = createFakePlayer({ lives: 1, isDead() { return this.lives <= 0; } });
+  const formation = createFakeFormation({
+    tryFire() { return { x: 384, y: 540, w: 4, h: 10, alive: true }; },
+  });
+  const { scene } = createScene({
+    apiClient: api,
+    playerInstance: player,
+    formationInstance: formation,
+  });
+  scene.enter();
+  scene.update(0.001);
+  await flushMicrotasks();
+  assert.equal(scene.state().submission.status, 'pending');
+
+  pending.reject(new Error('offline'));
+  await flushMicrotasks();
+
+  assert.equal(api.calls.submitScore.length, 0);
+  assert.equal(scene.state().submission.status, 'skipped');
+  assert.equal(scene.state().submission.error, 'offline');
 });

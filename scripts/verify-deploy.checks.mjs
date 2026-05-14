@@ -75,6 +75,97 @@ const checks = [
       },
     },
   },
+  {
+    /**
+     * CS03/D13 — state-carrying probe:
+     *   POST /api/session → POST /api/score (with sessionId) → GET /api/leaderboard?period=all.
+     * Each step rejects the entire check on failure so reviewers see exactly which step broke.
+     */
+    name: 'leaderboard-sequence',
+    async run(ctx) {
+      const { httpRequest, baseUrl } = ctx;
+      if (typeof httpRequest !== 'function') {
+        return 'leaderboard-sequence: httpRequest is unavailable (verify-deploy version mismatch)';
+      }
+
+      // Step 1: POST /api/session
+      const sessionResponse = await httpRequest({
+        baseUrl,
+        path: '/api/session',
+        method: 'POST',
+      });
+      if (sessionResponse.status !== 200) {
+        return `step 1 (POST /api/session): HTTP ${sessionResponse.status} (expected 200)`;
+      }
+      const session = sessionResponse.json;
+      if (!session || typeof session.sessionId !== 'string' || typeof session.startedAt !== 'string') {
+        return 'step 1 (POST /api/session): malformed response — missing sessionId or startedAt';
+      }
+
+      // Step 2: POST /api/score
+      // finishedAt must be after startedAt (server enforces a minimum run duration).
+      const startedAtMs = Date.parse(session.startedAt);
+      if (!Number.isFinite(startedAtMs)) {
+        return 'step 1 (POST /api/session): startedAt is not a valid ISO-8601 timestamp';
+      }
+      // 11 s elapsed = max allowed score 550 (= 11 × MaxScorePerSecond=50). Use 500 so
+      // the probe row both clears the per-second plausibility check AND has a high
+      // enough score to land in the top-100 leaderboard window even on a moderately
+      // populated board. Pair with the unique finishedAt below to identify the row.
+      const finishedAt = new Date(startedAtMs + 11_000).toISOString();
+      const probeScore = 500;
+      const scoreResponse = await httpRequest({
+        baseUrl,
+        path: '/api/score',
+        method: 'POST',
+        body: JSON.stringify({ sessionId: session.sessionId, score: probeScore, finishedAt }),
+      });
+      if (scoreResponse.status !== 200) {
+        return `step 2 (POST /api/score): HTTP ${scoreResponse.status} (expected 200) — body: ${scoreResponse.body.slice(0, 200)}`;
+      }
+      if (scoreResponse.json?.status !== 'accepted') {
+        return `step 2 (POST /api/score): response.status is "${scoreResponse.json?.status}" (expected "accepted")`;
+      }
+
+      // Step 3: GET /api/leaderboard?period=all
+      const leaderboardResponse = await httpRequest({
+        baseUrl,
+        path: '/api/leaderboard?period=all',
+        method: 'GET',
+      });
+      if (leaderboardResponse.status !== 200) {
+        return `step 3 (GET /api/leaderboard?period=all): HTTP ${leaderboardResponse.status} (expected 200)`;
+      }
+      const leaderboard = leaderboardResponse.json;
+      if (!leaderboard || !Array.isArray(leaderboard.entries)) {
+        return 'step 3 (GET /api/leaderboard?period=all): response missing entries array';
+      }
+      if (leaderboard.period !== 'all') {
+        return `step 3 (GET /api/leaderboard?period=all): response.period is "${leaderboard.period}" (expected "all")`;
+      }
+
+      // Step 4: persistence assertion (CS03/D13 — exit criterion 7).
+      // The submitted probe row MUST appear in the returned top-100 window, matched
+      // by exact (score, finishedAt). The finishedAt is unique to this probe run
+      // (millisecond ISO precision), so a match proves the score row was persisted
+      // by the deployed backend — not just that /api/score returned accepted.
+      const probeRow = leaderboard.entries.find(
+        (e) => e && e.score === probeScore && e.finishedAt === finishedAt,
+      );
+      if (!probeRow) {
+        const minScore = leaderboard.entries.reduce(
+          (acc, e) => (typeof e?.score === 'number' && e.score < acc ? e.score : acc),
+          Number.POSITIVE_INFINITY,
+        );
+        const sizeNote = leaderboard.entries.length >= 100
+          ? `leaderboard is at top-100 capacity (lowest score ${Number.isFinite(minScore) ? minScore : 'unknown'}); probe score ${probeScore} may have been trimmed`
+          : `leaderboard has ${leaderboard.entries.length} entries (probe score ${probeScore} should appear)`;
+        return `step 4 (leaderboard persistence): probe row (score=${probeScore}, finishedAt=${finishedAt}) not found in top-100 — ${sizeNote}. Either /api/score did not persist or the probe needs a higher score / by-id verification endpoint.`;
+      }
+
+      return null;
+    },
+  },
 ];
 
 export default checks;

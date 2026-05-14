@@ -4,10 +4,12 @@ import { createRenderer } from '../engine/renderer.mjs';
 import { createSceneStack } from '../engine/scene.mjs';
 import { createRng } from '../engine/seed.mjs';
 import { loadSpriteSheet } from '../engine/sprite.mjs';
+import { createApiClient } from './api.mjs';
 import { CANVAS, SPRITES } from './constants.mjs';
 import { createFormation } from './invaders.mjs';
 import { createPlayer } from './player.mjs';
 import { createGameOverScene } from './scenes/gameover.mjs';
+import { createLeaderboardScene } from './scenes/leaderboard.mjs';
 import { createMenuScene } from './scenes/menu.mjs';
 import { createPlayScene } from './scenes/play.mjs';
 import { getHighScore, setHighScore } from './score.mjs';
@@ -81,6 +83,13 @@ export async function bootstrap(opts = {}) {
     startWave,
     formationSpeed,
     fireIntervalMs,
+    apiClient = (() => {
+      try {
+        return createApiClient();
+      } catch {
+        return null;
+      }
+    })(),
     createRendererFn = createRenderer,
     createInputFn = createInput,
     createSceneStackFn = createSceneStack,
@@ -88,6 +97,7 @@ export async function bootstrap(opts = {}) {
     createMenuSceneFn = createMenuScene,
     createPlaySceneFn = createPlayScene,
     createGameOverSceneFn = createGameOverScene,
+    createLeaderboardSceneFn = createLeaderboardScene,
     createPlayerFn = createPlayer,
     createFormationFn = createFormation,
     createRngFn = createRng,
@@ -121,6 +131,7 @@ export async function bootstrap(opts = {}) {
   function createMenu() {
     return createMenuSceneFn({
       onStart: startPlay,
+      onLeaderboard: apiClient ? showLeaderboard : undefined,
       getHighScore: readHighScore,
     });
   }
@@ -142,6 +153,7 @@ export async function bootstrap(opts = {}) {
       getHighScore: readHighScore,
       setHighScore: writeHighScore,
       onGameOver: showGameOver,
+      apiClient,
       seed: currentSeed,
       startWave: currentStartWave,
       formationSpeed: currentFormationSpeed,
@@ -152,6 +164,7 @@ export async function bootstrap(opts = {}) {
     const scene = createGameOverSceneFn({
       onRestart: startPlay,
       onMenu: showMenu,
+      onLeaderboard: apiClient ? showLeaderboard : undefined,
       score,
       high,
     });
@@ -165,12 +178,24 @@ export async function bootstrap(opts = {}) {
     return scene;
   }
 
+  function createLeaderboard() {
+    return createLeaderboardSceneFn({
+      apiClient,
+      onRestart: startPlay,
+      onMenu: showMenu,
+    });
+  }
+
   function startPlay() {
     scenes.replace(createPlay());
   }
 
   function showMenu() {
     scenes.replace(createMenu());
+  }
+
+  function showLeaderboard() {
+    scenes.replace(createLeaderboard());
   }
 
   function showGameOver(finalScore) {

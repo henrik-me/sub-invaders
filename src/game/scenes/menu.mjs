@@ -10,6 +10,7 @@ const rendererHeight = (renderer) => (
 
 export function createMenuScene(opts = {}) {
   const onStart = opts.onStart ?? (() => {});
+  const onLeaderboard = opts.onLeaderboard ?? null;
   const getHighScore = opts.getHighScore ?? (() => 0);
   const now = opts.now ?? (() => Date.now());
 
@@ -17,6 +18,10 @@ export function createMenuScene(opts = {}) {
     handleInput(input) {
       if (input?.pressed?.('Space')) {
         onStart();
+      }
+
+      if (onLeaderboard && input?.pressed?.('KeyL')) {
+        onLeaderboard();
       }
     },
 
@@ -46,7 +51,10 @@ export function createMenuScene(opts = {}) {
       });
 
       if (Math.floor(now() / 500) % 2 === 0) {
-        renderer.drawText('PRESS SPACE TO START', width / 2, height - 96, {
+        const prompt = onLeaderboard
+          ? 'PRESS SPACE TO START  •  PRESS L FOR LEADERBOARD'
+          : 'PRESS SPACE TO START';
+        renderer.drawText(prompt, width / 2, height - 96, {
           font: '18px monospace',
           fill: PALETTE.ui,
           align: 'center',

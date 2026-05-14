@@ -131,18 +131,62 @@ baseUrl = baseUrl.replace(/\/$/, '');
  * @returns {Promise<{ status: number, body: string }>}
  */
 function httpGet(url) {
+  return httpRequest({ url, method: 'GET' });
+}
+
+/**
+ * Generic HTTP request helper for state-carrying checks. Returns the response
+ * status, body, and parsed JSON when applicable. Used by `check.run(ctx)`
+ * handlers to drive multi-step probes (e.g. POST /session → POST /score →
+ * GET /leaderboard) against a deployed environment.
+ *
+ * @param {{
+ *   url?: string,
+ *   path?: string,
+ *   baseUrl?: string,
+ *   method?: 'GET' | 'POST' | 'PUT' | 'DELETE',
+ *   headers?: Record<string, string>,
+ *   body?: string,
+ *   timeoutMs?: number,
+ * }} options
+ * @returns {Promise<{ status: number, body: string, json: unknown }>}
+ */
+function httpRequest(options) {
+  const url = options.url
+    ?? `${(options.baseUrl ?? '').replace(/\/$/, '')}${options.path ?? ''}`;
+  if (!url) {
+    return Promise.reject(new Error('httpRequest: url or baseUrl+path is required'));
+  }
+  const timeoutMs = options.timeoutMs ?? 10_000;
+  const method = options.method ?? 'GET';
+  const headers = { ...(options.headers ?? {}) };
+  const body = options.body;
+  if (body && headers['Content-Type'] == null && headers['content-type'] == null) {
+    headers['Content-Type'] = 'application/json';
+  }
+
   return new Promise((resolve, reject) => {
     const lib = url.startsWith('https://') ? https : http;
-    const req = lib.get(url, { timeout: 10_000 }, (res) => {
-      let body = '';
-      res.on('data', (chunk) => { body += chunk; });
-      res.on('end', () => resolve({ status: res.statusCode, body }));
+    const req = lib.request(url, { method, headers, timeout: timeoutMs }, (res) => {
+      let text = '';
+      res.on('data', (chunk) => { text += chunk; });
+      res.on('end', () => {
+        let json = null;
+        if (text) {
+          try { json = JSON.parse(text); } catch { json = null; }
+        }
+        resolve({ status: res.statusCode, body: text, json });
+      });
     });
     req.on('error', reject);
     req.on('timeout', () => {
       req.destroy();
-      reject(new Error(`request timed out: ${url}`));
+      reject(new Error(`request timed out: ${method} ${url}`));
     });
+    if (body) {
+      req.write(body);
+    }
+    req.end();
   });
 }
 
@@ -151,16 +195,17 @@ function httpGet(url) {
 // ---------------------------------------------------------------------------
 
 /**
- * @typedef {{ expectedVersion: string, baseUrl: string }} CheckContext
+ * @typedef {{ expectedVersion: string, baseUrl: string, httpRequest: typeof httpRequest }} CheckContext
  *
  * @typedef {{
  *   name: string,
- *   path: string,
- *   expect: {
+ *   path?: string,
+ *   expect?: {
  *     status: number,
  *     json?: (body: unknown, ctx: CheckContext) => string | null,
  *     body?: (text: string, ctx: CheckContext) => string | null
- *   }
+ *   },
+ *   run?: (ctx: CheckContext) => Promise<string | null>
  * }} CheckDef
  */
 
@@ -172,6 +217,18 @@ function httpGet(url) {
  * @returns {Promise<{ name: string, passed: boolean, message: string }>}
  */
 async function runCheck(check, ctx) {
+  if (typeof check.run === 'function') {
+    try {
+      const failure = await check.run(ctx);
+      if (failure == null) {
+        return { name: check.name, passed: true, message: 'ok' };
+      }
+      return { name: check.name, passed: false, message: String(failure) };
+    } catch (err) {
+      return { name: check.name, passed: false, message: `error: ${err?.message ?? err}` };
+    }
+  }
+
   const url = ctx.baseUrl + check.path;
   let res;
   try {
@@ -237,7 +294,7 @@ if (checksFilter) {
 // ---------------------------------------------------------------------------
 
 /** @type {CheckContext} */
-const ctx = { expectedVersion, baseUrl };
+const ctx = { expectedVersion, baseUrl, httpRequest };
 
 let passed = 0;
 let failed = 0;

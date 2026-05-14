@@ -193,6 +193,23 @@ test('bootstrap pushes the menu scene first', async () => {
   assert.equal(scenes.current()?.tag, 'menu');
 });
 
+test('menu wiring exposes onLeaderboard when apiClient is available', async () => {
+  const apiClient = { startSession: () => {}, submitScore: () => {}, getLeaderboard: () => {} };
+  const harness = createHarness({ apiClient });
+
+  await harness.run();
+
+  assert.equal(typeof harness.records.menuOptions.onLeaderboard, 'function');
+});
+
+test('menu wiring omits onLeaderboard when no apiClient is available', async () => {
+  const harness = createHarness({ apiClient: null });
+
+  await harness.run();
+
+  assert.equal(harness.records.menuOptions.onLeaderboard, undefined);
+});
+
 test('menu onStart replaces the current scene with a play scene', async () => {
   const playSentinel = { tag: 'play-sentinel' };
   const harness = createHarness({
@@ -297,6 +314,80 @@ test('installTestHooks exposes the required methods with ?test=1', () => {
       gameOver: false,
       enemyShots: 0,
       torpedoes: 0,
+      phase: undefined,
+      entriesCount: undefined,
+      leaderboardError: undefined,
+      submission: null,
     });
+  });
+});
+
+test('installTestHooks state() surfaces submission for play scene when present', () => {
+  const playState = {
+    score: 42,
+    high: 7,
+    lives: 1,
+    wave: 1,
+    ready: true,
+    gameOver: false,
+    player: { x: 10, y: 20, w: 32, h: 16, lives: 1, alive: true },
+    formation: { enemies: [] },
+    submission: { attempted: true, status: 'ok', error: null },
+  };
+  const scenes = { current: () => ({ state: () => playState }) };
+  withGlobals({ window: {}, location: { href: 'http://localhost/?test=1' } }, () => {
+    const hooks = installTestHooks({ scenes });
+    const s = hooks.state();
+    assert.equal(s.scene, 'play');
+    assert.deepEqual(s.submission, { attempted: true, status: 'ok', error: null });
+  });
+});
+
+test('installTestHooks detects leaderboard scene by phase + entries shape', () => {
+  const leaderboardState = {
+    phase: 'ready',
+    entries: [
+      { rank: 1, score: 9001, finishedAt: '2026-05-13T00:00:00.000Z' },
+      { rank: 2, score: 5000, finishedAt: '2026-05-12T23:59:00.000Z' },
+    ],
+    error: null,
+  };
+  const scenes = { current: () => ({ state: () => leaderboardState }) };
+  withGlobals({ window: {}, location: { href: 'http://localhost/?test=1' } }, () => {
+    const hooks = installTestHooks({ scenes });
+    const s = hooks.state();
+    assert.equal(s.scene, 'leaderboard');
+    assert.equal(s.phase, 'ready');
+    assert.equal(s.entriesCount, 2);
+    assert.equal(s.leaderboardError, null);
+    assert.deepEqual(hooks.entries(), [
+      { rank: 1, score: 9001, finishedAt: '2026-05-13T00:00:00.000Z' },
+      { rank: 2, score: 5000, finishedAt: '2026-05-12T23:59:00.000Z' },
+    ]);
+  });
+});
+
+test('installTestHooks reports loading phase and entries() returns empty array', () => {
+  const leaderboardState = { phase: 'loading', entries: [], error: null };
+  const scenes = { current: () => ({ state: () => leaderboardState }) };
+  withGlobals({ window: {}, location: { href: 'http://localhost/?test=1' } }, () => {
+    const hooks = installTestHooks({ scenes });
+    const s = hooks.state();
+    assert.equal(s.scene, 'leaderboard');
+    assert.equal(s.phase, 'loading');
+    assert.equal(s.entriesCount, 0);
+    assert.deepEqual(hooks.entries(), []);
+  });
+});
+
+test('installTestHooks reports error phase and exposes leaderboardError', () => {
+  const leaderboardState = { phase: 'error', entries: [], error: 'fetch failed' };
+  const scenes = { current: () => ({ state: () => leaderboardState }) };
+  withGlobals({ window: {}, location: { href: 'http://localhost/?test=1' } }, () => {
+    const hooks = installTestHooks({ scenes });
+    const s = hooks.state();
+    assert.equal(s.scene, 'leaderboard');
+    assert.equal(s.phase, 'error');
+    assert.equal(s.leaderboardError, 'fetch failed');
   });
 });

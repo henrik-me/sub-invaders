@@ -1,6 +1,6 @@
 # Sub Invaders — Architecture
 
-> **Last updated:** 2026-05-10 (cs01-architecture-author / CS01)
+> **Last updated:** 2026-05-13 (cs03-content-author / CS03)
 >
 > **Purpose:** This file is created once by `harness init` and is never overwritten on subsequent
 > syncs. It is the authoritative architecture reference for `henrik-me/sub-invaders`.
@@ -31,7 +31,8 @@ graph LR
   API --> Health["/api/health (CS01)"]
   API --> Session["/api/session (CS03)"]
   API --> Score["/api/score (CS03)"]
-  API --> Tables[("Azure Storage Tables\nCS03 — planned")]
+  API --> Leaderboard["/api/leaderboard (CS03)"]
+  API --> Tables[("Azure Storage Tables\nSessions + Leaderboard (CS03)")]
 ```
 
 ---
@@ -88,18 +89,29 @@ only. CS03 adds session, score, leaderboard, and cleanup Functions.
 | `SessionFunction.cs` | `POST /api/session` | CS03 |
 | `ScoreFunction.cs` | `POST /api/score` | CS03 |
 | `LeaderboardFunction.cs` | `GET /api/leaderboard` | CS03 |
-| `SessionsCleanupFunction.cs` | Timer — hourly | CS03 |
+| `SessionsCleanupFunction.cs` | `POST /api/admin/sessions-cleanup` (function key) | CS03 |
 
-### Persistence (planned, CS03)
+### Persistence (CS03 — implemented)
 
-Azure Storage Tables inside `rg-sub-invaders-prod`:
+Azure Storage Tables inside `rg-sub-invaders-prod`. Tables are created idempotently by
+`infra/provision.sh` Phase 2.5 (`az storage table create` with stderr-`grep` fallback for
+`TableAlreadyExists` so re-runs are no-ops):
 
-- **`Sessions`** — replay-protection token state (`PartitionKey=yyyyMMdd`, `RowKey=sessionId`).
-  No Azure native TTL; hourly cleanup Function deletes rows older than 24 h.
-- **`Leaderboard`** — scores (`PartitionKey="all"` for all-time;
-  `PartitionKey="daily-YYYY-MM-DD"` for daily, added in CS04).
-  RowKey format: `<invertedScore>_<submissionUuid>` for top-down read ordering.
-  Capped to 10,000 rows by the cleanup Function.
+- **`Sessions`** — replay-protection token state. `PartitionKey = yyyyMMdd` (UTC date,
+  shards Sessions across days so the hourly cleanup query stays cheap); `RowKey = sessionId`
+  (cryptographically random GUID). Columns: `Nonce`, `StartedAt`, `Consumed`, `ConsumedAt`.
+  Single-use; the score-submission path performs an ETag-conditional
+  `UpdateEntityAsync(Replace)` so the second concurrent submitter receives 412 → mapped to
+  HTTP 409 `already_consumed`. Azure Tables has no native TTL; cleanup is performed by the
+  admin Function `POST /api/admin/sessions-cleanup` (`AuthorizationLevel.Function`), which
+  deletes rows older than 24 h. SWA managed Functions does not support `timerTrigger`
+  ('Currently, only httpTriggers are supported.'), so the cron schedule is driven externally
+  (Azure Logic App / GitHub Actions cron) invoking the admin endpoint with the function key.
+- **`Leaderboard`** — top scores. `PartitionKey = "all"` (single hot partition acceptable up
+  to ~10k rows per the Azure Tables guidance); `RowKey = <invertedScore D8>_<submissionUuid>`
+  where `invertedScore = 99_999_999 - score` zero-padded to 8 digits, so Table Storage's
+  natural ascending row-key order returns top scores first. Columns: `Score` (int),
+  `FinishedAt` (ISO-8601). `period=daily` (CS04) will partition by `daily-YYYY-MM-DD`.
 
 SI-CS05 is a deferred tripwire to re-evaluate whether Storage Tables remains the right choice
 once leaderboard load patterns are observable in staging.
@@ -156,10 +168,42 @@ loads modules natively via `<script type="module">`. This matches C16-10 and C16
 
 | Route | CS | Description |
 |---|---|---|
-| `GET /api/health` | CS01 | Returns `{"status":"ok"}` HTTP 200. Trivial liveness probe. |
-| `POST /api/session` | CS03 | Issues a one-time session token. Rate-limited 30/min/IP. |
-| `POST /api/score` | CS03 | Accepts score + session token; applies plausibility checks. Rate-limited 30/min/IP. |
-| `GET /api/leaderboard` | CS03 | Returns top-100 all-time scores; `period=daily` added in CS04. |
+| `GET /api/health` | CS01 | Returns `{"status":"ok","version":"...","commit":"..."}` HTTP 200. Trivial liveness probe; surfaces deploy SHA from `SUB_INVADERS_COMMIT` or `GITHUB_SHA`. |
+| `POST /api/session` | CS03 | Issues a one-time session token. Body ignored. Returns `{sessionId, nonce, startedAt}`. Rate-limited 30/min/IP. |
+| `POST /api/score` | CS03 | Strict-JSON body `{sessionId, score, finishedAt}`; ≤ 1 KB. On accept returns `{status:"accepted", score, submissionId}`. Errors: 400 validation, 404 session_not_found, 409 already_consumed, 413 payload_too_large, 429 rate_limited. Rate-limited 30/min/IP. |
+| `GET /api/leaderboard?period=all` | CS03 | Returns `{period, entries:[{rank,score,finishedAt}]}` (top 100, score desc). `period=daily` returns 501 in CS03; other values return 400. |
+
+### CORS
+
+The frontend is served by SWA on the same origin as `/api/*` (SWA managed Functions), so no
+CORS preflight is needed in production. The local dev configuration runs `http-server src`
+on `localhost:4173` and `func start` on `localhost:7071`; for that local cross-origin pairing
+either run both behind a dev proxy or set the Functions worker's `Host.json` CORS to the
+dev origin (do NOT widen permissive CORS in production).
+
+### Cold start
+
+SWA managed Functions on the Consumption plan show 1–3 s cold-start latency after idle
+periods. This is acceptable for v1 (player presses Start, brief delay, game runs); the
+session-establishment call is fire-and-forget from the play scene, so cold start does not
+block the gameplay loop. If players consistently exceed the cold-start tolerance, the
+Always-On Function App or Premium plan upgrade is the next step (cost trade-off; tracked
+in SI-CS05).
+
+### Rate limit caveats
+
+The `RateLimitMiddleware` enforces a per-IP sliding window using an in-process
+`SlidingWindowRateLimiter` (`Microsoft.AspNetCore.RateLimiting`). Two caveats:
+
+1. **Per-instance, not global.** Each Functions worker instance keeps its own counter.
+   During scale-out a determined adversary could submit up to `RATE_LIMIT_PER_MINUTE` per
+   instance. v1 acceptable on Consumption plan (typically 1–2 instances); upgrade path is
+   Azure Cache for Redis or Storage-backed counters, or front the API with APIM.
+2. **Body buffering.** The Functions worker reads the entire request body before invoking
+   the middleware, so the 1 KB `score` body cap is enforced at the application layer (in
+   `ScoreFunction`) rather than at the wire layer. A `413 payload_too_large` is still
+   returned for over-sized bodies, but the worker did read the full payload. If that
+   threat model matters, add a Front Door / APIM body-size rule upstream.
 
 ### Replay protection (C16-12, implemented in CS03)
 
@@ -173,11 +217,15 @@ Triple guard against adversarial score submission:
    `/api/score` before any Storage call.
 
 Request bodies are bounded to 1 KB. Only `sessionId`, `score`, and `finishedAt` are accepted;
-extra fields are rejected with HTTP 400. Session tokens are consumed atomically (idempotency
-mark) to prevent replay.
+extra fields are rejected with HTTP 400. Session tokens are consumed atomically via an
+ETag-conditional `UpdateEntityAsync(Replace)` against the `Sessions` table (the
+`Consumed` column flips false → true under the original ETag). The second concurrent
+submitter for the same `sessionId` receives 412 from Table Storage, which is mapped to
+HTTP 409 `already_consumed`.
 
-> **CS01 note:** no rate limiter is implemented in CS01 because only `/api/health` exists
-> (CS01-8). The defaults above are documented now and will be activated in CS03.
+> **Historical note (CS01):** no rate limiter was implemented in CS01 because only
+> `/api/health` existed (CS01-8). CS03 activated the limiter on `/api/session` and
+> `/api/score`; `/api/health` and `/api/leaderboard` remain unmetered.
 
 ---
 
@@ -224,22 +272,23 @@ No resources exist outside the RG; no manual sweeps required.
 
 ## Data model
 
-CS01 has no persistent application data — the stub frontend is static HTML and the only
-backend endpoint is `GET /api/health`, which returns the constant string `{"status":"ok"}`
-with no storage I/O. The Azure Storage Account provisioned by `infra/provision.sh` is
-required by the Functions runtime (`AzureWebJobsStorage`) but is not used by application
-code in this CS.
-
-Forward-looking shape (filled out by CS03 — see the Persistence subsection under
-**Components** for the full key schema and replay-protection model):
+CS03 introduces the first persistent application data. CS01 had no persistent data — the
+stub frontend was static HTML and `/api/health` does not touch storage. CS03 turns on
+Azure Storage Tables inside the storage account `${STORAGE_ACCT_NAME}` (defaults to
+`stsubinvadersee1282`). The connection string is wired to the SWA via the
+**`SUB_INVADERS_STORAGE`** app setting (Program.cs reads `SUB_INVADERS_STORAGE` first
+with fallback to `AzureWebJobsStorage` for local dev). The name `AzureWebJobsStorage`
+**cannot** be used as a user app setting on SWA — the platform reserves it for the
+SWA-internal Functions storage and rejects user values with HTTP 400. `infra/provision.sh`
+Phase 3.5 sets `SUB_INVADERS_STORAGE` idempotently.
 
 | Table | Partition key | Row key | Purpose | Cleanup |
 |---|---|---|---|---|
-| `Scores` | `leaderboard` | `inverseScore_sessionId` | Top-N leaderboard rows | RG-level retention |
-| `Sessions` | `session` | `sessionId` | Replay-protection nonces (C16-12) | Hourly `SessionsCleanupFunction` (Azure Tables `_ts` does not auto-delete) |
+| `Sessions` | `yyyyMMdd` (UTC day) | `sessionId` (GUID) | Replay-protection token + nonce (C16-12). Columns: `Nonce`, `StartedAt`, `Consumed`, `ConsumedAt`. Single-use via ETag-conditional update. `Nonce` is currently reserved metadata; replay protection itself is keyed off `sessionId` consumption. | Admin Function `POST /api/admin/sessions-cleanup` (`AuthorizationLevel.Function`) deletes rows older than 24 h. Triggered by an external scheduler (SWA managed Functions does not support `timerTrigger`). Azure Tables has no native TTL. |
+| `Leaderboard` | `"all"` (single hot partition) | `<invertedScore D8>_<submissionUuid>` | Top-100 all-time scores. `invertedScore = 99_999_999 - score` so ascending RowKey sort returns top scores first. Columns: `Score` (int), `FinishedAt` (ISO-8601), `SessionId` (string, audit trail). | Same admin cleanup Function trims to `LeaderboardCap = 10 000` rows per invocation. CS04 introduces `daily-YYYY-MM-DD` partitions. |
 
-CS01 ships none of these tables — the schema lives here as forward-scope documentation so
-CS03 agents know the contract before they start implementing it.
+Both tables are created idempotently by `infra/provision.sh` Phase 2.5 so a fresh deploy
+into an empty RG produces a working backend without manual setup.
 
 ---
 

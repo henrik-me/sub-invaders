@@ -27,6 +27,11 @@ function currentState(deps) {
 }
 
 function sceneName(state) {
+  if (state && (state.phase === 'loading' || state.phase === 'ready' || state.phase === 'error')
+      && Array.isArray(state.entries)) {
+    return 'leaderboard';
+  }
+
   if (state && Number.isFinite(Number(state.wave))) {
     return 'play';
   }
@@ -184,17 +189,27 @@ export function installTestHooks(deps = {}) {
   const api = Object.freeze({
     state() {
       const state = currentState(deps) ?? {};
-      const playScene = sceneName(state) === 'play';
-      const gameOver = Boolean(state.gameOver) || sceneName(state) === 'game-over';
+      const scene = sceneName(state);
+      const playScene = scene === 'play';
+      const leaderboardScene = scene === 'leaderboard';
+      const gameOver = Boolean(state.gameOver) || scene === 'game-over';
       const liveHigh = Number(deps.getHighScore?.() ?? NaN);
       const fallbackHigh = Number(state.high ?? 0) || 0;
       const high = Number.isFinite(liveHigh) ? liveHigh : fallbackHigh;
       const lives = Number(state.lives ?? state.player?.lives ?? 0) || 0;
       const enemyShotsCount = Array.isArray(state.enemyShots) ? state.enemyShots.length : 0;
       const torpedoesCount = Array.isArray(state.torpedoes) ? state.torpedoes.length : 0;
+      const entriesCount = leaderboardScene && Array.isArray(state.entries) ? state.entries.length : 0;
+      const submission = (playScene || gameOver) && state.submission
+        ? {
+            attempted: Boolean(state.submission.attempted),
+            status: typeof state.submission.status === 'string' ? state.submission.status : 'idle',
+            error: state.submission.error ?? null,
+          }
+        : null;
 
       return {
-        scene: sceneName(state),
+        scene,
         score: Math.max(0, Math.floor(Number(state.score) || 0)),
         high: Math.max(0, Math.floor(high)),
         lives: Math.max(0, Math.floor(lives)),
@@ -205,7 +220,23 @@ export function installTestHooks(deps = {}) {
         gameOver,
         enemyShots: enemyShotsCount,
         torpedoes: torpedoesCount,
+        phase: leaderboardScene ? state.phase : undefined,
+        entriesCount: leaderboardScene ? entriesCount : undefined,
+        leaderboardError: leaderboardScene ? state.error ?? null : undefined,
+        submission,
       };
+    },
+
+    entries() {
+      const state = currentState(deps);
+      if (!Array.isArray(state?.entries)) {
+        return [];
+      }
+      return state.entries.map((entry) => ({
+        rank: Number(entry?.rank ?? 0) || 0,
+        score: Number(entry?.score ?? 0) || 0,
+        finishedAt: typeof entry?.finishedAt === 'string' ? entry.finishedAt : null,
+      }));
     },
 
     formation() {
