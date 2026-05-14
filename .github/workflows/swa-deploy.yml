@@ -59,6 +59,46 @@ jobs:
           output_location: ""
           skip_deploy_on_missing_secrets: true
 
+      # Issue #52 / PvI F-002: surface the deployed commit on /api/health.
+      # The HealthFunction reads SUB_INVADERS_COMMIT (falling back to GITHUB_SHA,
+      # then "unknown"). Without this step, prod /api/health reports
+      # commit:"unknown" because the Function host never sees GITHUB_SHA.
+      #
+      # Gracefully skipped when AZURE_CREDENTIALS is not configured so this
+      # workflow stays green until an operator follows the OPERATIONS.md
+      # § "Configuring deploy-time commit injection (Issue #52)" runbook.
+      - name: Check AZURE_CREDENTIALS secret presence
+        id: creds-check
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+        run: |
+          if [ -z "${AZURE_CREDENTIALS:-}" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=SUB_INVADERS_COMMIT not injected::AZURE_CREDENTIALS secret is not configured. /api/health will continue to report commit:\"unknown\". See OPERATIONS.md § Configuring deploy-time commit injection (Issue #52)."
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Azure login (Service Principal)
+        if: steps.creds-check.outputs.available == 'true'
+        uses: azure/login@eec3c95657c1536435858eda1f3ff5437fee8474 # v2.3.0
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Set SUB_INVADERS_COMMIT app setting on prod SWA
+        if: steps.creds-check.outputs.available == 'true'
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+        run: |
+          az staticwebapp appsettings set \
+            --name swa-sub-invaders \
+            --resource-group rg-sub-invaders-prod \
+            --setting-names "SUB_INVADERS_COMMIT=${DEPLOY_SHA}" \
+            --output none
+          echo "✓ SUB_INVADERS_COMMIT set to ${DEPLOY_SHA} on swa-sub-invaders (rg-sub-invaders-prod)"
+      - name: Azure logout
+        if: always() && steps.creds-check.outputs.available == 'true'
+        run: az logout || true
+
   close-pull-request:
     name: close-pull-request
     runs-on: ubuntu-latest
