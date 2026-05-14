@@ -64,10 +64,13 @@ once a tagged release exists.
   `date` (validated against `^\d{4}-\d{2}-\d{2}$`) and threads it as a query
   parameter when `period === 'daily'`. `period` defaults to `'all'`.
 - **Whale-shark mystery enemy (D7).** `src/game/whaleshark.mjs` adds a
-  rare bonus enemy that traverses the playfield horizontally on a daily-driven
-  interval, despawns at the opposite edge, and returns to dormancy. Render is
-  via a placeholder rectangle in v1 (sprite slot reserved). Two test files
-  cover state machine + render contract.
+  rare bonus enemy that traverses the playfield horizontally and despawns at
+  the opposite edge before returning to dormancy. Active in both modes:
+  normal play uses a random `15-30s` interval, daily play uses the
+  date-seeded deterministic interval (per CS04-D7 / CS04-10). Awards
+  uniformly random `[50, 100, 200]` on hit. Render is via a placeholder
+  rectangle in v1 (sprite slot reserved). Two test files cover state
+  machine + render contract.
 - **Scaffold exercises (D12, D13).** `feature-flags` scaffold was **exercised
   but not adopted** — topology, source-of-truth, and lifecycle mismatches with
   Sub Invaders' no-build static frontend are documented in the active CS04
@@ -87,8 +90,9 @@ once a tagged release exists.
 
 - **`src/game/api.mjs` is daily-aware.** Previously CS03-only (`period: 'all'`),
   now extended for `period: 'daily'` with `utcDate` on submit and `date` on
-  read. CS03 callers (`play.mjs:421`, `leaderboard.mjs:41`) keep working
-  without edits.
+  read. CS03 callers (`play.mjs` submit-score path, `leaderboard.mjs` getLeaderboard
+  path) keep working without edits because `period`/`utcDate`/`date` default to
+  the all-time partition.
 - **`src/index.html`** now declares the `dailyChallenge=off` flag default in
   `<head>`.
 

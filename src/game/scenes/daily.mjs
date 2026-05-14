@@ -61,9 +61,11 @@ function createDailyDefinition(utcDate) {
  *   `startingLives`, `playerSpeedMultiplier`, `formationSpeedMultiplier`,
  *   `enemyFireDensityMultiplier`, `scoreMultiplier`, `invertHorizontalControls`,
  *   and `modifiers.fogOfWar.haloRadius`.
- * - The whale-shark mystery enemy is created when `daily` is set and ticks +
- *   renders + checks-hit each frame; its score award is multiplied by the
- *   active modifier's `scoreMultiplier`.
+ * - The whale-shark mystery enemy is created in both normal and daily modes
+ *   (CS04-D7). Daily mode uses the date-seeded deterministic spawn interval;
+ *   normal mode uses a random 15-30s interval. It ticks + renders + checks-hit
+ *   each frame; its score award is multiplied by the active modifier's
+ *   `scoreMultiplier` (daily mode only — normal mode has scoreMultiplier=1).
  * - The `DAILY · YYYY-MM-DD · modifier-name` HUD badge is rendered top-right
  *   each frame.
  * - The `period: 'daily', utcDate` tuple is threaded into the score submit

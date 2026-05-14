@@ -442,7 +442,7 @@ The technology decisions most relevant to this document:
 | Decision | Choice | Rationale |
 |---|---|---|
 | CS04-3 — Daily seed | UTC-day index encoded as `parseInt('YYYYMMDD', 10)` and threaded into `createRng(seed)` | Same calendar day → identical run; simplest deterministic mapping; engine RNG already int-seeded |
-| CS04-4 — Modifier draw | Single draw from a 5-element pool using the date-seeded RNG (`pick`); modifier name + 2 parameter rolls (`enemyFireMultiplier`, `formationSpeedMultiplier`, `whaleSharkInterval`) | One modifier per day keeps the run readable; parameter rolls inject variety without exploding state |
+| CS04-4 — Modifier draw | Single draw from a 5-element pool using the date-seeded RNG (`pick`); modifier name + 3 parameter rolls (`enemyFireMultiplier`, `formationSpeedMultiplier`, `whaleSharkInterval`) | One modifier per day keeps the run readable; parameter rolls inject variety without exploding state |
 | CS04-5 — Modifier pool | `fog-of-war`, `speed-run`, `one-shot`, `boss-rush`, `inverted-controls` | Five orthogonal twists; each is a small mutator on existing scene state |
 | CS04-6 — Whale-shark cadence | Crosses the playfield on a daily-drawn interval (10 / 15 / 20 / 30 s); placeholder rectangle in v1 (sprite slot reserved) | Bonus enemy adds variety without per-wave coordination |
 | CS04-11 — Flag delivery | HTML `<meta name="flags">` default → `GET /api/health` body's `flags` override (1500 ms `AbortController` budget) → fall back to default on any failure | Static fallback keeps menu functional offline; backend override unblocks runtime kill-switch |
