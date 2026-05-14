@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using SubInvaders.Api.Common;
+using SubInvaders.Api.Models;
 using SubInvaders.Api.Storage;
 
 public class LeaderboardFunction
@@ -24,6 +25,7 @@ public class LeaderboardFunction
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "leaderboard")] HttpRequestData req)
     {
         var period = "all";
+        var partitionKey = LeaderboardEntity.PartitionAll;
         var qs = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
         var raw = qs.Get("period");
         if (!string.IsNullOrWhiteSpace(raw))
@@ -33,16 +35,27 @@ public class LeaderboardFunction
 
         if (period == "daily")
         {
-            return await JsonResponse.Error(req, HttpStatusCode.NotImplemented, "not_implemented",
-                "period=daily is reserved for CS04").ConfigureAwait(false);
+            if (!FeatureFlags.IsDailyChallengeEnabled())
+            {
+                return await JsonResponse.Error(req, HttpStatusCode.Forbidden, "feature_disabled",
+                    "daily challenge is disabled").ConfigureAwait(false);
+            }
+
+            var date = qs.Get("date");
+            if (!LeaderboardPartitions.IsUtcDate(date))
+            {
+                return await JsonResponse.Error(req, HttpStatusCode.BadRequest, "invalid_argument",
+                    "date must be YYYY-MM-DD").ConfigureAwait(false);
+            }
+            partitionKey = LeaderboardPartitions.DailyPartition(date!);
         }
-        if (period != "all")
+        else if (period != "all")
         {
             return await JsonResponse.Error(req, HttpStatusCode.BadRequest, "invalid_period",
                 "period must be 'all' or 'daily'").ConfigureAwait(false);
         }
 
-        var rows = await _leaderboard.GetTopAsync(TopCount).ConfigureAwait(false);
+        var rows = await _leaderboard.GetTopAsync(TopCount, partitionKey).ConfigureAwait(false);
         var body = rows
             .Select((r, i) => new LeaderboardRow(i + 1, r.Score, r.FinishedAt.UtcDateTime.ToString("o")))
             .ToArray();

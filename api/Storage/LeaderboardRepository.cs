@@ -15,18 +15,25 @@ public sealed class LeaderboardRepository : ILeaderboardRepository
         _table = factory.GetClient(TableNames.Leaderboard);
     }
 
-    public async Task AddAsync(LeaderboardEntity entity, CancellationToken ct = default)
+    public async Task AddAsync(
+        LeaderboardEntity entity,
+        string partitionKey = LeaderboardEntity.PartitionAll,
+        CancellationToken ct = default)
     {
+        entity.PartitionKey = partitionKey;
         await _table.AddEntityAsync(entity, ct).ConfigureAwait(false);
     }
 
-    public async Task<IReadOnlyList<LeaderboardEntity>> GetTopAsync(int top, CancellationToken ct = default)
+    public async Task<IReadOnlyList<LeaderboardEntity>> GetTopAsync(
+        int top,
+        string partitionKey = LeaderboardEntity.PartitionAll,
+        CancellationToken ct = default)
     {
         if (top <= 0)
         {
             return System.Array.Empty<LeaderboardEntity>();
         }
-        var filter = $"PartitionKey eq '{LeaderboardEntity.PartitionAll}'";
+        var filter = TableClient.CreateQueryFilter($"PartitionKey eq {partitionKey}");
         var results = new List<LeaderboardEntity>(top);
         await foreach (var page in _table.QueryAsync<LeaderboardEntity>(filter, maxPerPage: top, cancellationToken: ct).AsPages().ConfigureAwait(false))
         {

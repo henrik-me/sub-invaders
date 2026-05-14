@@ -1,0 +1,4 @@
+{
+  "$schema": "https://json.schemastore.org/staticwebapp.config.json",
+  "_comment": "Azure Static Web Apps config cannot provision Function host app settings. Set FEATURE_FLAGS_DAILY_CHALLENGE as an SWA application setting in the portal or deployment pipeline; Functions treat only the exact value 'on' as enabled and default to off."
+}

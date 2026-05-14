@@ -68,6 +68,30 @@ public class ScoreFunction
             return await JsonResponse.Error(req, HttpStatusCode.BadRequest, "invalid_finished_at", "finishedAt must be ISO-8601").ConfigureAwait(false);
         }
 
+        var period = string.IsNullOrWhiteSpace(payload.Period)
+            ? "all"
+            : payload.Period.ToLowerInvariant();
+        var partitionKey = LeaderboardEntity.PartitionAll;
+        if (period == "daily")
+        {
+            if (!FeatureFlags.IsDailyChallengeEnabled())
+            {
+                return await JsonResponse.Error(req, HttpStatusCode.Forbidden, "feature_disabled",
+                    "daily challenge is disabled").ConfigureAwait(false);
+            }
+            if (!LeaderboardPartitions.IsUtcDate(payload.UtcDate))
+            {
+                return await JsonResponse.Error(req, HttpStatusCode.BadRequest, "invalid_argument",
+                    "utcDate must be YYYY-MM-DD").ConfigureAwait(false);
+            }
+            partitionKey = LeaderboardPartitions.DailyPartition(payload.UtcDate!);
+        }
+        else if (period != "all")
+        {
+            return await JsonResponse.Error(req, HttpStatusCode.BadRequest, "invalid_period",
+                "period must be 'all' or 'daily'").ConfigureAwait(false);
+        }
+
         var session = await _sessions.FindAcrossPartitionsAsync(payload.SessionId).ConfigureAwait(false);
         if (session is null)
         {
@@ -100,13 +124,13 @@ public class ScoreFunction
         var submissionId = Guid.NewGuid();
         var entity = new LeaderboardEntity
         {
-            PartitionKey = LeaderboardEntity.PartitionAll,
+            PartitionKey = partitionKey,
             RowKey = LeaderboardEntity.FormatRowKey(payload.Score, submissionId),
             Score = payload.Score,
             FinishedAt = finishedAt,
             SessionId = payload.SessionId,
         };
-        await _leaderboard.AddAsync(entity).ConfigureAwait(false);
+        await _leaderboard.AddAsync(entity, partitionKey).ConfigureAwait(false);
 
         return await JsonResponse.Write(req, HttpStatusCode.OK, new ScoreAck("accepted", payload.Score, submissionId.ToString("D"))).ConfigureAwait(false);
     }
@@ -121,6 +145,8 @@ public class ScoreFunction
         public string? SessionId { get; set; }
         public int Score { get; set; }
         public string? FinishedAt { get; set; }
+        public string? Period { get; set; }
+        public string? UtcDate { get; set; }
     }
 
     public sealed record ScoreAck(string Status, int Score, string SubmissionId);

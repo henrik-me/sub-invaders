@@ -5,9 +5,12 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using SubInvaders.Api;
+using SubInvaders.Api.Common;
 using SubInvaders.Api.Models;
+using SubInvaders.Api.Storage;
 using Xunit;
 
+[Collection(FeatureFlagTestCollection.Name)]
 public class ScoreFunctionTests
 {
     private static (ScoreFunction Fn, FakeSessionsRepository Sessions, FakeLeaderboardRepository Leaderboard, SessionEntity Session)
@@ -42,8 +45,62 @@ public class ScoreFunctionTests
 
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         Assert.Equal(1, leaderboard.Count);
+        var allRows = await leaderboard.GetTopAsync(10);
+        var row = Assert.Single(allRows);
+        Assert.Equal(LeaderboardEntity.PartitionAll, row.PartitionKey);
         var stored = await sessions.GetAsync(session.PartitionKey, session.RowKey);
         Assert.True(stored!.Consumed);
+    }
+
+    [Fact]
+    public async Task Daily_submit_flag_off_returns_403()
+    {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, null);
+        var (fn, sessions, leaderboard, session) = Setup(score: 500, elapsedSeconds: 60);
+        var finishedAt = session.StartedAt + TimeSpan.FromSeconds(60);
+        var body = $"{{\"sessionId\":\"{session.RowKey}\",\"score\":500,\"finishedAt\":\"{finishedAt:o}\",\"period\":\"daily\",\"utcDate\":\"2026-05-14\"}}";
+
+        var resp = (FakeHttpResponseData)await fn.Run(PostScore(body));
+
+        AssertError(resp, HttpStatusCode.Forbidden, "feature_disabled", "daily challenge is disabled");
+        Assert.Equal(0, leaderboard.Count);
+        var stored = await sessions.GetAsync(session.PartitionKey, session.RowKey);
+        Assert.False(stored!.Consumed);
+    }
+
+    [Fact]
+    public async Task Daily_submit_flag_on_valid_date_writes_daily_partition()
+    {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, "on");
+        var (fn, sessions, leaderboard, session) = Setup(score: 500, elapsedSeconds: 60);
+        var finishedAt = session.StartedAt + TimeSpan.FromSeconds(60);
+        var body = $"{{\"sessionId\":\"{session.RowKey}\",\"score\":500,\"finishedAt\":\"{finishedAt:o}\",\"period\":\"daily\",\"utcDate\":\"2026-05-14\"}}";
+
+        var resp = (FakeHttpResponseData)await fn.Run(PostScore(body));
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var dailyRows = await leaderboard.GetTopAsync(10, LeaderboardPartitions.DailyPartition("2026-05-14"));
+        var row = Assert.Single(dailyRows);
+        Assert.Equal(LeaderboardPartitions.DailyPartition("2026-05-14"), row.PartitionKey);
+        Assert.Empty(await leaderboard.GetTopAsync(10));
+        var stored = await sessions.GetAsync(session.PartitionKey, session.RowKey);
+        Assert.True(stored!.Consumed);
+    }
+
+    [Fact]
+    public async Task Daily_submit_flag_on_invalid_date_returns_400()
+    {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, "on");
+        var (fn, sessions, leaderboard, session) = Setup(score: 500, elapsedSeconds: 60);
+        var finishedAt = session.StartedAt + TimeSpan.FromSeconds(60);
+        var body = $"{{\"sessionId\":\"{session.RowKey}\",\"score\":500,\"finishedAt\":\"{finishedAt:o}\",\"period\":\"daily\",\"utcDate\":\"20260514\"}}";
+
+        var resp = (FakeHttpResponseData)await fn.Run(PostScore(body));
+
+        AssertError(resp, HttpStatusCode.BadRequest, "invalid_argument", "utcDate must be YYYY-MM-DD");
+        Assert.Equal(0, leaderboard.Count);
+        var stored = await sessions.GetAsync(session.PartitionKey, session.RowKey);
+        Assert.False(stored!.Consumed);
     }
 
     [Fact]
@@ -161,5 +218,14 @@ public class ScoreFunctionTests
         Assert.Equal(1, ok);
         Assert.Equal(1, conflict);
         Assert.Equal(1, leaderboard.Count);
+    }
+
+    private static void AssertError(FakeHttpResponseData resp, HttpStatusCode status, string error, string message)
+    {
+        Assert.Equal(status, resp.StatusCode);
+        var body = resp.ReadBodyAs<JsonResponse.ErrorBody>();
+        Assert.NotNull(body);
+        Assert.Equal(error, body!.Error);
+        Assert.Equal(message, body.Message);
     }
 }
