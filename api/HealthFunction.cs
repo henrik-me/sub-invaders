@@ -20,11 +20,26 @@ public class HealthFunction
     public Task<HttpResponseData> Run(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "health")] HttpRequestData req)
     {
-        var body = new HealthBody("ok", _buildInfo.Version, _buildInfo.Commit);
+        var body = new HealthBody(
+            "ok",
+            _buildInfo.Version,
+            _buildInfo.Commit,
+            new HealthFlags(FeatureFlags.DailyChallengeState));
         return JsonResponse.Write(req, HttpStatusCode.OK, body);
     }
 
-    public sealed record HealthBody(string Status, string Version, string Commit);
+    public sealed record HealthBody(string Status, string Version, string Commit, HealthFlags Flags);
+    public sealed record HealthFlags(string DailyChallenge);
+}
+
+public static class FeatureFlags
+{
+    public const string DailyChallengeEnvironmentVariable = "FEATURE_FLAGS_DAILY_CHALLENGE";
+
+    public static bool IsDailyChallengeEnabled() =>
+        Environment.GetEnvironmentVariable(DailyChallengeEnvironmentVariable) == "on";
+
+    public static string DailyChallengeState => IsDailyChallengeEnabled() ? "on" : "off";
 }
 
 public interface IBuildInfoProvider

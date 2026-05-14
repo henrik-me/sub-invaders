@@ -4,24 +4,33 @@ using System;
 using System.Net;
 using System.Threading.Tasks;
 using SubInvaders.Api;
+using SubInvaders.Api.Common;
 using SubInvaders.Api.Models;
+using SubInvaders.Api.Storage;
 using Xunit;
 
+[Collection(FeatureFlagTestCollection.Name)]
 public class LeaderboardFunctionTests
 {
-    private static FakeHttpRequestData GetLeaderboard(string? period = null)
+    private static FakeHttpRequestData GetLeaderboard(string? period = null, string? date = null)
     {
-        var url = period is null
-            ? "https://localhost/api/leaderboard"
-            : $"https://localhost/api/leaderboard?period={period}";
-        return new FakeHttpRequestData("GET", url);
+        var query = "";
+        if (period is not null)
+        {
+            query = $"?period={period}";
+        }
+        if (date is not null)
+        {
+            query += string.IsNullOrEmpty(query) ? $"?date={date}" : $"&date={date}";
+        }
+        return new FakeHttpRequestData("GET", $"https://localhost/api/leaderboard{query}");
     }
 
-    private static LeaderboardEntity Row(int score)
+    private static LeaderboardEntity Row(int score, string partitionKey = LeaderboardEntity.PartitionAll)
     {
         return new LeaderboardEntity
         {
-            PartitionKey = LeaderboardEntity.PartitionAll,
+            PartitionKey = partitionKey,
             RowKey = LeaderboardEntity.FormatRowKey(score, Guid.NewGuid()),
             Score = score,
             FinishedAt = DateTimeOffset.UtcNow,
@@ -67,12 +76,65 @@ public class LeaderboardFunctionTests
     }
 
     [Fact]
-    public async Task Period_daily_returns_501()
+    public async Task Period_daily_flag_off_returns_403()
     {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, null);
         var leaderboard = new FakeLeaderboardRepository();
         var fn = new LeaderboardFunction(leaderboard);
+
+        var resp = (FakeHttpResponseData)await fn.Run(GetLeaderboard("daily", "2026-05-14"));
+
+        Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode);
+        var body = resp.ReadBodyAs<JsonResponse.ErrorBody>();
+        Assert.NotNull(body);
+        Assert.Equal("feature_disabled", body!.Error);
+        Assert.Equal("daily challenge is disabled", body.Message);
+    }
+
+    [Fact]
+    public async Task Period_daily_flag_on_valid_date_reads_daily_partition_only()
+    {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, "on");
+        var leaderboard = new FakeLeaderboardRepository();
+        await leaderboard.AddAsync(Row(100), LeaderboardEntity.PartitionAll);
+        await leaderboard.AddAsync(Row(900, LeaderboardPartitions.DailyPartition("2026-05-14")),
+            LeaderboardPartitions.DailyPartition("2026-05-14"));
+        await leaderboard.AddAsync(Row(700, LeaderboardPartitions.DailyPartition("2026-05-13")),
+            LeaderboardPartitions.DailyPartition("2026-05-13"));
+        var fn = new LeaderboardFunction(leaderboard);
+
+        var resp = (FakeHttpResponseData)await fn.Run(GetLeaderboard("daily", "2026-05-14"));
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var body = resp.ReadBodyAs<LeaderboardFunction.LeaderboardBody>();
+        Assert.NotNull(body);
+        Assert.Equal("daily", body!.Period);
+        var entry = Assert.Single(body.Entries);
+        Assert.Equal(900, entry.Score);
+    }
+
+    [Fact]
+    public async Task Period_daily_flag_on_missing_date_returns_400()
+    {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, "on");
+        var leaderboard = new FakeLeaderboardRepository();
+        var fn = new LeaderboardFunction(leaderboard);
+
         var resp = (FakeHttpResponseData)await fn.Run(GetLeaderboard("daily"));
-        Assert.Equal(HttpStatusCode.NotImplemented, resp.StatusCode);
+
+        AssertInvalidDate(resp, "date must be YYYY-MM-DD");
+    }
+
+    [Fact]
+    public async Task Period_daily_flag_on_invalid_date_returns_400()
+    {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, "on");
+        var leaderboard = new FakeLeaderboardRepository();
+        var fn = new LeaderboardFunction(leaderboard);
+
+        var resp = (FakeHttpResponseData)await fn.Run(GetLeaderboard("daily", "20260514"));
+
+        AssertInvalidDate(resp, "date must be YYYY-MM-DD");
     }
 
     [Fact]
@@ -82,5 +144,14 @@ public class LeaderboardFunctionTests
         var fn = new LeaderboardFunction(leaderboard);
         var resp = (FakeHttpResponseData)await fn.Run(GetLeaderboard("yearly"));
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+    }
+
+    private static void AssertInvalidDate(FakeHttpResponseData resp, string message)
+    {
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+        var body = resp.ReadBodyAs<JsonResponse.ErrorBody>();
+        Assert.NotNull(body);
+        Assert.Equal("invalid_argument", body!.Error);
+        Assert.Equal(message, body.Message);
     }
 }

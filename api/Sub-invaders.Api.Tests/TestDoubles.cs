@@ -88,20 +88,31 @@ public sealed class FakeLeaderboardRepository : ILeaderboardRepository
         }
     }
 
-    public Task AddAsync(LeaderboardEntity entity, CancellationToken ct = default)
+    public Task AddAsync(
+        LeaderboardEntity entity,
+        string partitionKey = LeaderboardEntity.PartitionAll,
+        CancellationToken ct = default)
     {
+        entity.PartitionKey = partitionKey;
         lock (_lock)
         {
-            _items[entity.RowKey] = entity;
+            _items[Key(entity.PartitionKey, entity.RowKey)] = entity;
         }
         return Task.CompletedTask;
     }
 
-    public Task<System.Collections.Generic.IReadOnlyList<LeaderboardEntity>> GetTopAsync(int top, CancellationToken ct = default)
+    public Task<System.Collections.Generic.IReadOnlyList<LeaderboardEntity>> GetTopAsync(
+        int top,
+        string partitionKey = LeaderboardEntity.PartitionAll,
+        CancellationToken ct = default)
     {
         lock (_lock)
         {
-            var list = _items.Values.Take(top).ToList();
+            var list = _items.Values
+                .Where(entity => entity.PartitionKey == partitionKey)
+                .OrderBy(entity => entity.RowKey, StringComparer.Ordinal)
+                .Take(top)
+                .ToList();
             return Task.FromResult<System.Collections.Generic.IReadOnlyList<LeaderboardEntity>>(list);
         }
     }
@@ -112,7 +123,11 @@ public sealed class FakeLeaderboardRepository : ILeaderboardRepository
         {
             int kept = 0;
             int deleted = 0;
-            foreach (var key in _items.Keys.ToList())
+            foreach (var key in _items.Values
+                .Where(entity => entity.PartitionKey == LeaderboardEntity.PartitionAll)
+                .OrderBy(entity => entity.RowKey, StringComparer.Ordinal)
+                .Select(entity => Key(entity.PartitionKey, entity.RowKey))
+                .ToList())
             {
                 if (kept < keep)
                 {
@@ -125,4 +140,6 @@ public sealed class FakeLeaderboardRepository : ILeaderboardRepository
             return Task.FromResult(deleted);
         }
     }
+
+    private static string Key(string pk, string rk) => $"{pk}|{rk}";
 }
