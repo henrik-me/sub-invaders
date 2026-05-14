@@ -123,6 +123,19 @@ once a tagged release exists.
   from CS03 because the fix touches the seed/probe contract.
 
 
+### Changed (post-CS03 — Issue #52) — Deploy-time commit injection
+
+- **`swa-deploy.yml`** now sets the `SUB_INVADERS_COMMIT` SWA app setting after every
+  successful `push:main` deploy via `az staticwebapp appsettings set`, so `/api/health`
+  reports the deployed commit instead of `"unknown"`. The new step is gracefully
+  skipped when the `AZURE_CREDENTIALS` repo secret is absent (emits a `::warning::`
+  but does not fail the deploy), so existing deploys keep working until an operator
+  follows the `OPERATIONS.md § Configuring deploy-time commit injection (Issue #52)`
+  one-time setup runbook (create a Service Principal scoped to `rg-sub-invaders-prod`
+  with the `Website Contributor` role, store the SP credentials JSON as the
+  `AZURE_CREDENTIALS` repo secret).
+
+
 ### Added (SI-CS07 — 2026-05-13) — End-to-end Playwright tests
 
 - **Playwright E2E suite.** Added the repo's first npm dev-tooling setup

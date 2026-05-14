@@ -1146,7 +1146,7 @@ tag and skips create operations that already succeeded.
 |---|---|---|
 | `SUB_INVADERS_STORAGE` | Storage Tables connection string for our user-data Tables. Set on the SWA in Phase 3.5 of `infra/provision.sh`. **Cannot use the name `AzureWebJobsStorage`** — SWA reserves it for the platform-managed internal Functions storage and rejects user values with HTTP 400 (`'AzureWebJobsStorage' are not allowed`). Local dev `local.settings.json.example` sets both for parity. | CS03+ |
 | `RATE_LIMIT_PER_MINUTE` | Per-IP rate cap on `/api/session` and `/api/score` (default 30) | CS03+ |
-| `SUB_INVADERS_COMMIT` / `GITHUB_SHA` | Deploy SHA surfaced by `/api/health` | CS03+ |
+| `SUB_INVADERS_COMMIT` / `GITHUB_SHA` | Deploy SHA surfaced by `/api/health`. Set automatically on prod SWA by `swa-deploy.yml` after every `push:main` provided the `AZURE_CREDENTIALS` repo secret is configured (see § Configuring deploy-time commit injection (Issue #52) below). Falls back to `unknown` when the secret is absent. | CS03+ |
 | `DAILY_CHALLENGE_SEED` | Pin deterministic daily challenge | CS04+ |
 
 ### Secret rotation
@@ -1158,6 +1158,76 @@ tag and skips create operations that already succeeded.
   rolling key rotation: regenerate key2 first, update settings to key2, then regenerate
   key1.
 - Never log secrets in workflows; never copy into the active CS file.
+
+### Configuring deploy-time commit injection (Issue #52)
+
+`api/HealthFunction.cs` reads `SUB_INVADERS_COMMIT` (falling back to `GITHUB_SHA`,
+then `"unknown"`) so `/api/health` advertises the deployed commit for sanity-
+checking which build is live. The `swa-deploy.yml` workflow populates this app
+setting via `az staticwebapp appsettings set` after every successful `push:main`,
+but the step is **gracefully skipped when `AZURE_CREDENTIALS` is absent** so
+forks and one-time setups don't see hard failures. While the secret is unset,
+`/api/health` will report `commit:"unknown"`; the workflow emits a `::warning::`
+on every deploy as a reminder.
+
+To enable injection, a maintainer with Owner rights on the subscription must
+perform a one-time setup:
+
+1. Create a Service Principal scoped to the prod RG only:
+
+   ```bash
+   az ad sp create-for-rbac \
+     --name sp-sub-invaders-deploy \
+     --role "Contributor" \
+     --scopes "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/rg-sub-invaders-prod" \
+     --sdk-auth
+   ```
+
+   The `Contributor` role is the smallest *built-in* role that covers the
+   `Microsoft.Web/staticSites/config/write` action used by `az staticwebapp
+   appsettings set` — Azure does **not** ship a `Static Web Apps Contributor`
+   built-in role today, and `Website Contributor` only covers the App Service
+   `Microsoft.Web/sites/*` actions, not `staticSites/*` (verified
+   2026-05-13: `az role definition list --name "Website Contributor"` does
+   not include `staticSites`). The scope restriction to the prod RG keeps
+   the blast radius bounded. For a least-privilege custom role, define one
+   that grants only `Microsoft.Web/staticSites/read`,
+   `Microsoft.Web/staticSites/config/read`, and
+   `Microsoft.Web/staticSites/config/write`, then assign that instead of
+   `Contributor`.
+
+2. Copy the **entire** JSON object the command prints (including the outer
+   `{}`) and store it as the `AZURE_CREDENTIALS` repo secret:
+
+   ```text
+   GitHub repo → Settings → Secrets and variables → Actions →
+   New repository secret → Name: AZURE_CREDENTIALS, Value: <paste JSON>
+   ```
+
+3. Trigger a redeploy (push an empty commit to `main` or rerun the latest
+   `swa-deploy` workflow). On the next deploy:
+    - The `Check AZURE_CREDENTIALS secret presence` step reports
+      `available=true`.
+    - The `Azure login (Service Principal)` step authenticates with the SP.
+    - The `Set SUB_INVADERS_COMMIT app setting on prod SWA` step calls
+      `az staticwebapp appsettings set --name swa-sub-invaders
+      --resource-group rg-sub-invaders-prod --setting-names
+      SUB_INVADERS_COMMIT=<commit-sha>`.
+    - On the next Functions cold start (typically <10 s), `/api/health`
+      reports the new commit instead of `"unknown"`.
+
+4. Verify:
+
+   ```bash
+   curl -s https://happy-coast-04ffcaa1e.7.azurestaticapps.net/api/health
+   # → {"status":"ok","version":"1.0.0.0","commit":"<short-or-full-sha>"}
+   ```
+
+5. Rotate the SP credential at least annually (or on any suspected
+   compromise) by re-running `az ad sp create-for-rbac` and updating the
+   `AZURE_CREDENTIALS` repo secret. Old credentials are not auto-revoked —
+   delete the prior SP via `az ad sp delete --id <appId>` after the rotation
+   has landed on at least one successful deploy.
 
 ### Coverage policy (CS09)
 
