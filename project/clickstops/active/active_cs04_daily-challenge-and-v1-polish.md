@@ -198,13 +198,16 @@ Read the upstream scaffold README at `agent-harness/scaffolds/health-check/READM
 |---|---|---|---|---|---|---|
 | R1 | gpt-5.5 | rubber-duck dispatched (orchestrator: yoga-si) | 84380b3b7d7d2a3a0e61f0a45d05682bf53b4abe | 2026-05-15T03:14:00Z | Needs-Fix | 5 BLOCKING: PVI-CS04-001 modifiers unwired in play.mjs; -002 whaleshark unwired; -003 daily HUD unwired; -004 leaderboard period unthreaded from main; -005 review log empty. CS03 back-compat preserved. |
 | R2 | gpt-5.5 | rubber-duck dispatched (orchestrator: yoga-si) | 9830996f4e6d28c7149f0f927e394429b4397c84 | 2026-05-15T03:35:00Z | Needs-Fix | R1: F-1 partial, F-2 partial, F-3 resolved, F-4 resolved, F-5 partial. NEW: R2-F-1 fog-of-war.renderOverlay used `renderer.ctx` as property but real renderer exposes `ctx()`; R2-F-2 play.mjs passed `dt*1000` to whaleshark which expects seconds. |
+| R3 | gpt-5.5 | rubber-duck dispatched (orchestrator: yoga-si) | 121242ac18c50137df0a5801a335f132a7ee39b8 | 2026-05-15T03:50:00Z | Go | All 7 R1+R2 BLOCKING resolved. No new BLOCKING/NON-BLOCKING. Sub-limitations Deferred-acceptable. |
+| R4 (Copilot) | copilot-pull-request-reviewer | harness copilot-engage 66 | 121242ac18c50137df0a5801a335f132a7ee39b8 | 2026-05-15T04:10:00Z | COMMENTED | 10 inline doc/non-blocking findings (5 doc-only fixed in 2689986; 3 non-blocking filed as #67/#68/#69; 1 false-positive replied inline; 1 already-deferred). |
+| R5 (Copilot) | copilot-pull-request-reviewer | harness copilot-engage 66 | 2689986130acb4ae7857c3130cb1244341a69353 | 2026-05-15T04:30:00Z | COMMENTED | 4 new findings: (a) BLOCKING — whale-shark not spawned in normal mode (CS04-D7) → fixed in fa1b2bb; (b) doc nit "two parameter rolls" → fixed in fa1b2bb; (c)+(d) date-validation regex (dup of #67) → no change. |
 
-> R3 verdict to be appended after re-review at HEAD `dbeab2207ce069263b1ce4f8957b7812afb8c375`. Final verdict will be filled at close-out per the gate.
+> R3 (gpt-5.5): **Go** at HEAD `121242a`. R4 (Copilot, COMMENTED) at HEAD `121242a` flagged 10 doc/non-blocking findings; doc-only fixes pushed in `2689986`. R5 (Copilot, COMMENTED) at HEAD `2689986` surfaced 1 BLOCKING gap (normal-mode whaleshark per CS04-D7) + 1 doc fix; both fixed in `fa1b2bb`. Final verdict will be filled at close-out per the gate.
 
-## Resume point — 2026-05-15T03:30Z (PvI R1 fixes pushed)
+## Resume point — 2026-05-15T04:35Z (Copilot R2 BLOCKING fixed)
 
-- **Branch:** `cs04/content` HEAD `dbeab2207ce069263b1ce4f8957b7812afb8c375` (12 commits ahead of main).
-- **PR #66:** open, REVIEW_REQUIRED. Body updated with `Known v1.0 sub-limitations` (replaces deferred-modifier note), validation matrix at 406/406 unit + 53/53 dotnet + 48/48 e2e, R1+R2 rows in Review log.
+- **Branch:** `cs04/content` HEAD `fa1b2bb3f3c485ab38444cc4d63769205f66d774` (14 commits ahead of main).
+- **PR #66:** open, REVIEW_REQUIRED. PvI R1+R2+R3 all logged; Copilot R4 (10 inline) + R5 (4 inline, 1 BLOCKING) addressed.
 - **Worktree:** `C:\src\sub-invaders-wt\wt-cs04-content`.
-- **agent-harness pin:** `v0.5.1`. Local `C:\src\agent-harness` MUST be checked out at `v0.5.1` for sync-check; gets clobbered when other sessions switch branches. Re-run `git -C C:\src\agent-harness checkout v0.5.1` before each sync.
-- **Next**: dispatch PvI R3 (gpt-5.5 via rubber-duck) at HEAD `dbeab2207ce069263b1ce4f8957b7812afb8c375` — focus on R2-F-1 (fog-of-war ctx contract) + R2-F-2 (whaleshark dt units) resolution. On Go → `node C:\src\agent-harness\bin\harness.mjs copilot-engage 66` → admin-merge → Phase 3 close-out PR.
+- **agent-harness pin:** `v0.5.1` (HEAD `fe2c0b9`). Local `C:\src\agent-harness` MUST be checked out at `v0.5.1` for sync-check; gets clobbered by parallel sessions — re-`git checkout v0.5.1` before each sync.
+- **Next**: re-engage Copilot at HEAD `fa1b2bb` to confirm R5 BLOCKING fix; push updated PR body Review log; admin-merge; Phase 3 close-out PR.
