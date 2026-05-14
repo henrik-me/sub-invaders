@@ -32,7 +32,7 @@ once a tagged release exists.
   using `evenodd` fill. Inverted-controls also exports `remapHorizontalCode()`.
 - **Daily scene + HUD (D3, D4).** `src/game/scenes/daily.mjs` wraps
   `createPlayScene` with a UTC date seed (`parseInt(YYYYMMDD)`), draws the
-  modifier name + two parameter rolls (`enemyFireMultiplier`,
+  modifier name + three parameter rolls (`enemyFireMultiplier`,
   `formationSpeedMultiplier`, `whaleSharkInterval`) from the date-seeded RNG,
   and exposes `daily()` + extended `state()` for tests/integration.
   `src/game/hud-daily.mjs` renders a `DAILY · YYYY-MM-DD · <modifier>` badge in

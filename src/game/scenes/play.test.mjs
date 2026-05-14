@@ -1410,7 +1410,7 @@ test('CS04 PvI: whaleshark hit awards points (multiplied by scoreMultiplier)', (
   assert.ok(scene.state().score >= 200);
 });
 
-test('CS04 PvI: non-daily mode does NOT create whaleshark and renders bit-identical to CS03', () => {
+test('CS04 PvI: non-daily mode creates whaleshark in normal-cadence mode (no daily HUD)', () => {
   const scene = createPlayScene({
     createPlayer: () => createFakePlayer(),
     createFormation: () => createFakeFormation(),
@@ -1420,7 +1420,8 @@ test('CS04 PvI: non-daily mode does NOT create whaleshark and renders bit-identi
   });
   scene.enter();
   const state = scene.state();
-  assert.equal(state.whaleshark, null);
+  assert.ok(state.whaleshark, 'whaleshark should be created in normal mode (CS04-D7)');
+  assert.equal(state.whaleshark.dailyMode, false, 'normal mode uses random 15-30s cadence, not deterministic');
   assert.equal(state.daily, null);
   assert.equal(state.modifierName, null);
 });

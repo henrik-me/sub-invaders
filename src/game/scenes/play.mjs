@@ -585,14 +585,14 @@ export function createPlayScene(opts = {}) {
       }
     }
     sprites = loadedSprites ?? {};
+    whaleshark = createWhaleSharkFn({
+      rng,
+      canvasWidth: CANVAS.width,
+      canvasHeight: CANVAS.height,
+      dailyMode: Boolean(daily),
+      spawnIntervalMs: daily?.params?.whaleSharkInterval,
+    });
     if (daily) {
-      whaleshark = createWhaleSharkFn({
-        rng,
-        canvasWidth: CANVAS.width,
-        canvasHeight: CANVAS.height,
-        dailyMode: true,
-        spawnIntervalMs: daily?.params?.whaleSharkInterval,
-      });
       dailyHud = createDailyHudOverlayFn({ daily });
     }
     ready = true;
