@@ -1,10 +1,10 @@
 # CS11 — Pin harness to v0.5.0 + accept review_gates default-on + opt-in to plan-review attestation
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-si
 **Branch:** cs11/content
 **Started:** 2026-05-14
-**Closed:** —
+**Closed:** 2026-05-14
 **Filed by:** Cross-repo coordination from `henrik-me/agent-harness` CS42 (v0.5.0 release-cut). This file is filed by the agent-harness orchestrator (`yoga-ah`) per agent-harness CS42 Decision C42-4/C42-5; the SI orchestrator implements.
 **Supersedes:** CS10 (v0.4.0 pin filing — never claimed). When CS11 is claimed, also retire CS10 by moving `planned_cs10_pin-harness-v0.4.0.md` → `done/done_cs10_pin-harness-v0.4.0.md` with a `**Status:** superseded by CS11` header note.
 **Depends on:** None (claim any time after harness v0.5.0 is published — verified live via `gh release view v0.5.0 --repo henrik-me/agent-harness` → `isDraft: false, publishedAt: 2026-05-14T05:18:21Z`).
@@ -127,4 +127,34 @@ On the next `harness sync` after upgrading the pin to `v0.5.0`:
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** rubber-duck dispatched (orchestrator: yoga-si)
+**Reviewer model:** gpt-5.5
+**Reviewer agent:** rubber-duck
+**Date:** 2026-05-14
+**Outcome:** Go
+**Analyzed HEAD:** 2b45ac611e27eac09f70761ab0d173c7f7bc40fc (PR #60)
+
+### R1 verdict: Needs-Fix (HEAD b7cf1ce8b8cb5129dc73bc6c873318b7cc485a47)
+
+- **F-1 (Blocking):** PR body failed pr-evidence-lint A3/A4 due to (a) placeholder Review log timestamp, (b) wrong Model audit field name `Implementer model` instead of canonical `Implementer models`, (c) non-canonical row labels like `Reviewer model (PvI)` instead of canonical `Reviewer model`.
+  - **Fix:** PR body rewritten to use canonical schema per REVIEWS.md §2.8 (`Implementer models` / `Reviewer model` / `Implementer agent` / `Reviewer agent` only) and an ISO 8601 UTC timestamp on the seed Review log row. Landed in commit `2b45ac6`.
+
+### R2 verdict: Go (HEAD 2b45ac611e27eac09f70761ab0d173c7f7bc40fc)
+
+- **F-1:** R1 PR body evidence schema fix verified.
+  - `Review log` row 1 timestamp is strict ISO UTC `2026-05-14T15:08:00Z`.
+  - `Model audit` has exactly the canonical four fields.
+  - Independence invariant holds: `Reviewer model = gpt-5.5` ∉ `Implementer models = claude-opus-4.7-xhigh`.
+- **F-2:** v0.5.0 lint and sync re-validation clean — `lint --quiet` → 17 passed / 0 failed / 8 skipped; `sync --mode=check` → "No drift detected".
+- **F-3:** Plan/task completeness verified — D1–D7, D9, D11 done with diff evidence; D8, D10, D12, C1, C2 deferred with documented reasons in the Tasks table below.
+- **F-4:** Pre-Go `read-only-gates` failure ("no Go row") was the expected designed state; resolved by appending the R2 Go row to the PR body. After re-run, `read-only-gates` reported `Total: 3 passed, 0 failed`.
+
+No additional blocking findings. The deferred PR-template composed-v2 migration (D12) and branch-protection update (D8) are explicitly tracked and do not block this CS.
+
+### Copilot review
+
+`harness copilot-engage 60 --repo henrik-me/sub-invaders` (the new v0.5.0 CLI — D10) requested Copilot at HEAD `2b45ac6`; review submitted 2026-05-14T15:11:08Z, state `COMMENTED`, **zero inline findings**. A16 satisfied.
+
+### Merge
+
+Squash-merged via admin (`gh pr merge --admin`) at merge commit `678eed6` since `reviewDecision: REVIEW_REQUIRED` was the only standing gate (Copilot delivers as `COMMENTED`, never `APPROVED` on this repo per CS07 retro). All other project-discipline gates per REVIEWS.md §2.4 satisfied.
