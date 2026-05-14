@@ -59,7 +59,7 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s globstar nullglob
-          files=(src/**/*.test.mjs)
+          files=(src/**/*.test.mjs scripts/**/*.test.mjs)
           if [ ${#files[@]} -eq 0 ]; then
             echo "No JS tests yet — skipping (expected for CS01)."
             exit 0
@@ -108,7 +108,7 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s globstar nullglob
-          files=(src/**/*.test.mjs)
+          files=(src/**/*.test.mjs scripts/**/*.test.mjs)
           if [ ${#files[@]} -eq 0 ]; then
             echo "No JS tests — skipping"
             exit 0
