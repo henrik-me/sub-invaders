@@ -156,13 +156,13 @@ Read the upstream scaffold README at `agent-harness/scaffolds/health-check/READM
 - *Probe runner not adopted*: `scripts/health-probe.mjs` would duplicate `scripts/verify-deploy.mjs::checkHealth`, which already validates `/api/health` against the deployed URL with retries. Recording the exercise outcome rather than dropping a redundant probe.
 - *Two-state probe plan*: post-merge, `node scripts/verify-deploy.mjs --url https://happy-coast-04ffcaa1e.7.azurestaticapps.net --expected-version <sha>` runs once; the SWA app-setting `FEATURE_FLAGS_DAILY_CHALLENGE` is then toggled on, and the verify-deploy probe is re-run. Both states must pass for exit criterion 9. (Local two-state probing is captured by the dotnet `HealthFunctionTests` matrix.)
 
-### Validation matrix
+### Validation matrix (at HEAD `121242a`)
 
-- ✅ `npm run test:unit`: 391/391 pass
+- ✅ `npm run test:unit`: 406/406 pass (+15 since CS04 PvI R1 + R2 fixes)
 - ✅ `dotnet test api/`: 53/53 pass
 - ✅ `npm run test:e2e`: 48/48 pass (after `/api/health` fixture stub added; commit `1d0807d`)
 - ✅ `harness lint --quiet` (v0.5.1): 16 passed, 0 failed, 9 skipped
-- ✅ `harness sync --mode=check`: No drift
+- ✅ `harness sync --mode=check` (with agent-harness on v0.5.1): No drift
 - ⏭ `node scripts/verify-deploy.mjs`: deferred to post-merge SWA staging deploy (requires deployed URL); two-state probe will be performed against the deployed preview slot before opening the close-out PR.
 
 ### Known v1.0 limitations

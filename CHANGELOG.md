@@ -15,11 +15,12 @@ once a tagged release exists.
   date seed, a whale-shark mystery enemy that crosses the playfield on a daily
   cadence, daily-partitioned leaderboard reads/writes, frontend feature-flag
   delivery via `<meta name="flags">` + `/api/health` override, and the
-  feature-flags + health-check scaffolds wired through the pipeline.
+  feature-flags + health-check scaffolds exercised against the live codebase
+  (see D12/D13 below for adoption-vs-verification outcomes).
 - **Date-seeded RNG contract (D1).** `src/engine/seed.mjs` is now exercised with
   CS04-tagged tests in `src/engine/seed.test.mjs` that lock the
-  `parseInt(YYYYMMDD)` seed pattern: same date → identical `int(min,max)` and
-  `pick(arr)` sequences across runs; different dates → divergent sequences within
+  `parseInt(YYYYMMDD)` seed pattern: same date → identical `int(min,max)`
+  sequences across runs; different dates → divergent sequences within
   the first few draws. `src/engine/README.md` documents the pattern.
 - **Five daily modifiers (D2).** `src/game/modifiers/{fog-of-war,speed-run,one-shot,boss-rush,inverted-controls}.mjs`
   each export `NAME` + `apply(state[, opts])`. Modifiers are pure scene-init
@@ -46,7 +47,17 @@ once a tagged release exists.
   `src/game/scenes/menu-daily-option.mjs` exposes
   `createDailyMenuOption({flags, onDaily})` which is no-op when the flag is off,
   preserving CS03 menu behaviour bit-exact.
-- **Feature-flag delivery — backend (D6, D9).** _(filled in by row 5 sub-agent)_
+- **Feature-flag delivery — backend (D6, D9).** `api/HealthFunction.cs` includes
+  the resolved `flags.dailyChallenge` state in the response body so the frontend
+  can override its meta-tag default at runtime. `api/LeaderboardFunction.cs`
+  rejects `period=daily` reads with HTTP 403 when the flag is off; routes
+  `period=daily&date=YYYY-MM-DD` to the `daily-YYYY-MM-DD` partition when on.
+  `api/ScoreFunction.cs` accepts optional `period: "daily", utcDate: "YYYY-MM-DD"`
+  on the submit payload and writes to the daily partition accordingly; rejects
+  daily submits when the flag is off. `api/Storage/ILeaderboardRepository.cs` +
+  `api/Storage/LeaderboardRepository.cs` extended with explicit partition-key
+  parameters (default `PartitionAll`) so daily and all-time partitions share one
+  Tables-backed repository.
 - **Frontend API client extension (D8).** `src/game/api.mjs` `submitScore` now
   accepts optional `period`/`utcDate` and emits them only when set, preserving
   CS03 back-compat for existing call sites. `getLeaderboard` accepts optional
@@ -57,13 +68,20 @@ once a tagged release exists.
   interval, despawns at the opposite edge, and returns to dormancy. Render is
   via a placeholder rectangle in v1 (sprite slot reserved). Two test files
   cover state machine + render contract.
-- **Feature-flags scaffold + health-check scaffold exercised (D12, D13).**
-  _(filled in by D14 validation pass)_
-- **CS04 validation (D14).** Two-state matrix executed with
+- **Scaffold exercises (D12, D13).** `feature-flags` scaffold was **exercised
+  but not adopted** — topology, source-of-truth, and lifecycle mismatches with
+  Sub Invaders' no-build static frontend are documented in the active CS04
+  file's Notes/Learnings. `health-check` scaffold contract was **verified
+  against the existing `api/HealthFunction.cs`** (endpoint shape + flag
+  visibility + frontend overlay all match without changes); the scaffold's
+  probe-runner role is already covered by `scripts/verify-deploy.mjs::checkHealth`.
+- **CS04 validation (D14).** Two-state matrix executed locally with
   `dailyChallenge=off` (CS03 behaviour preserved bit-exact) and
-  `dailyChallenge=on` (daily mode reachable from menu). Validation commands per
-  CS04-15: `npm run test:unit`, `npm run test:e2e`, `dotnet test api/`,
-  `node scripts/verify-deploy.mjs`.
+  `dailyChallenge=on` (daily mode reachable from menu). Local validation commands
+  per CS04-15: `npm run test:unit`, `npm run test:e2e`, `dotnet test api/`. The
+  deployed `node scripts/verify-deploy.mjs` two-state probe is **deferred** to
+  the SWA preview-slot URL after this PR opens (and to production after merge);
+  results will be recorded in the close-out PR.
 
 ### Changed (SI-CS04)
 
