@@ -1178,14 +1178,23 @@ perform a one-time setup:
    ```bash
    az ad sp create-for-rbac \
      --name sp-sub-invaders-deploy \
-     --role "Website Contributor" \
+     --role "Contributor" \
      --scopes "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/rg-sub-invaders-prod" \
      --sdk-auth
    ```
 
-   The `Website Contributor` role is the minimum needed to call
-   `az staticwebapp appsettings set` against the SWA. The scope restriction
-   prevents the SP from touching any other resource.
+   The `Contributor` role is the smallest *built-in* role that covers the
+   `Microsoft.Web/staticSites/config/write` action used by `az staticwebapp
+   appsettings set` — Azure does **not** ship a `Static Web Apps Contributor`
+   built-in role today, and `Website Contributor` only covers the App Service
+   `Microsoft.Web/sites/*` actions, not `staticSites/*` (verified
+   2026-05-13: `az role definition list --name "Website Contributor"` does
+   not include `staticSites`). The scope restriction to the prod RG keeps
+   the blast radius bounded. For a least-privilege custom role, define one
+   that grants only `Microsoft.Web/staticSites/read`,
+   `Microsoft.Web/staticSites/config/read`, and
+   `Microsoft.Web/staticSites/config/write`, then assign that instead of
+   `Contributor`.
 
 2. Copy the **entire** JSON object the command prints (including the outer
    `{}`) and store it as the `AZURE_CREDENTIALS` repo secret:
