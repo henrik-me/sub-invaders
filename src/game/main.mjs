@@ -144,6 +144,11 @@ export async function bootstrap(opts = {}) {
     return iso.slice(0, 10);
   }
 
+  // CS04 PvI R1 fix (PVI-CS04-004): track which leaderboard period to show
+  // when the user navigates to leaderboard from the menu vs from a daily run.
+  // Cleared when a normal game starts; set when a daily game starts.
+  let lastLeaderboardContext = { period: 'all', date: null };
+
   function createMenu() {
     const dailyOption = createDailyMenuOptionFn({ flags, onDaily: dailyEnabled ? startDaily : undefined });
     return createMenuSceneFn({
@@ -184,10 +189,10 @@ export async function bootstrap(opts = {}) {
     });
   }
 
-  function createDaily() {
+  function createDaily(utcDate = currentUtcDate()) {
     return createDailySceneFn({
       ...playSceneDeps(),
-      utcDate: currentUtcDate(),
+      utcDate,
       createPlayScene: createPlaySceneFn,
     });
   }
@@ -215,15 +220,20 @@ export async function bootstrap(opts = {}) {
       apiClient,
       onRestart: startPlay,
       onMenu: showMenu,
+      period: lastLeaderboardContext.period,
+      ...(lastLeaderboardContext.date ? { date: lastLeaderboardContext.date } : {}),
     });
   }
 
   function startPlay() {
+    lastLeaderboardContext = { period: 'all', date: null };
     scenes.replace(createPlay());
   }
 
   function startDaily() {
-    scenes.replace(createDaily());
+    const utcDate = currentUtcDate();
+    lastLeaderboardContext = { period: 'daily', date: utcDate };
+    scenes.replace(createDaily(utcDate));
   }
 
   function showMenu() {

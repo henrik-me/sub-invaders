@@ -462,3 +462,68 @@ test('CS04: dailyOption.handleInput on KeyD invokes createDailySceneFn with utcD
   assert.equal(dailyCreated, 1);
   assert.equal(capturedDailyOpts.utcDate, '2026-05-14');
 });
+
+// CS04 PvI R1 fix: PVI-CS04-004 — leaderboard context tracker (period + date)
+// startPlay() must clear context to {period:'all', date:null};
+// startDaily() must set {period:'daily', date:utcDate};
+// createLeaderboard() must thread period (and date if present) into the scene.
+
+test('CS04 PvI: showLeaderboard from menu defaults to all-time period', async () => {
+  let lbOpts;
+  let menuOptions;
+  const apiClient = { startSession: () => {}, submitScore: () => {}, getLeaderboard: () => {} };
+  const harness = createHarness({
+    apiClient,
+    createMenuSceneFn(options) { menuOptions = options; return { tag: 'menu', options }; },
+    createLeaderboardSceneFn(opts) { lbOpts = opts; return { tag: 'leaderboard' }; },
+  });
+  await harness.run();
+  menuOptions.onLeaderboard();
+  assert.equal(lbOpts.period, 'all');
+  assert.equal(Object.prototype.hasOwnProperty.call(lbOpts, 'date'), false);
+});
+
+test('CS04 PvI: after startDaily, showLeaderboard scopes to that day', async () => {
+  let lbOpts;
+  let menuOptions;
+  const fixedTime = new Date('2026-05-14T12:34:56.000Z');
+  const apiClient = { startSession: () => {}, submitScore: () => {}, getLeaderboard: () => {} };
+  const harness = createHarness({
+    apiClient,
+    fetchFlagsFn: async () => ({ dailyChallenge: 'on' }),
+    now: () => fixedTime,
+    createMenuSceneFn(options) { menuOptions = options; return { tag: 'menu', options }; },
+    createDailySceneFn() { return { tag: 'daily' }; },
+    createLeaderboardSceneFn(opts) { lbOpts = opts; return { tag: 'leaderboard' }; },
+  });
+  await harness.run();
+  // Trigger daily start via the dailyOption path.
+  menuOptions.dailyOption.handleInput({ pressed: (code) => code === 'KeyD' });
+  // Then open the leaderboard.
+  menuOptions.onLeaderboard();
+  assert.equal(lbOpts.period, 'daily');
+  assert.equal(lbOpts.date, '2026-05-14');
+});
+
+test('CS04 PvI: startPlay after startDaily resets the leaderboard context', async () => {
+  let lbOpts;
+  let menuOptions;
+  const fixedTime = new Date('2026-05-14T12:34:56.000Z');
+  const apiClient = { startSession: () => {}, submitScore: () => {}, getLeaderboard: () => {} };
+  const harness = createHarness({
+    apiClient,
+    fetchFlagsFn: async () => ({ dailyChallenge: 'on' }),
+    now: () => fixedTime,
+    createMenuSceneFn(options) { menuOptions = options; return { tag: 'menu', options }; },
+    createDailySceneFn() { return { tag: 'daily' }; },
+    createLeaderboardSceneFn(opts) { lbOpts = opts; return { tag: 'leaderboard' }; },
+  });
+  await harness.run();
+  menuOptions.dailyOption.handleInput({ pressed: (code) => code === 'KeyD' });
+  // Now start a normal play session — should clear the daily context.
+  menuOptions.onStart();
+  menuOptions.onLeaderboard();
+  assert.equal(lbOpts.period, 'all');
+  assert.equal(Object.prototype.hasOwnProperty.call(lbOpts, 'date'), false);
+});
+

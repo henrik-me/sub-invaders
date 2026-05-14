@@ -54,13 +54,27 @@ function createDailyDefinition(utcDate) {
 /**
  * Creates a deterministic daily scene wrapper around play.mjs.
  *
- * v1.0 STUB — gameplay modifier wiring deferred:
- * play.mjs currently consumes only `daily.utcDate` (for the leaderboard partition
- * on submit). The named modifier (`daily.modifierName`) and the parameter rolls
- * (`daily.params.{enemyFireMultiplier, formationSpeedMultiplier, whaleSharkInterval}`)
- * are forwarded but NOT yet applied to player/formation/enemy-fire/whale-shark
- * behavior. The `dailyChallenge` feature flag defaults to `off`, so this stub
- * is not user-visible at v1.0 ship. Tracked as a post-v1.0 follow-up CS.
+ * Daily-mode wiring summary (see CS04 PvI R2):
+ * - The named modifier (`daily.modifierName`) is matched against the
+ *   `MODIFIER_REGISTRY` in `play.mjs` and its `apply(state)` is invoked at
+ *   scene construction. Resulting state fields drive runtime behavior:
+ *   `startingLives`, `playerSpeedMultiplier`, `formationSpeedMultiplier`,
+ *   `enemyFireDensityMultiplier`, `scoreMultiplier`, `invertHorizontalControls`,
+ *   and `modifiers.fogOfWar.haloRadius`.
+ * - The whale-shark mystery enemy is created when `daily` is set and ticks +
+ *   renders + checks-hit each frame; its score award is multiplied by the
+ *   active modifier's `scoreMultiplier`.
+ * - The `DAILY · YYYY-MM-DD · modifier-name` HUD badge is rendered top-right
+ *   each frame.
+ * - The `period: 'daily', utcDate` tuple is threaded into the score submit
+ *   payload so the server partitions to the daily leaderboard.
+ *
+ * Known sub-limitations (documented as acceptable for v1.0):
+ * - boss-rush `onlyEnemyType: 'squid'` requires formation-factory cooperation
+ *   to filter spawned types; only its `scoreMultiplier × 2` and
+ *   `enemyFireDensityMultiplier × 2` take effect.
+ * - speed-run `fireRateMultiplier` is a no-op because the player factory does
+ *   not accept a fire-rate multiplier (only an absolute `fireCooldownMs`).
  */
 export function createDailyScene(opts = {}) {
   const {

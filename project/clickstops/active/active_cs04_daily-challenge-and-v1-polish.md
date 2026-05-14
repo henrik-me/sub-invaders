@@ -167,16 +167,22 @@ Read the upstream scaffold README at `agent-harness/scaffolds/health-check/READM
 
 ### Known v1.0 limitations
 
-- **Daily-challenge modifier wiring deferred.** `daily.mjs` resolves the date-seeded
-  modifier name + params but `play.mjs` only consumes `daily.utcDate` (for leaderboard
-  partition routing on submit). The five `src/game/modifiers/*.mjs` mutators and the
-  `daily.params.{enemyFireMultiplier, formationSpeedMultiplier, whaleSharkInterval}`
-  rolls are forwarded but NOT applied to runtime gameplay. Documented in
-  `CHANGELOG.md` "Known limitations (SI-CS04)" and as TODO comments in `daily.mjs`
-  + `play.mjs`. The `dailyChallenge` flag defaults to `off`, so this stub is not
-  user-visible at v1.0 ship. Tracked as a follow-up issue / post-v1.0 CS.
-- **Whale-shark sprite is a placeholder rectangle.** Slotted but the dedicated sprite
-  is not yet authored.
+- **Daily-mode sub-limitations (acceptable for v1.0).** The named modifier
+  (`daily.modifierName`) IS resolved by `play.mjs`'s `MODIFIER_REGISTRY` and its
+  `apply(state)` IS invoked at scene construction, threading multipliers /
+  starting lives / inverted controls / fog-of-war halo into the player and
+  formation factories and into score accounting. Two partial-wirings remain
+  (documented in `CHANGELOG.md` "Known limitations (SI-CS04)"):
+  - boss-rush `onlyEnemyType: 'squid'` requires formation-factory cooperation
+    to filter spawned types; only its `scoreMultiplier × 2` and
+    `enemyFireDensityMultiplier × 2` take effect at v1.0.
+  - speed-run `fireRateMultiplier` is a no-op because the player factory does
+    not accept a fire-rate multiplier (only an absolute `fireCooldownMs`); only
+    its `playerSpeedMultiplier × 2` and `formationSpeedMultiplier × 2` take
+    effect.
+- **Whale-shark sprite is a placeholder rectangle.** Slotted but the dedicated
+  sprite is not yet authored. The whale-shark IS spawned, ticked, rendered, and
+  collidable in daily mode — only its visual fidelity is stubbed.
 
 ## Plan review
 

@@ -12,6 +12,43 @@ import {
   TORPEDO,
 } from '../constants.mjs';
 import { createHud } from '../hud.mjs';
+import { createDailyHudOverlay as defaultCreateDailyHudOverlay } from '../hud-daily.mjs';
+import * as bossRush from '../modifiers/boss-rush.mjs';
+import * as fogOfWar from '../modifiers/fog-of-war.mjs';
+import * as invertedControls from '../modifiers/inverted-controls.mjs';
+import * as oneShot from '../modifiers/one-shot.mjs';
+import * as speedRun from '../modifiers/speed-run.mjs';
+import { createWhaleShark as defaultCreateWhaleShark } from '../whaleshark.mjs';
+
+const MODIFIER_REGISTRY = Object.freeze({
+  [bossRush.NAME]: bossRush,
+  [fogOfWar.NAME]: fogOfWar,
+  [invertedControls.NAME]: invertedControls,
+  [oneShot.NAME]: oneShot,
+  [speedRun.NAME]: speedRun,
+});
+
+function resolveModifier(daily) {
+  if (!daily?.modifierName) return null;
+  return MODIFIER_REGISTRY[daily.modifierName] ?? null;
+}
+
+function resolveModifierState(daily) {
+  const modifier = resolveModifier(daily);
+  if (!modifier) return null;
+  const state = {};
+  modifier.apply(state);
+  return state;
+}
+
+function makeInvertedInput(input) {
+  if (!input) return input;
+  const remap = invertedControls.remapHorizontalCode;
+  return {
+    pressed: (code) => input.pressed?.(remap(code)),
+    down: (code) => input.down?.(remap(code)),
+  };
+}
 
 const noop = () => {};
 const isThenable = (value) => value && typeof value.then === 'function';
@@ -311,11 +348,42 @@ export function createPlayScene(opts = {}) {
   const hud = createHud(opts.hud ?? {});
   const apiClient = opts.apiClient ?? null;
   const now = typeof opts.now === 'function' ? opts.now : () => new Date();
-  // CS04 v1.0 STUB: `daily` is consumed only for the submit-payload partition
-  // routing (utcDate → leaderboard daily-YYYY-MM-DD). The named modifier and
-  // parameter rolls are NOT yet applied to runtime gameplay. dailyChallenge
-  // flag defaults to `off`; tracked as post-v1.0 follow-up CS.
+  // CS04 daily-mode wiring (PvI R1 fixes for PVI-CS04-001/002/003):
+  // `daily` carries the leaderboard partition (utcDate) AND the date-seeded
+  // modifier name + params drawn by daily.mjs. The modifier's apply(state)
+  // mutator populates startingLives / playerSpeedMultiplier /
+  // formationSpeedMultiplier / scoreMultiplier / enemyFireDensityMultiplier /
+  // invertHorizontalControls / modifiers.fogOfWar.haloRadius which we read
+  // below to actually affect gameplay (not just the leaderboard partition).
   const daily = opts.daily ?? null;
+  const modifierState = resolveModifierState(daily);
+  const createWhaleSharkFn = opts.createWhaleShark ?? defaultCreateWhaleShark;
+  const createDailyHudOverlayFn = opts.createDailyHudOverlay ?? defaultCreateDailyHudOverlay;
+  const fogOfWarHaloRadius = modifierState?.modifiers?.fogOfWar?.haloRadius ?? null;
+  const invertControls = Boolean(modifierState?.invertHorizontalControls);
+  const scoreMultiplier = Number.isFinite(modifierState?.scoreMultiplier)
+    ? Math.max(0, modifierState.scoreMultiplier)
+    : 1;
+  const playerSpeedMultiplier = Number.isFinite(modifierState?.playerSpeedMultiplier)
+    ? Math.max(0, modifierState.playerSpeedMultiplier)
+    : 1;
+  const formationSpeedMultiplier =
+    (Number.isFinite(modifierState?.formationSpeedMultiplier)
+      ? Math.max(0, modifierState.formationSpeedMultiplier)
+      : 1)
+    * (Number.isFinite(daily?.params?.formationSpeedMultiplier)
+      ? Math.max(0, daily.params.formationSpeedMultiplier)
+      : 1);
+  const enemyFireMultiplier =
+    (Number.isFinite(modifierState?.enemyFireDensityMultiplier)
+      ? Math.max(0.0001, modifierState.enemyFireDensityMultiplier)
+      : 1)
+    * (Number.isFinite(daily?.params?.enemyFireMultiplier)
+      ? Math.max(0.0001, daily.params.enemyFireMultiplier)
+      : 1);
+  const startingLives = Number.isFinite(modifierState?.startingLives)
+    ? Math.max(1, Math.floor(modifierState.startingLives))
+    : null;
 
   let player;
   let formation;
@@ -334,6 +402,8 @@ export function createPlayScene(opts = {}) {
   let lastInput;
   let setupPromise;
   let createFormationFactory;
+  let whaleshark = null;
+  let dailyHud = null;
   let sessionId = null;
   let sessionStartedAt = null;
   let sessionError = null;
@@ -349,6 +419,10 @@ export function createPlayScene(opts = {}) {
       torpedo: TORPEDO,
       palette: PALETTE,
       sprites: SPRITES,
+      ...(startingLives !== null ? { lives: startingLives } : {}),
+      ...(playerSpeedMultiplier !== 1
+        ? { speed: PLAYER.speed * playerSpeedMultiplier }
+        : {}),
     };
   }
 
@@ -362,6 +436,12 @@ export function createPlayScene(opts = {}) {
       sprites: SPRITES,
       wave,
       rng,
+      ...(formationSpeedMultiplier !== 1
+        ? { baseSpeed: FORMATION.baseSpeed * formationSpeedMultiplier }
+        : {}),
+      ...(enemyFireMultiplier !== 1
+        ? { fireIntervalMs: FORMATION.fireIntervalMs / enemyFireMultiplier }
+        : {}),
     };
   }
 
@@ -389,6 +469,8 @@ export function createPlayScene(opts = {}) {
     loadError = undefined;
     lastInput = undefined;
     setupPromise = undefined;
+    whaleshark = null;
+    dailyHud = null;
     sessionId = null;
     sessionStartedAt = null;
     sessionError = null;
@@ -503,6 +585,16 @@ export function createPlayScene(opts = {}) {
       }
     }
     sprites = loadedSprites ?? {};
+    if (daily) {
+      whaleshark = createWhaleSharkFn({
+        rng,
+        canvasWidth: CANVAS.width,
+        canvasHeight: CANVAS.height,
+        dailyMode: true,
+        spawnIntervalMs: daily?.params?.whaleSharkInterval,
+      });
+      dailyHud = createDailyHudOverlayFn({ daily });
+    }
     ready = true;
     updateHud();
   }
@@ -531,11 +623,12 @@ export function createPlayScene(opts = {}) {
   }
 
   function updatePlayer(dt, input) {
-    callMaybe(player?.handleInput, player, [input]);
-    callMaybe(player?.update, player, [dt, input, CANVAS, PLAYER]);
+    const playerInput = invertControls ? makeInvertedInput(input) : input;
+    callMaybe(player?.handleInput, player, [playerInput]);
+    callMaybe(player?.update, player, [dt, playerInput, CANVAS, PLAYER]);
 
     if (fireRequested(input)) {
-      addProjectiles(torpedoes, callMaybe(player?.tryFire, player, [input, {
+      addProjectiles(torpedoes, callMaybe(player?.tryFire, player, [playerInput, {
         canvas: CANVAS,
         player: PLAYER,
         torpedo: TORPEDO,
@@ -585,10 +678,18 @@ export function createPlayScene(opts = {}) {
 
       kill(torpedo);
       kill(invader);
-      score += invaderPoints(invader);
+      score += Math.floor(invaderPoints(invader) * scoreMultiplier);
     }
 
     torpedoes = torpedoes.filter(isAlive);
+
+    if (whaleshark) {
+      const result = whaleshark.checkHit(torpedoes);
+      if (result?.hit) {
+        score += Math.floor((result.points ?? 0) * scoreMultiplier);
+      }
+      torpedoes = torpedoes.filter(isAlive);
+    }
   }
 
   function handlePlayerCollisions() {
@@ -612,7 +713,7 @@ export function createPlayScene(opts = {}) {
       return;
     }
 
-    score += SCORING.waveBonusMultiplier * wave;
+    score += Math.floor(SCORING.waveBonusMultiplier * wave * scoreMultiplier);
     wave += 1;
     torpedoes = [];
     enemyShots = [];
@@ -654,6 +755,9 @@ export function createPlayScene(opts = {}) {
       updatePlayer(dt, input);
       updateFormation(dt);
       updateProjectiles(dt);
+      if (whaleshark) {
+        whaleshark.update((Number(dt) || 0) * 1000);
+      }
       handleTorpedoCollisions();
       handlePlayerCollisions();
       advanceWaveIfCleared();
@@ -704,6 +808,10 @@ export function createPlayScene(opts = {}) {
         }
       }
 
+      if (whaleshark) {
+        whaleshark.render(renderer);
+      }
+
       for (const torpedo of torpedoes) {
         drawEntity(renderer, sprites, torpedo, 'torpedo', PALETTE.shot);
       }
@@ -713,8 +821,22 @@ export function createPlayScene(opts = {}) {
       }
 
       drawEntity(renderer, sprites, player, 'submarine', PALETTE.player);
+
+      if (fogOfWarHaloRadius && player) {
+        fogOfWar.renderOverlay(renderer, {
+          player,
+          canvasWidth: width,
+          canvasHeight: height,
+          haloRadius: fogOfWarHaloRadius,
+        });
+      }
+
       updateHud();
       hud.render(renderer, sprites);
+
+      if (dailyHud) {
+        dailyHud.render(renderer);
+      }
     },
 
     state() {
@@ -730,6 +852,10 @@ export function createPlayScene(opts = {}) {
         formation,
         torpedoes,
         enemyShots,
+        whaleshark: whaleshark?.state ?? null,
+        daily: daily ?? null,
+        modifierName: daily?.modifierName ?? null,
+        modifiers: modifierState?.modifiers ?? null,
         sessionId,
         sessionStartedAt,
         sessionError,

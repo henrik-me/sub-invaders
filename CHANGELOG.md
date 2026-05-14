@@ -76,15 +76,17 @@ once a tagged release exists.
 
 ### Known limitations (SI-CS04)
 
-- **Daily-challenge modifier wiring is deferred.** `src/game/scenes/daily.mjs` resolves
-  the date-seeded modifier name + params and forwards them into `createPlayScene` via
-  `{ daily }`, but `play.mjs` only consumes `daily.utcDate` (for the leaderboard
-  partition on submit). The five modifier mutators in `src/game/modifiers/` and the
-  `daily.params.{enemyFireMultiplier, formationSpeedMultiplier, whaleSharkInterval}`
-  rolls do **not** yet affect runtime gameplay. The `dailyChallenge` flag defaults
-  to `off` so users see no broken behaviour at v1.0; turning it on exposes the menu
-  option but the resulting daily session plays identically to a normal seeded session.
-  Tracked as a follow-up issue for a post-v1.0 CS.
+- **Daily-mode sub-limitations (acceptable for v1.0).** Modifiers are wired into
+  `play.mjs` via a small registry that resolves `daily.modifierName` to a mutator
+  in `src/game/modifiers/` and applies it at scene construction. Two
+  partial-wirings remain:
+  - boss-rush `onlyEnemyType: 'squid'` requires formation-factory cooperation
+    to filter spawned types; only its `scoreMultiplier × 2` and
+    `enemyFireDensityMultiplier × 2` take effect at v1.0.
+  - speed-run `fireRateMultiplier` is a no-op because the player factory does
+    not accept a fire-rate multiplier (only an absolute `fireCooldownMs`); only
+    its `playerSpeedMultiplier × 2` and `formationSpeedMultiplier × 2` take
+    effect.
 - Whale-shark v1 renders a placeholder rectangle; the dedicated sprite is
   slotted but not yet authored.
 - `harness sync --mode=apply` pin-bump exercise was retired from CS04 scope per
