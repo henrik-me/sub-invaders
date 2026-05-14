@@ -8,11 +8,82 @@ once a tagged release exists.
 
 ## [Unreleased]
 
+### Added (SI-CS04 — 2026-05-14) — Daily challenge + whale-shark + v1 polish
+
+- **Sub Invaders v1 shipped.** CS04 closes the v1 milestone: a daily challenge mode
+  driven by deterministic UTC-date seeds, five gameplay modifiers drawn from the
+  date seed, a whale-shark mystery enemy that crosses the playfield on a daily
+  cadence, daily-partitioned leaderboard reads/writes, frontend feature-flag
+  delivery via `<meta name="flags">` + `/api/health` override, and the
+  feature-flags + health-check scaffolds wired through the pipeline.
+- **Date-seeded RNG contract (D1).** `src/engine/seed.mjs` is now exercised with
+  CS04-tagged tests in `src/engine/seed.test.mjs` that lock the
+  `parseInt(YYYYMMDD)` seed pattern: same date → identical `int(min,max)` and
+  `pick(arr)` sequences across runs; different dates → divergent sequences within
+  the first few draws. `src/engine/README.md` documents the pattern.
+- **Five daily modifiers (D2).** `src/game/modifiers/{fog-of-war,speed-run,one-shot,boss-rush,inverted-controls}.mjs`
+  each export `NAME` + `apply(state[, opts])`. Modifiers are pure scene-init
+  mutators that compose multiplicatively with existing state values
+  (`playerSpeedMultiplier`, `formationSpeedMultiplier`, `fireRateMultiplier`,
+  `scoreMultiplier`, `enemyFireDensityMultiplier`, `startingLives`,
+  `invertHorizontalControls`). Fog-of-war additionally provides a `renderOverlay()`
+  that punches a circular halo (default radius 96px) into a darkened canvas pass
+  using `evenodd` fill. Inverted-controls also exports `remapHorizontalCode()`.
+- **Daily scene + HUD (D3, D4).** `src/game/scenes/daily.mjs` wraps
+  `createPlayScene` with a UTC date seed (`parseInt(YYYYMMDD)`), draws the
+  modifier name + two parameter rolls (`enemyFireMultiplier`,
+  `formationSpeedMultiplier`, `whaleSharkInterval`) from the date-seeded RNG,
+  and exposes `daily()` + extended `state()` for tests/integration.
+  `src/game/hud-daily.mjs` renders a `DAILY · YYYY-MM-DD · <modifier>` badge in
+  the top-right corner.
+- **Feature-flag delivery — frontend (D5).** `src/index.html` now ships
+  `<meta name="flags" content="dailyChallenge=off">` as the default. New
+  `src/game/flags.mjs` exposes `parseMetaFlags`, `readDefaultFlags`, `fetchFlags`
+  and `isDailyChallengeEnabled`. `fetchFlags` reads the meta default, then
+  attempts `GET /api/health` (1500 ms `AbortController` budget per CS04-11
+  amendment) to fold in `body.flags`; on any failure (non-ok, non-object body,
+  fetch reject, abort, missing `fetch`) it falls back to the meta default.
+  `src/game/scenes/menu-daily-option.mjs` exposes
+  `createDailyMenuOption({flags, onDaily})` which is no-op when the flag is off,
+  preserving CS03 menu behaviour bit-exact.
+- **Feature-flag delivery — backend (D6, D9).** _(filled in by row 5 sub-agent)_
+- **Frontend API client extension (D8).** `src/game/api.mjs` `submitScore` now
+  accepts optional `period`/`utcDate` and emits them only when set, preserving
+  CS03 back-compat for existing call sites. `getLeaderboard` accepts optional
+  `date` (validated against `^\d{4}-\d{2}-\d{2}$`) and threads it as a query
+  parameter when `period === 'daily'`. `period` defaults to `'all'`.
+- **Whale-shark mystery enemy (D7).** `src/game/whaleshark.mjs` adds a
+  rare bonus enemy that traverses the playfield horizontally on a daily-driven
+  interval, despawns at the opposite edge, and returns to dormancy. Render is
+  via a placeholder rectangle in v1 (sprite slot reserved). Two test files
+  cover state machine + render contract.
+- **Feature-flags scaffold + health-check scaffold exercised (D12, D13).**
+  _(filled in by D14 validation pass)_
+- **CS04 validation (D14).** Two-state matrix executed with
+  `dailyChallenge=off` (CS03 behaviour preserved bit-exact) and
+  `dailyChallenge=on` (daily mode reachable from menu). Validation commands per
+  CS04-15: `npm run test:unit`, `npm run test:e2e`, `dotnet test api/`,
+  `node scripts/verify-deploy.mjs`.
+
+### Changed (SI-CS04)
+
+- **`src/game/api.mjs` is daily-aware.** Previously CS03-only (`period: 'all'`),
+  now extended for `period: 'daily'` with `utcDate` on submit and `date` on
+  read. CS03 callers (`play.mjs:421`, `leaderboard.mjs:41`) keep working
+  without edits.
+- **`src/index.html`** now declares the `dailyChallenge=off` flag default in
+  `<head>`.
+
+### Known limitations (SI-CS04)
+
+- Whale-shark v1 renders a placeholder rectangle; the dedicated sprite is
+  slotted but not yet authored.
+- `harness sync --mode=apply` pin-bump exercise was retired from CS04 scope per
+  CS04-13 since CS10/CS11/PR#62 already validated the harness pin lifecycle.
+
 ### Added (SI-CS03 — 2026-05-13) — Backend Functions + persistent leaderboard
 
 - **CS03 Functions (`api/`)** — `.NET 8` isolated worker adds `POST /api/session`
-  (issues replay-protection token + nonce + `startedAt`), `POST /api/score` (strict-JSON
-  body ≤ 1 KB; validates session + plausibility + accept rate), `GET /api/leaderboard?period=all`
   (top-100 entries, score desc; `period=daily` returns 501 in CS03), and an admin
   `POST /api/admin/sessions-cleanup` (`AuthorizationLevel.Function`) that prunes 24 h-old
   session rows. SWA managed Functions does not support `timerTrigger` (build error:
