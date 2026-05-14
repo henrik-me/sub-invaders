@@ -108,8 +108,12 @@ const checks = [
       if (!Number.isFinite(startedAtMs)) {
         return 'step 1 (POST /api/session): startedAt is not a valid ISO-8601 timestamp';
       }
+      // 11 s elapsed = max allowed score 550 (= 11 × MaxScorePerSecond=50). Use 500 so
+      // the probe row both clears the per-second plausibility check AND has a high
+      // enough score to land in the top-100 leaderboard window even on a moderately
+      // populated board. Pair with the unique finishedAt below to identify the row.
       const finishedAt = new Date(startedAtMs + 11_000).toISOString();
-      const probeScore = 1; // intentionally tiny so it never tops the leaderboard
+      const probeScore = 500;
       const scoreResponse = await httpRequest({
         baseUrl,
         path: '/api/score',
@@ -138,6 +142,25 @@ const checks = [
       }
       if (leaderboard.period !== 'all') {
         return `step 3 (GET /api/leaderboard?period=all): response.period is "${leaderboard.period}" (expected "all")`;
+      }
+
+      // Step 4: persistence assertion (CS03/D13 — exit criterion 7).
+      // The submitted probe row MUST appear in the returned top-100 window, matched
+      // by exact (score, finishedAt). The finishedAt is unique to this probe run
+      // (millisecond ISO precision), so a match proves the score row was persisted
+      // by the deployed backend — not just that /api/score returned accepted.
+      const probeRow = leaderboard.entries.find(
+        (e) => e && e.score === probeScore && e.finishedAt === finishedAt,
+      );
+      if (!probeRow) {
+        const minScore = leaderboard.entries.reduce(
+          (acc, e) => (typeof e?.score === 'number' && e.score < acc ? e.score : acc),
+          Number.POSITIVE_INFINITY,
+        );
+        const sizeNote = leaderboard.entries.length >= 100
+          ? `leaderboard is at top-100 capacity (lowest score ${Number.isFinite(minScore) ? minScore : 'unknown'}); probe score ${probeScore} may have been trimmed`
+          : `leaderboard has ${leaderboard.entries.length} entries (probe score ${probeScore} should appear)`;
+        return `step 4 (leaderboard persistence): probe row (score=${probeScore}, finishedAt=${finishedAt}) not found in top-100 — ${sizeNote}. Either /api/score did not persist or the probe needs a higher score / by-id verification endpoint.`;
       }
 
       return null;

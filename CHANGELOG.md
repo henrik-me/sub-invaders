@@ -28,8 +28,9 @@ once a tagged release exists.
   `RATE_LIMIT_PER_MINUTE` SWA application setting. 429 responses include `Retry-After: 60`.
 - **Storage Tables persistence.** `Sessions` (PartitionKey = `yyyyMMdd`, RowKey = `sessionId`)
   and `Leaderboard` (PartitionKey = `"all"`, RowKey = `<invertedScore D8>_<submissionUuid>`)
-  created idempotently by `infra/provision.sh` Phase 2.5
-  (`az storage table create --if-not-exists`). The inverted RowKey makes Table Storage's
+  created idempotently by `infra/provision.sh` Phase 2.5 (`az storage table create`
+  with explicit `TableAlreadyExists` handling — the `--if-not-exists` flag does not
+  exist on this command). The inverted RowKey makes Table Storage's
   natural ascending sort return top scores first.
 - **Frontend integration (D9, D10).** `src/game/scenes/play.mjs` now fires
   `apiClient.startSession()` (fire-and-forget) on scene enter and `apiClient.submitScore()`

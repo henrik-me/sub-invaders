@@ -78,33 +78,40 @@ describe('verify-deploy.checks — CS03/D13 leaderboard-sequence probe', () => {
     assert.equal(typeof c.run, 'function');
   });
 
-  it('passes when all three CS03 endpoints behave per contract', async () => {
+  it('passes when all three CS03 endpoints behave per contract and the probe row appears', async () => {
     const c = findLeaderboardSequence();
     const calls = [];
+    // Step 1's startedAt = T0; probe sets finishedAt = T0 + 11 s and probeScore = 500.
+    const startedAt = '2026-05-13T00:00:00.000Z';
+    const finishedAt = '2026-05-13T00:00:11.000Z';
+    const probeScore = 500;
     const ctx = {
       baseUrl: 'https://example.test',
       expectedVersion: 'sha-1',
-      async httpRequest({ path, method }) {
-        calls.push({ path, method });
+      async httpRequest({ path, method, body }) {
+        calls.push({ path, method, body });
         if (path === '/api/session' && method === 'POST') {
           return {
             status: 200,
             body: '',
-            json: { sessionId: 'seq-1', nonce: 'nn', startedAt: '2026-05-13T00:00:00.000Z' },
+            json: { sessionId: 'seq-1', nonce: 'nn', startedAt },
           };
         }
         if (path === '/api/score' && method === 'POST') {
           return {
             status: 200,
             body: '',
-            json: { status: 'accepted', score: 1, submissionId: 'sub-1' },
+            json: { status: 'accepted', score: probeScore, submissionId: 'sub-1' },
           };
         }
         if (path === '/api/leaderboard?period=all') {
           return {
             status: 200,
             body: '',
-            json: { period: 'all', entries: [{ rank: 1, score: 1, finishedAt: '2026-05-13T00:00:11.000Z' }] },
+            json: {
+              period: 'all',
+              entries: [{ rank: 1, score: probeScore, finishedAt }],
+            },
           };
         }
         throw new Error(`unexpected request ${method} ${path}`);
@@ -113,6 +120,11 @@ describe('verify-deploy.checks — CS03/D13 leaderboard-sequence probe', () => {
     const result = await c.run(ctx);
     assert.equal(result, null, `expected pass, got: ${result}`);
     assert.equal(calls.length, 3);
+    // The score POST must carry the probe score and the unique finishedAt.
+    const scoreCall = calls.find((c) => c.path === '/api/score');
+    const scorePayload = JSON.parse(scoreCall.body);
+    assert.equal(scorePayload.score, probeScore);
+    assert.equal(scorePayload.finishedAt, finishedAt);
   });
 
   it('returns a step-1 failure when /api/session does not return 200', async () => {
@@ -184,5 +196,69 @@ describe('verify-deploy.checks — CS03/D13 leaderboard-sequence probe', () => {
       },
     });
     assert.match(result ?? '', /step 3.*entries/);
+  });
+
+  // CS03/D13 — exit criterion 7 regression guard. The probe must fail loudly when
+  // /api/score returns "accepted" but the row is missing from the leaderboard
+  // top-100 window. Without this guard, a backend that silently skipped persistence
+  // (e.g. storage misconfiguration, table not provisioned, swallowed exception)
+  // would pass the deployed smoke check.
+  it('returns a step-4 failure when the probe row is absent from the leaderboard (sparse board)', async () => {
+    const c = findLeaderboardSequence();
+    const result = await c.run({
+      baseUrl: 'https://example.test',
+      expectedVersion: 'sha-1',
+      async httpRequest({ path }) {
+        if (path === '/api/session') {
+          return { status: 200, body: '', json: { sessionId: 's', startedAt: '2026-05-13T00:00:00.000Z' } };
+        }
+        if (path === '/api/score') {
+          return { status: 200, body: '', json: { status: 'accepted' } };
+        }
+        // Sparse leaderboard (only some unrelated rows) — the probe row should be
+        // here but isn't. This is the canonical "score endpoint lied" scenario.
+        return {
+          status: 200,
+          body: '',
+          json: {
+            period: 'all',
+            entries: [
+              { rank: 1, score: 9999, finishedAt: '2026-05-12T00:00:00.000Z' },
+              { rank: 2, score: 1234, finishedAt: '2026-05-12T01:00:00.000Z' },
+            ],
+          },
+        };
+      },
+    });
+    assert.match(result ?? '', /step 4.*persistence.*not found/);
+    assert.match(result ?? '', /score=500/);
+    assert.match(result ?? '', /2 entries/);
+  });
+
+  it('returns a step-4 failure when the probe row is absent from a saturated leaderboard', async () => {
+    const c = findLeaderboardSequence();
+    const result = await c.run({
+      baseUrl: 'https://example.test',
+      expectedVersion: 'sha-1',
+      async httpRequest({ path }) {
+        if (path === '/api/session') {
+          return { status: 200, body: '', json: { sessionId: 's', startedAt: '2026-05-13T00:00:00.000Z' } };
+        }
+        if (path === '/api/score') {
+          return { status: 200, body: '', json: { status: 'accepted' } };
+        }
+        // Saturated top-100 with all scores > probe (probe=500). The probe row
+        // would be trimmed; the failure message should call this out so operators
+        // can choose between bumping the probe score or wiring a by-id endpoint.
+        const entries = Array.from({ length: 100 }, (_, i) => ({
+          rank: i + 1,
+          score: 1000 + i,
+          finishedAt: `2026-05-12T00:${String(i).padStart(2, '0')}:00.000Z`,
+        }));
+        return { status: 200, body: '', json: { period: 'all', entries } };
+      },
+    });
+    assert.match(result ?? '', /step 4.*persistence.*not found/);
+    assert.match(result ?? '', /top-100 capacity.*lowest score 1000/);
   });
 });
