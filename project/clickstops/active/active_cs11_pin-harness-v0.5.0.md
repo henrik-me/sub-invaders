@@ -1,9 +1,9 @@
 # CS11 — Pin harness to v0.5.0 + accept review_gates default-on + opt-in to plan-review attestation
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-si
+**Branch:** cs11/content
+**Started:** 2026-05-14
 **Closed:** —
 **Filed by:** Cross-repo coordination from `henrik-me/agent-harness` CS42 (v0.5.0 release-cut). This file is filed by the agent-harness orchestrator (`yoga-ah`) per agent-harness CS42 Decision C42-4/C42-5; the SI orchestrator implements.
 **Supersedes:** CS10 (v0.4.0 pin filing — never claimed). When CS11 is claimed, also retire CS10 by moving `planned_cs10_pin-harness-v0.4.0.md` → `done/done_cs10_pin-harness-v0.4.0.md` with a `**Status:** superseded by CS11` header note.
@@ -84,7 +84,19 @@ On the next `harness sync` after upgrading the pin to `v0.5.0`:
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time) | planned | — | — |
+| D1 — Configure `cs_plan_lint.forbidden_path_prefixes` workaround in `harness.config.json` | pending | orchestrator | Per filed agent-harness issue [#183](https://github.com/henrik-me/agent-harness/issues/183): narrow defaults to `template/composed/` + `template/seeded/` until upstream fix lands. Removes 27 false-positive `cs-plan` violations on SI's legitimate `scripts/` / `bin/` / `lib/` references. |
+| D2 — Backfill `## Plan review` grandfather rows on `planned_cs04`, `planned_cs05`, `planned_cs06`, `planned_cs08` | pending | orchestrator | Per C11-4. Use `Verdict: Go-with-amendments`; recap: "grandfathered at v0.5.0 pin-bump per harness CS42-7"; reviewer model independent of implementer model. |
+| D3 — Add `review_gates` block to `harness.config.json` (per C11-3) | pending | orchestrator | Hand-add `{"enabled": true}` since CS10 was never claimed (otherwise `harness sync --mode=check` ERRORs in v0.5.0). |
+| D4 — Bump `harness.config.json#version` from `v0.3.1` → `v0.5.0` | pending | orchestrator | Skip v0.4.0 (CS10 superseded by this CS). |
+| D5 — Run `harness sync --mode=apply` and accept the resulting diff | pending | orchestrator | Composed PR template gains `Implementer agent` + `Reviewer agent` rows; `pr-evidence-lint.yml` workflow added; OPERATIONS.md / REVIEWS.md doctrine sections refresh. |
+| D6 — Verify `harness lint --quiet` exits 0 | pending | orchestrator | Address remaining true-positive `cs-plan` violations (e.g., `done_cs01:74,173` referencing `template/composed/...` in inline code). |
+| D7 — Verify `harness sync --mode=check` exits 0 | pending | orchestrator | Confirms no drift after the apply. |
+| D8 — Re-confirm `pr-evidence-lint / read-only-gates` is still a required check on `main` branch protection | pending | orchestrator | Per C11-8 (sync does not touch repo settings). |
+| D9 — Update `CONTEXT.md` to record the pin bump v0.3.1 → v0.5.0 (skipping v0.4.0) | pending | orchestrator | Per deliverable 7. |
+| D10 — Engage Copilot review on the CS11 content PR via the new `harness copilot-engage <pr>` CLI | pending | orchestrator | Per C11-7; validates the new CLI ships working. |
+| D11 — Move `planned_cs10_pin-harness-v0.4.0.md` → `done/done_cs10_pin-harness-v0.4.0.md` with supersession header (per C11-2) | done | orchestrator | Done in this claim PR. |
+| C1 — Close-out: docs/restart-state refreshed (CHANGELOG, restart-state files) | pending | orchestrator | Per OPERATIONS.md close-out procedure. |
+| C2 — Close-out: learnings + follow-up issues filed (incl. issue #183 link); `## Plan-vs-implementation review` filled | pending | orchestrator | Per RETROSPECTIVES.md and OPERATIONS.md close-out procedure. |
 
 ## Notes / Learnings
 

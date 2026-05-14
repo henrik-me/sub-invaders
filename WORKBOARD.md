@@ -2,7 +2,7 @@
 
 Live coordination file for multi-agent work. Only orchestrating agents update this file.
 
-> **Last updated:** 2026-05-14T04:30Z
+> **Last updated:** 2026-05-14T07:55Z
 
 ## Orchestrators
 
@@ -16,6 +16,7 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
+| CS11 | Pin harness to v0.5.0 + accept review_gates default-on + opt-in to plan-review attestation | claimed | yoga-si | cs11/content | 2026-05-14T07:55Z | — |
 
 > **Note:** Filesystem is the source of truth for queued and completed work.
 > See `project/clickstops/planned/` for the queue and `project/clickstops/done/`
