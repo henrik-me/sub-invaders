@@ -92,9 +92,9 @@ On the next `harness sync` after upgrading the pin to `v0.5.0`:
 
 ## Plan review
 
-| Round | Plan author model(s) | Reviewer model | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
+| Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
 |---|---|---|---|---|---|---|---|
-| (filled at claim time per CS35b doctrine) | — | — | — | — | — | — | — |
+| R1 | gpt-5.5 | claude-opus-4.7-xhigh | rubber-duck dispatched (orchestrator: yoga-ah) | fc0e68907e7a | 2026-05-14T05:45:00Z | Go-with-amendments | CS11 grandfather: filed cross-repo from agent-harness CS42 (cs10-supersede). Plan content unchanged at backfill. SI orchestrator may add R2 at claim time if plan needs amendments. |
 
 ## Plan-vs-implementation review
 
