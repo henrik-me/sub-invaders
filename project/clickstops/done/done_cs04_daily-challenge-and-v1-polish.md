@@ -1,10 +1,10 @@
 # CS04 — Daily challenge + whale-shark + v1 polish
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-si
-**Branch:** cs04/content
+**Branch:** cs04/content (merged via PR #66 at eb546e1)
 **Started:** 2026-05-14
-**Closed:** —
+**Closed:** 2026-05-14
 **Depends on:** CS01 (Repo hardening + first SWA staging deploy), CS02 (Engine + game skeleton + minimal playable game), CS03 (Backend Function project + persistent leaderboard)
 
 ## Goal
@@ -206,12 +206,16 @@ Read the upstream scaffold README at `agent-harness/scaffolds/health-check/READM
 
 | R6-R10 (Copilot) | copilot-pull-request-reviewer | harness copilot-engage 66 | (see PR #66 body Review log) | 2026-05-15T04:45:00Z–05:45:00Z | COMMENTED | Iterative doc polish (stale src-line refs; CHANGELOG/ARCHITECTURE.md cadence; modifier-comment v1.0 limitations; Y_BAND comment correction; daily.mjs DRY refactor to use NAME imports). 1 follow-up issue filed for daily score-cap multiplier interaction. PR body Review log is the canonical analyzed_head ledger. |
 
-> R3 (gpt-5.5): **Go** at HEAD `121242a`. Copilot R4-R10 iteratively surfaced doc polish + 1 BLOCKING (normal-mode whaleshark per CS04-D7, fixed in `fa1b2bb`). 4 follow-up issues filed (#67/#68/#69 + score-cap). PR ready for admin-merge.
+> R3 (gpt-5.5): **Go** at HEAD `121242a`. Copilot R4-R11 iteratively surfaced doc polish + 1 BLOCKING (normal-mode whaleshark per CS04-D7, fixed in `fa1b2bb`). 4 follow-up issues filed (#67/#68/#69/#70). PR #66 merged via admin-squash at `eb546e1`.
 
-## Resume point — admin-merge ready
+**Reviewer:** gpt-5.5 (PvI R3 Go at 121242a) + copilot-pull-request-reviewer (R11 final attestation at c291c38) + yoga-si (orchestrator final self-review)
+**Date:** 2026-05-14
+**Outcome:** Go (admin-squash-merged via `gh pr merge 66 --squash --admin` per CS07/CS11/PR59 precedent — Copilot delivers as `COMMENTED`, never `APPROVED` on this repo)
 
-- **Branch:** `cs04/content` (latest HEAD on remote; PR #66 body Review log is the canonical analyzed_head ledger).
-- **PR #66:** open, REVIEW_REQUIRED. Full Copilot review cycle complete (R4-R10).
-- **Worktree:** `C:\src\sub-invaders-wt\wt-cs04-content`.
-- **agent-harness pin:** `v0.5.1` (HEAD `fe2c0b9`). Local `C:\src\agent-harness` MUST be checked out at `v0.5.1` for sync-check; gets clobbered by parallel sessions — re-`git checkout v0.5.1` before each sync.
-- **Next**: admin-merge PR #66 via `gh pr merge 66 --squash --admin` per CS07/CS11 precedent (Copilot delivers as `COMMENTED`, never `APPROVED` on this repo). Then Phase 3 close-out PR.
+All 14 deliverables landed. 1 BLOCKING surfaced + fixed (R5 normal-mode whale-shark). 4 follow-up issues filed (#67 date validation, #68 SWA config placement, #69 daily partition trim, #70 daily score-cap multiplier interaction) — all non-blocking for v1 because the daily challenge ships behind a feature flag (off by default in production).
+
+Sub Invaders v1.0 SHIPPED.
+
+## Resume point — CLOSED
+
+CS04 closed via PR #66 (content) + this close-out PR. v1.0 of Sub Invaders is shipped: deterministic daily challenge mode, 5 modifiers, whale-shark mystery enemy, daily-partitioned leaderboard, frontend feature-flag delivery, and full v1 documentation. See PR #66 body Review log for the canonical analyzed_head ledger across 11 review rounds.
