@@ -1,10 +1,12 @@
 # CS10 — Pin harness to v0.4.0 + opt into pr-evidence gates
 
-**Status:** planned
+> **Superseded by:** CS11 (v0.5.0 pin-bump). CS10 was filed but **never claimed**; no implementation work was performed. The v0.4.0 pin-bump scope is fully subsumed by CS11 (v0.5.0 includes everything from v0.4.0 plus the CS40/CS41/CS42 arc). Retired in the same PR that claimed CS11 per `active_cs11_*.md` §C11-2.
+
+**Status:** done
 **Owner:** —
 **Branch:** —
 **Started:** —
-**Closed:** —
+**Closed:** — (superseded by CS11; never implemented)
 **Filed by:** Cross-repo coordination from `henrik-me/agent-harness` CS39 (v0.4.0 release-cut). This file is filed by the agent-harness orchestrator (`yoga-ah`) per agent-harness CS39 Decision C39-4/C39-5; the SI orchestrator implements.
 **Depends on:** None (claim any time after harness v0.4.0 is published — verified live via `gh release view v0.4.0 --repo henrik-me/agent-harness`).
 
@@ -77,4 +79,6 @@ On the next `harness sync` after upgrading the pin to `v0.4.0`:
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** —
+**Date:** 2026-05-14
+**Outcome:** Superseded — CS10 was never claimed and no implementation work was performed against this plan. The v0.4.0 pin-bump scope is fully subsumed by CS11 (v0.5.0 pin-bump, which includes everything CS10 would have delivered plus the CS40/CS41/CS42 arc). No plan-vs-implementation comparison applies. See `active_cs11_pin-harness-v0.5.0.md` §C11-2 for the supersession decision and CS11's own `## Plan-vs-implementation review` section for the v0.5.0 pin-bump close-out evidence.
