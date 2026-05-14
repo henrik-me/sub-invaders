@@ -13,8 +13,11 @@ const SCORE_VALUES = Object.freeze([50, 100, 200]);
 const FILL = '#6fe7ff';
 const STROKE = '#dffbff';
 
-// The mystery enemy traverses a fixed top band (y 32-48) above the default
-// formation rows (spawn at y 64/80) at 80 pixels per second.
+// The mystery enemy spawns with its top edge in the band y=32..48 (Y_BAND
+// is the spawn-y range). With DEFAULT_HEIGHT=24, the rendered/collidable
+// rectangle therefore spans y=32..72 worst-case (default spawn y=40 -> y=40..64).
+// The default formation has originY=80 (constants.mjs), so a >=8px vertical
+// gap is preserved between the shark and the top invader row at all times.
 const Y_BAND = Object.freeze({ min: 32, max: 48 });
 
 const finitePositive = (value, fallback) => {
