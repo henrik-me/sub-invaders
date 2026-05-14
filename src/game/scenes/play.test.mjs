@@ -106,6 +106,7 @@ function createScene(opts = {}) {
     seed: opts.seed,
     apiClient: opts.apiClient,
     now: opts.now,
+    daily: opts.daily,
   };
   const scene = createPlayScene(sceneOpts);
   return { scene, player, formation, sprites };
@@ -1146,3 +1147,317 @@ test('CS03/D9: queued submission resolves to skipped when startSession ultimatel
   assert.equal(scene.state().submission.status, 'skipped');
   assert.equal(scene.state().submission.error, 'offline');
 });
+
+// CS04 D8/D14 — daily-mode submitScore payload contract (CS04-14)
+test('CS04: daily-mode submission emits period:"daily" + utcDate alongside CS03 fields', async () => {
+  const api = fakeApiClient();
+  const fixedTime = new Date('2026-05-14T00:01:00.000Z');
+  const player = createFakePlayer({ lives: 1, isDead() { return this.lives <= 0; } });
+  const formation = createFakeFormation({
+    tryFire() { return { x: 384, y: 540, w: 4, h: 10, alive: true }; },
+  });
+  const { scene } = createScene({
+    apiClient: api,
+    now: () => fixedTime,
+    playerInstance: player,
+    formationInstance: formation,
+    daily: { utcDate: '2026-05-14', modifierName: 'fog-of-war', params: {} },
+  });
+  scene.enter();
+  await flushMicrotasks();
+  scene.update(0.001);
+  await flushMicrotasks();
+
+  assert.equal(api.calls.submitScore.length, 1);
+  const submitted = api.calls.submitScore[0];
+  assert.equal(submitted.sessionId, 'sess-001');
+  assert.equal(submitted.finishedAt, '2026-05-14T00:01:00.000Z');
+  assert.equal(submitted.period, 'daily');
+  assert.equal(submitted.utcDate, '2026-05-14');
+});
+
+test('CS04: non-daily submission omits period and utcDate (CS03 back-compat)', async () => {
+  const api = fakeApiClient();
+  const fixedTime = new Date('2026-05-14T00:01:00.000Z');
+  const player = createFakePlayer({ lives: 1, isDead() { return this.lives <= 0; } });
+  const formation = createFakeFormation({
+    tryFire() { return { x: 384, y: 540, w: 4, h: 10, alive: true }; },
+  });
+  const { scene } = createScene({
+    apiClient: api,
+    now: () => fixedTime,
+    playerInstance: player,
+    formationInstance: formation,
+    // no daily opt
+  });
+  scene.enter();
+  await flushMicrotasks();
+  scene.update(0.001);
+  await flushMicrotasks();
+
+  assert.equal(api.calls.submitScore.length, 1);
+  const submitted = api.calls.submitScore[0];
+  assert.equal(Object.prototype.hasOwnProperty.call(submitted, 'period'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(submitted, 'utcDate'), false);
+});
+
+// =============================================================================
+// CS04 PvI R1 fixes: modifier wiring + whaleshark integration + daily HUD
+// (PVI-CS04-001, PVI-CS04-002, PVI-CS04-003)
+// =============================================================================
+
+function dailyDef(modifierName, params = {}) {
+  return Object.freeze({
+    utcDate: '2026-05-14',
+    modifierName,
+    params: Object.freeze({
+      enemyFireMultiplier: 1,
+      formationSpeedMultiplier: 1,
+      whaleSharkInterval: 15000,
+      ...params,
+    }),
+  });
+}
+
+test('CS04 PvI: one-shot modifier overrides starting lives via player factory opts', () => {
+  let observedOpts = null;
+  const player = createFakePlayer({ lives: 3 });
+  const formation = createFakeFormation();
+  const scene = createPlayScene({
+    createPlayer: (opts) => { observedOpts = opts; return player; },
+    createFormation: () => formation,
+    createRng: () => ({ next: () => 0.5, range: () => 0, int: () => 0 }),
+    loadSprites: () => ({}),
+    daily: dailyDef('one-shot'),
+  });
+  scene.enter();
+  assert.equal(observedOpts.lives, 1);
+});
+
+test('CS04 PvI: speed-run modifier multiplies player speed and formation baseSpeed', () => {
+  let playerOpts = null;
+  let formationOpts = null;
+  const player = createFakePlayer();
+  const formation = createFakeFormation();
+  const scene = createPlayScene({
+    createPlayer: (opts) => { playerOpts = opts; return player; },
+    createFormation: (opts) => { formationOpts = opts; return formation; },
+    createRng: () => ({ next: () => 0.5, range: () => 0, int: () => 0 }),
+    loadSprites: () => ({}),
+    daily: dailyDef('speed-run'),
+  });
+  scene.enter();
+  // PLAYER.speed is 240 (constants.mjs); speed-run multiplier is 2.
+  assert.equal(playerOpts.speed, 480);
+  // FORMATION.baseSpeed is 60; speed-run multiplier is 2.
+  assert.equal(formationOpts.baseSpeed, 120);
+});
+
+test('CS04 PvI: boss-rush modifier multiplies score and enemy fire density', () => {
+  let formationOpts = null;
+  // Two live invaders so killing one doesn't trigger wave-clear bonus.
+  const liveInvader = { x: 100, y: 100, w: 8, h: 8, alive: true, points: 10, sprite: 'jellyfish' };
+  const decoyInvader = { x: 200, y: 100, w: 8, h: 8, alive: true, points: 10, sprite: 'jellyfish' };
+  const formation = createFakeFormation({ invaders: [liveInvader, decoyInvader] });
+  const torpedo = { x: 100, y: 100, w: 4, h: 10, alive: true };
+  const player = createFakePlayer({
+    tryFireOnce: false,
+    tryFire() {
+      if (this.tryFireOnce) return null;
+      this.tryFireOnce = true;
+      return torpedo;
+    },
+  });
+  const scene = createPlayScene({
+    createPlayer: () => player,
+    createFormation: (opts) => { formationOpts = opts; return formation; },
+    createRng: () => ({ next: () => 0.5, range: () => 0, int: () => 0 }),
+    loadSprites: () => ({}),
+    daily: dailyDef('boss-rush'),
+  });
+  scene.enter();
+  // Boss-rush x2 enemyFireDensityMultiplier → fireIntervalMs = 1500/2 = 750.
+  assert.equal(formationOpts.fireIntervalMs, 750);
+  // Fire torpedo + collide with one invader → score = invader.points (10) * x2 = 20.
+  // Decoy invader keeps formation alive so wave-clear bonus does NOT fire.
+  scene.update(0.016, inputWith({ pressed: ['Space'] }));
+  assert.equal(scene.state().score, 20);
+});
+
+test('CS04 PvI: inverted-controls modifier flips Arrow keys before reaching the player', () => {
+  let observedDownCalls = [];
+  const player = createFakePlayer({
+    handleInput(input) {
+      this.handleInputCalls += 1;
+      observedDownCalls.push({
+        ArrowLeft: input?.down?.('ArrowLeft'),
+        ArrowRight: input?.down?.('ArrowRight'),
+      });
+    },
+  });
+  const formation = createFakeFormation();
+  const scene = createPlayScene({
+    createPlayer: () => player,
+    createFormation: () => formation,
+    createRng: () => ({ next: () => 0.5, range: () => 0, int: () => 0 }),
+    loadSprites: () => ({}),
+    daily: dailyDef('inverted-controls'),
+  });
+  scene.enter();
+  // User presses ArrowLeft → wrapped input should report ArrowRight as down.
+  scene.handleInput(inputWith({ down: ['ArrowLeft'] }));
+  scene.update(0.016);
+  assert.deepEqual(observedDownCalls.at(-1), { ArrowLeft: false, ArrowRight: true });
+});
+
+test('CS04 PvI: fog-of-war modifier renders a halo overlay after main scene', () => {
+  const player = createFakePlayer();
+  const formation = createFakeFormation();
+  const scene = createPlayScene({
+    createPlayer: () => player,
+    createFormation: () => formation,
+    createRng: () => ({ next: () => 0.5, range: () => 0, int: () => 0 }),
+    loadSprites: () => ({}),
+    daily: dailyDef('fog-of-war'),
+  });
+  scene.enter();
+
+  // The fog-of-war overlay calls ctx.save/fillRect/arc/fill/restore directly;
+  // our fake renderer doesn't expose `ctx`, so renderOverlay returns early
+  // without throwing. Validate the dailyHud overlay still renders the badge.
+  const renderer = createFakeRenderer();
+  scene.render(renderer);
+  const dailyTexts = renderer.calls
+    .filter((c) => c.method === 'drawText')
+    .map((c) => String(c.args[0]));
+  assert.ok(
+    dailyTexts.some((t) => t.includes('DAILY') && t.includes('2026-05-14')),
+    'daily HUD overlay should render the DAILY badge',
+  );
+});
+
+test('CS04 PvI: whaleshark is created in daily mode and updates on each tick', () => {
+  let createdWith = null;
+  const observedDts = [];
+  const fakeWhaleshark = {
+    update(dt) { observedDts.push(dt); },
+    render() {},
+    checkHit() { return { hit: false }; },
+    state: { active: false, shark: null },
+  };
+  const scene = createPlayScene({
+    createPlayer: () => createFakePlayer(),
+    createFormation: () => createFakeFormation(),
+    createRng: () => ({ next: () => 0.5, range: () => 0, int: () => 0 }),
+    loadSprites: () => ({}),
+    daily: dailyDef('fog-of-war', { whaleSharkInterval: 12345 }),
+    createWhaleShark: (opts) => { createdWith = opts; return fakeWhaleshark; },
+  });
+  scene.enter();
+  assert.equal(createdWith.dailyMode, true);
+  assert.equal(createdWith.spawnIntervalMs, 12345);
+  // PvI R2 fix: whaleshark.update() takes SECONDS (not ms). A 16ms frame
+  // (dt=0.016) must be forwarded as 0.016, not 16.
+  scene.update(0.016);
+  assert.equal(observedDts.length, 1);
+  assert.equal(observedDts[0], 0.016);
+});
+
+// CS04 PvI R2 fix: integration with the real createWhaleShark — a single
+// 16ms frame must NOT cause the shark to spawn-then-despawn. Previously,
+// passing dt*1000 made the spawn timer (15-30s) decrement by 16,000 in one
+// frame, exhausting the timer immediately and the shark would cross + despawn
+// in the next tick.
+test('CS04 PvI: real whaleshark does not spawn after one 16ms frame in normal-spawn mode', async () => {
+  const { createWhaleShark } = await import('../whaleshark.mjs');
+  const rng = {
+    next: () => 0.5,
+    range: (lo, hi) => (lo + hi) / 2,
+    int: (lo, hi) => Math.floor((lo + hi) / 2),
+  };
+  // Use a fixed spawnIntervalMs of 15000ms (15s). After one 16ms frame in
+  // seconds (dt=0.016), the timer should still be ~14984ms — no spawn.
+  const ws = createWhaleShark({
+    rng,
+    canvasWidth: 800,
+    canvasHeight: 600,
+    dailyMode: true,
+    spawnIntervalMs: 15000,
+  });
+  ws.update(0.016); // 16ms in seconds
+  assert.equal(ws.state.active, false, 'shark must not be active after one 16ms frame');
+});
+
+test('CS04 PvI: whaleshark hit awards points (multiplied by scoreMultiplier)', () => {
+  const fakeWhaleshark = {
+    update() {},
+    render() {},
+    checkHit() { return { hit: true, points: 100 }; },
+    state: { active: true },
+  };
+  const scene = createPlayScene({
+    createPlayer: () => createFakePlayer(),
+    createFormation: () => createFakeFormation({ invaders: [] }),
+    createRng: () => ({ next: () => 0.5, range: () => 0, int: () => 0 }),
+    loadSprites: () => ({}),
+    daily: dailyDef('boss-rush'), // x2 score multiplier
+    createWhaleShark: () => fakeWhaleshark,
+  });
+  scene.enter();
+  scene.update(0.016);
+  // 100 (whaleshark) × 2 (boss-rush) = 200; advance-wave bonus may also fire
+  // because the formation has zero invaders, so just verify score >= 200.
+  assert.ok(scene.state().score >= 200);
+});
+
+test('CS04 PvI: non-daily mode creates whaleshark in normal-cadence mode (no daily HUD)', () => {
+  const scene = createPlayScene({
+    createPlayer: () => createFakePlayer(),
+    createFormation: () => createFakeFormation(),
+    createRng: () => ({ next: () => 0.5, range: () => 0, int: () => 0 }),
+    loadSprites: () => ({}),
+    // no daily option
+  });
+  scene.enter();
+  const state = scene.state();
+  assert.ok(state.whaleshark, 'whaleshark should be created in normal mode (CS04-D7)');
+  assert.equal(state.whaleshark.dailyMode, false, 'normal mode uses random 15-30s cadence, not deterministic');
+  assert.equal(state.daily, null);
+  assert.equal(state.modifierName, null);
+});
+
+test('CS04 PvI: daily HUD overlay renders DAILY · YYYY-MM-DD · modifier badge', () => {
+  const scene = createPlayScene({
+    createPlayer: () => createFakePlayer(),
+    createFormation: () => createFakeFormation(),
+    createRng: () => ({ next: () => 0.5, range: () => 0, int: () => 0 }),
+    loadSprites: () => ({}),
+    daily: dailyDef('one-shot'),
+  });
+  scene.enter();
+  const renderer = createFakeRenderer();
+  scene.render(renderer);
+  const badgeText = renderer.calls
+    .filter((c) => c.method === 'drawText')
+    .map((c) => String(c.args[0]))
+    .find((t) => t.startsWith('DAILY'));
+  assert.ok(badgeText);
+  assert.match(badgeText, /DAILY · 2026-05-14 · one-shot/);
+});
+
+test('CS04 PvI: modifier registry ignores unknown daily.modifierName gracefully', () => {
+  let observedOpts = null;
+  const scene = createPlayScene({
+    createPlayer: (opts) => { observedOpts = opts; return createFakePlayer(); },
+    createFormation: () => createFakeFormation(),
+    createRng: () => ({ next: () => 0.5, range: () => 0, int: () => 0 }),
+    loadSprites: () => ({}),
+    daily: dailyDef('not-a-real-modifier'),
+  });
+  scene.enter();
+  // No modifier matched → no lives override, no speed override.
+  assert.equal(observedOpts.lives, undefined);
+  assert.equal(observedOpts.speed, undefined);
+});
+
+

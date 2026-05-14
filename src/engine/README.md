@@ -33,6 +33,33 @@ the contract.
 | `scene.mjs` | `createSceneStack` | Duck-typed scene stack with lifecycle and input forwarding. |
 | `seed.mjs` | `createRng` | Mulberry32 seedable random number generator. |
 
+## Date-seeded RNG (CS04)
+
+The daily-challenge mode uses `createRng` with a UTC-date-derived seed so that
+all players see the same modifier and parameters for the same calendar day.
+This is intentional reuse of the CS02 engine surface — no API change is required
+for daily mode.
+
+```js
+import { createRng } from '../engine/seed.mjs';
+
+// Today's UTC date as YYYY-MM-DD (e.g. '2026-05-14').
+const utcDate = new Date().toISOString().slice(0, 10);
+
+// Compose the seed by stripping dashes and parsing as decimal int.
+const seed = parseInt(utcDate.replaceAll('-', ''), 10); // → 20260514
+
+const rng = createRng(seed);
+
+// All daily draws share this rng — modifier choice, param values, whale-shark
+// spawn cadence, etc. Same `utcDate` always produces the same draws on every
+// machine, so the daily challenge is reproducible without server coordination.
+```
+
+The contract that all daily draws are reproducible across machines and reloads
+is locked by `seed.test.mjs` under the `CS04: ...` test names. Do NOT change
+`createRng`'s output without bumping the daily-challenge contract first.
+
 ## Dependency example
 
 ```js

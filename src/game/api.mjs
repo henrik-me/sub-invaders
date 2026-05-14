@@ -85,7 +85,7 @@ export function createApiClient(opts = {}) {
     };
   }
 
-  async function submitScore({ sessionId, score, finishedAt } = {}) {
+  async function submitScore({ sessionId, score, finishedAt, period, utcDate } = {}) {
     if (typeof sessionId !== 'string' || sessionId.length === 0) {
       throw new ApiError('submitScore: sessionId is required', { code: 'invalid_argument' });
     }
@@ -95,15 +95,38 @@ export function createApiClient(opts = {}) {
     if (typeof finishedAt !== 'string' || finishedAt.length === 0) {
       throw new ApiError('submitScore: finishedAt must be ISO-8601 string', { code: 'invalid_argument' });
     }
+    const payload = { sessionId, score, finishedAt };
+    if (period !== undefined) {
+      if (period !== 'all' && period !== 'daily') {
+        throw new ApiError('submitScore: period must be "all" or "daily"', { code: 'invalid_argument' });
+      }
+      payload.period = period;
+      if (period === 'daily') {
+        if (typeof utcDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(utcDate)) {
+          throw new ApiError('submitScore: utcDate must be YYYY-MM-DD when period is "daily"', { code: 'invalid_argument' });
+        }
+        payload.utcDate = utcDate;
+      }
+    }
     return request(fetchFn, baseUrl, '/score', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId, score, finishedAt }),
+      body: JSON.stringify(payload),
     });
   }
 
-  async function getLeaderboard({ period = 'all' } = {}) {
-    const body = await request(fetchFn, baseUrl, `/leaderboard?period=${encodeURIComponent(period)}`, {
+  async function getLeaderboard({ period = 'all', date } = {}) {
+    if (period !== 'all' && period !== 'daily') {
+      throw new ApiError('getLeaderboard: period must be "all" or "daily"', { code: 'invalid_argument' });
+    }
+    const params = new URLSearchParams({ period });
+    if (period === 'daily') {
+      if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        throw new ApiError('getLeaderboard: date must be YYYY-MM-DD when period is "daily"', { code: 'invalid_argument' });
+      }
+      params.set('date', date);
+    }
+    const body = await request(fetchFn, baseUrl, `/leaderboard?${params.toString()}`, {
       method: 'GET',
     });
     if (!body || !Array.isArray(body.entries)) {

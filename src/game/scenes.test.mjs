@@ -371,3 +371,40 @@ test('play scene wired with REAL formation: torpedo kills the targeted invader',
   assert.equal(target.alive, false, 'invader should be dead after torpedo overlap');
   assert.equal(scene.state().score, target.points, 'score should equal the killed invader points');
 });
+
+// CS04 D5/D14 — menu honors dailyOption (CS04-11)
+test('CS04: menu routes KeyD via dailyOption.handleInput when enabled', () => {
+  let dailyCalls = 0;
+  const dailyOption = {
+    enabled: true,
+    promptText: () => 'PRESS D FOR DAILY CHALLENGE',
+    handleInput: (input) => { if (input?.pressed?.('KeyD')) { dailyCalls += 1; return true; } return false; },
+  };
+  const scene = createMenuScene({ onStart: () => {}, dailyOption, getHighScore: () => 0, now: () => 0 });
+  scene.handleInput(inputWith('KeyD'));
+  assert.equal(dailyCalls, 1);
+});
+
+test('CS04: menu render shows daily prompt when dailyOption is enabled', () => {
+  const dailyOption = {
+    enabled: true,
+    promptText: () => 'PRESS D FOR DAILY CHALLENGE',
+    handleInput: () => false,
+  };
+  const renderer = createFakeRenderer();
+  const scene = createMenuScene({ getHighScore: () => 0, now: () => 0, dailyOption });
+  scene.render(renderer);
+  assert.ok(textValues(renderer).some((t) => /PRESS D FOR DAILY CHALLENGE/.test(t)));
+});
+
+test('CS04: menu does not render daily prompt when dailyOption.promptText returns null', () => {
+  const dailyOption = {
+    enabled: false,
+    promptText: () => null,
+    handleInput: () => false,
+  };
+  const renderer = createFakeRenderer();
+  const scene = createMenuScene({ getHighScore: () => 0, now: () => 0, dailyOption });
+  scene.render(renderer);
+  assert.ok(!textValues(renderer).some((t) => /DAILY CHALLENGE/.test(t)));
+});

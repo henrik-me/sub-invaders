@@ -13,6 +13,7 @@ export function createMenuScene(opts = {}) {
   const onLeaderboard = opts.onLeaderboard ?? null;
   const getHighScore = opts.getHighScore ?? (() => 0);
   const now = opts.now ?? (() => Date.now());
+  const dailyOption = opts.dailyOption ?? null;
 
   return {
     handleInput(input) {
@@ -23,6 +24,8 @@ export function createMenuScene(opts = {}) {
       if (onLeaderboard && input?.pressed?.('KeyL')) {
         onLeaderboard();
       }
+
+      dailyOption?.handleInput?.(input);
     },
 
     render(renderer) {
@@ -60,6 +63,16 @@ export function createMenuScene(opts = {}) {
           align: 'center',
           baseline: 'middle',
         });
+
+        const dailyPrompt = dailyOption?.promptText?.();
+        if (dailyPrompt) {
+          renderer.drawText(dailyPrompt, width / 2, height - 64, {
+            font: '18px monospace',
+            fill: PALETTE.ui,
+            align: 'center',
+            baseline: 'middle',
+          });
+        }
       }
     },
   };

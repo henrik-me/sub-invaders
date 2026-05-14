@@ -160,3 +160,46 @@ test('falls back to CANVAS.width when renderer lacks width()', async () => {
   assert.ok(titleCall, 'title was drawn');
   assert.ok(Number.isFinite(titleCall.x) && titleCall.x > 0, 'used CANVAS.width fallback');
 });
+
+// CS04 D8/D14 — daily-mode leaderboard reads (CS04-14)
+test('CS04: default period is all-time and omits date (CS03 back-compat)', async () => {
+  const captured = [];
+  const apiClient = { getLeaderboard: (args) => { captured.push(args); return Promise.resolve({ period: 'all', entries: [] }); } };
+  const scene = createLeaderboardScene({ apiClient });
+  scene.enter();
+  await flush();
+  assert.equal(captured.length, 1);
+  assert.equal(captured[0].period, 'all');
+  assert.equal(Object.prototype.hasOwnProperty.call(captured[0], 'date'), false);
+});
+
+test('CS04: daily mode passes period:"daily" + date through to getLeaderboard', async () => {
+  const captured = [];
+  const apiClient = { getLeaderboard: (args) => { captured.push(args); return Promise.resolve({ period: 'daily', entries: [] }); } };
+  const scene = createLeaderboardScene({ apiClient, period: 'daily', date: '2026-05-14' });
+  scene.enter();
+  await flush();
+  assert.equal(captured.length, 1);
+  assert.equal(captured[0].period, 'daily');
+  assert.equal(captured[0].date, '2026-05-14');
+});
+
+test('CS04: non-string date in daily mode is dropped (defensive)', async () => {
+  const captured = [];
+  const apiClient = { getLeaderboard: (args) => { captured.push(args); return Promise.resolve({ period: 'daily', entries: [] }); } };
+  const scene = createLeaderboardScene({ apiClient, period: 'daily', date: 12345 });
+  scene.enter();
+  await flush();
+  assert.equal(captured[0].period, 'daily');
+  assert.equal(Object.prototype.hasOwnProperty.call(captured[0], 'date'), false);
+});
+
+test('CS04: unknown period falls back to all-time', async () => {
+  const captured = [];
+  const apiClient = { getLeaderboard: (args) => { captured.push(args); return Promise.resolve({ period: 'all', entries: [] }); } };
+  const scene = createLeaderboardScene({ apiClient, period: 'weekly', date: '2026-05-14' });
+  scene.enter();
+  await flush();
+  assert.equal(captured[0].period, 'all');
+  assert.equal(Object.prototype.hasOwnProperty.call(captured[0], 'date'), false);
+});

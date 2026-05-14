@@ -1,6 +1,6 @@
 # Sub Invaders — Architecture
 
-> **Last updated:** 2026-05-13 (cs03-content-author / CS03)
+> **Last updated:** 2026-05-14 (cs04-content-author / CS04 — v1 shipped)
 >
 > **Purpose:** This file is created once by `harness init` and is never overwritten on subsequent
 > syncs. It is the authoritative architecture reference for `henrik-me/sub-invaders`.
@@ -381,13 +381,15 @@ Weekly cadence for `npm`, `nuget`, and `github-actions` (CS01-4).
 
 ---
 
-## Future scope (CS02–CS04)
+## Future scope (CS02–CS04 — v1 complete)
 
-| CS | Adds |
-|---|---|
-| CS02 | Custom engine + minimal playable Sub Invaders; sprite sheet; `localStorage` high-score |
-| CS03 | .NET 8 leaderboard backend; replay protection; Storage Tables persistence; leaderboard scene |
-| CS04 | Daily challenge (5 modifiers); harness pin-bump (`harness sync --mode=apply`); whale-shark; feature-flags wired; health-check wired; v1 shipped |
+| CS | Adds | Status |
+|---|---|---|
+| CS02 | Custom engine + minimal playable Sub Invaders; sprite sheet; `localStorage` high-score | Done (2026-05-13) |
+| CS03 | .NET 8 leaderboard backend; replay protection; Storage Tables persistence; leaderboard scene | Done (2026-05-13) |
+| CS04 | Daily challenge (5 modifiers); date-seeded RNG; whale-shark; daily-partitioned leaderboard reads/writes; feature-flags wired (frontend + backend); health-check wired; **v1 shipped** | Done (2026-05-14) |
+
+Note: CS04 retired the harness pin-bump exercise per CS04-13 (already validated by CS10/CS11/PR#62).
 
 **Deferred tripwires:**
 
@@ -434,3 +436,16 @@ The technology decisions most relevant to this document:
 | C16-14 — Azure resource isolation | All Sub Invaders Azure resources in one dedicated RG `rg-sub-invaders-prod`; tag `workload=sub-invaders` required; cleanup is single `az group delete` | User directive: "separate resource group, SI, for everything in Azure for this game" |
 | C16-15 — Function dev model | `api/` directory; `host.json`, `local.settings.json.example`, `Sub-invaders.Api.csproj`, `net8.0`, Functions v4, `OutputType=Exe` | Standard SWA + .NET 8 isolated layout; minimum surprise for contributors |
 | C16-16 — CI matrix | Node 20 + .NET 8 SDK; `harness lint`, `harness sync --mode=check`, `node --test`, `dotnet test`; `swa-deploy.yml` guarded until G5 | Mirrors harness CI shape across full stack |
+
+### CS04 decisions (locked-in 2026-05-14, R4 hash `eb9b647f8ece`)
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| CS04-3 — Daily seed | UTC-day index encoded as `parseInt('YYYYMMDD', 10)` and threaded into `createRng(seed)` | Same calendar day → identical run; simplest deterministic mapping; engine RNG already int-seeded |
+| CS04-4 — Modifier draw | Single draw from a 5-element pool using the date-seeded RNG (`pick`); modifier name + 3 parameter rolls (`enemyFireMultiplier`, `formationSpeedMultiplier`, `whaleSharkInterval`) | One modifier per day keeps the run readable; parameter rolls inject variety without exploding state |
+| CS04-5 — Modifier pool | `fog-of-war`, `speed-run`, `one-shot`, `boss-rush`, `inverted-controls` | Five orthogonal twists; each is a small mutator on existing scene state |
+| CS04-6 — Whale-shark cadence | Crosses the playfield on a daily-drawn interval (10 / 15 / 20 / 30 s); placeholder rectangle in v1 (sprite slot reserved) | Bonus enemy adds variety without per-wave coordination |
+| CS04-11 — Flag delivery | HTML `<meta name="flags">` default → `GET /api/health` body's `flags` override (1500 ms `AbortController` budget) → fall back to default on any failure | Static fallback keeps menu functional offline; backend override unblocks runtime kill-switch |
+| CS04-13 — Pin-bump retirement | Drop the `harness sync --mode=apply` pin-bump exercise from CS04 scope | CS10/CS11/PR#62 already validated harness pin lifecycle |
+| CS04-14 — Daily score payload contract | `submitScore({sessionId, score, finishedAt, period?, utcDate?})` and `getLeaderboard({period, date?})`. `period === 'daily'` requires `utcDate` matching `^\d{4}-\d{2}-\d{2}$`. Backend partition is `daily-YYYY-MM-DD`; all-time partition stays unchanged | Optional fields preserve CS03 back-compat bit-exact; explicit pattern guards bad input client-side |
+| CS04-15 — Validation commands | `npm run test:unit`, `npm run test:e2e`, `dotnet test api/`, `node scripts/verify-deploy.mjs` (run twice — once with `dailyChallenge=off`, once with `dailyChallenge=on`) | Two-state matrix proves CS03 behaviour preserved AND daily mode reachable; there is no `npm test` script |

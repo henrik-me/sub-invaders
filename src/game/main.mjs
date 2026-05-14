@@ -6,11 +6,14 @@ import { createRng } from '../engine/seed.mjs';
 import { loadSpriteSheet } from '../engine/sprite.mjs';
 import { createApiClient } from './api.mjs';
 import { CANVAS, SPRITES } from './constants.mjs';
+import { fetchFlags as defaultFetchFlags, isDailyChallengeEnabled } from './flags.mjs';
 import { createFormation } from './invaders.mjs';
 import { createPlayer } from './player.mjs';
+import { createDailyScene } from './scenes/daily.mjs';
 import { createGameOverScene } from './scenes/gameover.mjs';
 import { createLeaderboardScene } from './scenes/leaderboard.mjs';
 import { createMenuScene } from './scenes/menu.mjs';
+import { createDailyMenuOption } from './scenes/menu-daily-option.mjs';
 import { createPlayScene } from './scenes/play.mjs';
 import { getHighScore, setHighScore } from './score.mjs';
 import { installTestHooks } from './test-hooks.mjs';
@@ -96,11 +99,15 @@ export async function bootstrap(opts = {}) {
     createLoopFn = createLoop,
     createMenuSceneFn = createMenuScene,
     createPlaySceneFn = createPlayScene,
+    createDailySceneFn = createDailyScene,
+    createDailyMenuOptionFn = createDailyMenuOption,
     createGameOverSceneFn = createGameOverScene,
     createLeaderboardSceneFn = createLeaderboardScene,
     createPlayerFn = createPlayer,
     createFormationFn = createFormation,
     createRngFn = createRng,
+    fetchFlagsFn = defaultFetchFlags,
+    now = () => new Date(),
     imageFactory,
   } = opts;
   const queryOptions = readQueryOptions(location);
@@ -125,14 +132,30 @@ export async function bootstrap(opts = {}) {
   const sprites = buildSprites(spriteSheet);
   const scenes = createSceneStackFn();
 
+  const flags = await Promise.resolve(fetchFlagsFn({})).catch(() => ({}));
+  const dailyEnabled = isDailyChallengeEnabled(flags);
+
   const readHighScore = () => getHighScore({ storage });
   const writeHighScore = (value) => setHighScore(value, { storage });
 
+  function currentUtcDate() {
+    const date = now();
+    const iso = date instanceof Date ? date.toISOString() : new Date(date).toISOString();
+    return iso.slice(0, 10);
+  }
+
+  // CS04 PvI R1 fix (PVI-CS04-004): track which leaderboard period to show
+  // when the user navigates to leaderboard from the menu vs from a daily run.
+  // Cleared when a normal game starts; set when a daily game starts.
+  let lastLeaderboardContext = { period: 'all', date: null };
+
   function createMenu() {
+    const dailyOption = createDailyMenuOptionFn({ flags, onDaily: dailyEnabled ? startDaily : undefined });
     return createMenuSceneFn({
       onStart: startPlay,
       onLeaderboard: apiClient ? showLeaderboard : undefined,
       getHighScore: readHighScore,
+      dailyOption,
     });
   }
 
@@ -144,8 +167,8 @@ export async function bootstrap(opts = {}) {
     });
   }
 
-  function createPlay() {
-    return createPlaySceneFn({
+  function playSceneDeps() {
+    return {
       createPlayer: createPlayerFn,
       createFormation: createConfiguredFormation,
       createRng: createRngFn,
@@ -154,9 +177,23 @@ export async function bootstrap(opts = {}) {
       setHighScore: writeHighScore,
       onGameOver: showGameOver,
       apiClient,
-      seed: currentSeed,
       startWave: currentStartWave,
       formationSpeed: currentFormationSpeed,
+    };
+  }
+
+  function createPlay() {
+    return createPlaySceneFn({
+      ...playSceneDeps(),
+      seed: currentSeed,
+    });
+  }
+
+  function createDaily(utcDate = currentUtcDate()) {
+    return createDailySceneFn({
+      ...playSceneDeps(),
+      utcDate,
+      createPlayScene: createPlaySceneFn,
     });
   }
 
@@ -183,11 +220,20 @@ export async function bootstrap(opts = {}) {
       apiClient,
       onRestart: startPlay,
       onMenu: showMenu,
+      period: lastLeaderboardContext.period,
+      ...(lastLeaderboardContext.date ? { date: lastLeaderboardContext.date } : {}),
     });
   }
 
   function startPlay() {
+    lastLeaderboardContext = { period: 'all', date: null };
     scenes.replace(createPlay());
+  }
+
+  function startDaily() {
+    const utcDate = currentUtcDate();
+    lastLeaderboardContext = { period: 'daily', date: utcDate };
+    scenes.replace(createDaily(utcDate));
   }
 
   function showMenu() {

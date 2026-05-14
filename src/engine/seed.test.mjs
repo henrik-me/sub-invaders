@@ -65,3 +65,56 @@ test('seed resets the internal sequence', () => {
 
   assert.deepEqual(take(rng, 5), expected);
 });
+
+// CS04 D1 — date-seeded RNG usage pattern: seed = parseInt(YYYYMMDD).
+// Daily challenge requires that all players see the same modifier and params
+// for the same UTC date. Lock the contract with explicit reproducibility +
+// boundary tests so future changes to seed.mjs cannot silently desync players.
+
+test('CS04: date-seeded RNG reproduces identical first draws across calls', () => {
+  const seed = parseInt('20260514', 10);
+  const a = createRng(seed);
+  const b = createRng(seed);
+
+  assert.deepEqual(take(a, 20), take(b, 20));
+});
+
+test('CS04: distinct UTC dates produce distinct first draws', () => {
+  const a = createRng(parseInt('20260514', 10));
+  const b = createRng(parseInt('20260515', 10));
+
+  assert.notDeepEqual(take(a, 5), take(b, 5));
+});
+
+test('CS04: date-seeded int draws stay within bounds for a fixed pool', () => {
+  const seed = parseInt('20260514', 10);
+  const rng = createRng(seed);
+  const pool = ['fog-of-war', 'speed-run', 'one-shot', 'boss-rush', 'inverted-controls'];
+
+  for (let i = 0; i < 1000; i += 1) {
+    const idx = rng.int(0, pool.length - 1);
+    assert.equal(Number.isInteger(idx), true);
+    assert.equal(idx >= 0, true);
+    assert.equal(idx <= 4, true);
+  }
+});
+
+test('CS04: re-seeding with the same UTC date restores the modifier choice', () => {
+  const seed = parseInt('20260514', 10);
+  const rng = createRng(seed);
+  const firstChoice = rng.int(0, 4);
+
+  // Burn entropy as if a full day's worth of draws ran, then re-seed.
+  take(rng, 500);
+  rng.seed(seed);
+
+  assert.equal(rng.int(0, 4), firstChoice);
+});
+
+test('CS04: 1900-01-01 (lowest plausible YYYYMMDD seed) still produces deterministic draws', () => {
+  const seed = parseInt('19000101', 10);
+  const a = createRng(seed);
+  const b = createRng(seed);
+
+  assert.deepEqual(take(a, 16), take(b, 16));
+});
