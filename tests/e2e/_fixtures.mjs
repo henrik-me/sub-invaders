@@ -14,8 +14,17 @@ const DEFAULT_SCORE_BODY = {
   submissionId: 'fixture-default-submission',
 };
 const DEFAULT_LEADERBOARD_BODY = { period: 'all', entries: [] };
+const DEFAULT_HEALTH_BODY = { status: 'ok', version: '0.0.0', commit: 'fixture', flags: { dailyChallenge: 'off' } };
 
 async function installDefaultApiStubs(page) {
+  await page.route('**/api/health', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(DEFAULT_HEALTH_BODY),
+    });
+  });
+
   await page.route('**/api/session', async (route) => {
     if (route.request().method() !== 'POST') {
       await route.fallback();
