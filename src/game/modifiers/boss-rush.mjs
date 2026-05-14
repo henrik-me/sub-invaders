@@ -1,6 +1,9 @@
 // CS04 D2 — boss-rush modifier.
-// Only the Squid row spawns (11 enemies), enemy fire density is higher,
-// each clear respawns immediately, and scoring uses a x2 multiplier.
+// Sets state.scoreMultiplier x2 and state.enemyFireDensityMultiplier x2 (both
+// honored by play.mjs integration). Also stores onlyEnemyType: 'squid' and
+// respawnImmediately: true on state.modifiers.bossRush — these are reserved
+// for v1.1+ formation-factory cooperation; in v1.0 they are NOT honored
+// (see CHANGELOG SI-CS04 "Known sub-limitations").
 
 export const NAME = 'boss-rush';
 
