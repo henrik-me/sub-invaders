@@ -391,3 +391,74 @@ test('installTestHooks reports error phase and exposes leaderboardError', () => 
     assert.equal(s.leaderboardError, 'fetch failed');
   });
 });
+
+// CS04 D5/D14 — boot flag fetch + daily option wiring (CS04-11)
+test('CS04: bootstrap awaits fetchFlagsFn before pushing the menu', async () => {
+  let fetchOrder = 0;
+  let menuOrder = 0;
+  let counter = 0;
+  const harness = createHarness({
+    fetchFlagsFn: async () => { counter += 1; fetchOrder = counter; return { dailyChallenge: 'off' }; },
+    createMenuSceneFn(options) {
+      counter += 1; menuOrder = counter;
+      return { tag: 'menu', options };
+    },
+  });
+  await harness.run();
+  assert.ok(fetchOrder > 0 && fetchOrder < menuOrder, 'fetchFlags should resolve before createMenuScene');
+});
+
+test('CS04: bootstrap falls back to defaults when fetchFlagsFn rejects (does not throw)', async () => {
+  const harness = createHarness({
+    fetchFlagsFn: async () => { throw new Error('network down'); },
+  });
+  await assert.doesNotReject(() => harness.run());
+});
+
+test('CS04: dailyOption is enabled and exposes onDaily when dailyChallenge=on', async () => {
+  let capturedOptions;
+  const harness = createHarness({
+    fetchFlagsFn: async () => ({ dailyChallenge: 'on' }),
+    createMenuSceneFn(options) {
+      capturedOptions = options;
+      return { tag: 'menu', options };
+    },
+  });
+  await harness.run();
+  assert.ok(capturedOptions.dailyOption, 'menu received a dailyOption');
+  assert.equal(capturedOptions.dailyOption.enabled, true);
+  assert.equal(typeof capturedOptions.dailyOption.handleInput, 'function');
+});
+
+test('CS04: dailyOption is disabled (no-op) when dailyChallenge=off', async () => {
+  let capturedOptions;
+  const harness = createHarness({
+    fetchFlagsFn: async () => ({ dailyChallenge: 'off' }),
+    createMenuSceneFn(options) {
+      capturedOptions = options;
+      return { tag: 'menu', options };
+    },
+  });
+  await harness.run();
+  assert.ok(capturedOptions.dailyOption, 'menu received a dailyOption');
+  assert.equal(capturedOptions.dailyOption.enabled, false);
+  assert.equal(capturedOptions.dailyOption.promptText(), null);
+});
+
+test('CS04: dailyOption.handleInput on KeyD invokes createDailySceneFn with utcDate from now()', async () => {
+  let dailyCreated = 0;
+  let capturedDailyOpts;
+  const fixedTime = new Date('2026-05-14T12:34:56.000Z');
+  let menuOptions;
+  const harness = createHarness({
+    fetchFlagsFn: async () => ({ dailyChallenge: 'on' }),
+    now: () => fixedTime,
+    createMenuSceneFn(options) { menuOptions = options; return { tag: 'menu', options }; },
+    createDailySceneFn(options) { dailyCreated += 1; capturedDailyOpts = options; return { tag: 'daily' }; },
+  });
+  await harness.run();
+  // simulate KeyD via the dailyOption's onDaily path
+  menuOptions.dailyOption.handleInput({ pressed: (code) => code === 'KeyD' });
+  assert.equal(dailyCreated, 1);
+  assert.equal(capturedDailyOpts.utcDate, '2026-05-14');
+});

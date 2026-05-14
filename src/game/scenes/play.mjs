@@ -311,6 +311,7 @@ export function createPlayScene(opts = {}) {
   const hud = createHud(opts.hud ?? {});
   const apiClient = opts.apiClient ?? null;
   const now = typeof opts.now === 'function' ? opts.now : () => new Date();
+  const daily = opts.daily ?? null;
 
   let player;
   let formation;
@@ -417,8 +418,13 @@ export function createPlayScene(opts = {}) {
 
   function performSubmit(sid, finalScore, finishedAt) {
     submission = { attempted: true, status: 'pending', error: null };
+    const payload = { sessionId: sid, score: finalScore, finishedAt };
+    if (daily?.utcDate) {
+      payload.period = 'daily';
+      payload.utcDate = daily.utcDate;
+    }
     pendingSubmissionPromise = Promise.resolve()
-      .then(() => apiClient.submitScore({ sessionId: sid, score: finalScore, finishedAt }))
+      .then(() => apiClient.submitScore(payload))
       .then(() => {
         submission = { attempted: true, status: 'ok', error: null };
       })

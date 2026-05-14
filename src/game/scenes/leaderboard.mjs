@@ -24,6 +24,8 @@ export function createLeaderboardScene(opts = {}) {
   const onMenu = opts.onMenu ?? (() => {});
   const onRestart = opts.onRestart ?? (() => {});
   const top = Math.max(1, Math.floor(opts.top ?? 10));
+  const period = opts.period === 'daily' ? 'daily' : 'all';
+  const date = period === 'daily' && typeof opts.date === 'string' ? opts.date : null;
 
   let state = STATE.loading;
   let entries = [];
@@ -38,7 +40,7 @@ export function createLeaderboardScene(opts = {}) {
       errorMessage = 'leaderboard unavailable';
       return;
     }
-    Promise.resolve(apiClient.getLeaderboard({ period: 'all' })).then(
+    Promise.resolve(apiClient.getLeaderboard({ period, ...(date ? { date } : {}) })).then(
       (result) => {
         entries = (result?.entries ?? []).slice(0, top);
         state = STATE.ready;

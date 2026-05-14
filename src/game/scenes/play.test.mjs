@@ -106,6 +106,7 @@ function createScene(opts = {}) {
     seed: opts.seed,
     apiClient: opts.apiClient,
     now: opts.now,
+    daily: opts.daily,
   };
   const scene = createPlayScene(sceneOpts);
   return { scene, player, formation, sprites };
@@ -1145,4 +1146,57 @@ test('CS03/D9: queued submission resolves to skipped when startSession ultimatel
   assert.equal(api.calls.submitScore.length, 0);
   assert.equal(scene.state().submission.status, 'skipped');
   assert.equal(scene.state().submission.error, 'offline');
+});
+
+// CS04 D8/D14 — daily-mode submitScore payload contract (CS04-14)
+test('CS04: daily-mode submission emits period:"daily" + utcDate alongside CS03 fields', async () => {
+  const api = fakeApiClient();
+  const fixedTime = new Date('2026-05-14T00:01:00.000Z');
+  const player = createFakePlayer({ lives: 1, isDead() { return this.lives <= 0; } });
+  const formation = createFakeFormation({
+    tryFire() { return { x: 384, y: 540, w: 4, h: 10, alive: true }; },
+  });
+  const { scene } = createScene({
+    apiClient: api,
+    now: () => fixedTime,
+    playerInstance: player,
+    formationInstance: formation,
+    daily: { utcDate: '2026-05-14', modifierName: 'fog-of-war', params: {} },
+  });
+  scene.enter();
+  await flushMicrotasks();
+  scene.update(0.001);
+  await flushMicrotasks();
+
+  assert.equal(api.calls.submitScore.length, 1);
+  const submitted = api.calls.submitScore[0];
+  assert.equal(submitted.sessionId, 'sess-001');
+  assert.equal(submitted.finishedAt, '2026-05-14T00:01:00.000Z');
+  assert.equal(submitted.period, 'daily');
+  assert.equal(submitted.utcDate, '2026-05-14');
+});
+
+test('CS04: non-daily submission omits period and utcDate (CS03 back-compat)', async () => {
+  const api = fakeApiClient();
+  const fixedTime = new Date('2026-05-14T00:01:00.000Z');
+  const player = createFakePlayer({ lives: 1, isDead() { return this.lives <= 0; } });
+  const formation = createFakeFormation({
+    tryFire() { return { x: 384, y: 540, w: 4, h: 10, alive: true }; },
+  });
+  const { scene } = createScene({
+    apiClient: api,
+    now: () => fixedTime,
+    playerInstance: player,
+    formationInstance: formation,
+    // no daily opt
+  });
+  scene.enter();
+  await flushMicrotasks();
+  scene.update(0.001);
+  await flushMicrotasks();
+
+  assert.equal(api.calls.submitScore.length, 1);
+  const submitted = api.calls.submitScore[0];
+  assert.equal(Object.prototype.hasOwnProperty.call(submitted, 'period'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(submitted, 'utcDate'), false);
 });
