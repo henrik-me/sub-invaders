@@ -14,8 +14,8 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:coverage": "playwright test --config=playwright.coverage.config.mjs && npm run coverage:check:e2e",
     "test:e2e:report": "playwright show-report",
-    "test:unit": "bash -c 'set -euo pipefail; shopt -s globstar nullglob; files=(src/**/*.test.mjs scripts/**/*.test.mjs); if [ ${#files[@]} -eq 0 ]; then echo \"No JS tests — skipping\"; exit 0; fi; node --test \"${files[@]}\"'",
-    "test:unit:coverage": "bash -c 'set -euo pipefail; shopt -s globstar nullglob; files=(src/**/*.test.mjs scripts/**/*.test.mjs); if [ ${#files[@]} -eq 0 ]; then echo \"No JS tests — skipping\"; exit 0; fi; npx c8 --reporter=text --reporter=text-summary --reporter=json-summary --reporter=lcov --include \"src/**/*.mjs\" --exclude \"src/**/*.test.mjs\" --exclude \"src/game/test-hooks.mjs\" --report-dir=coverage-report-unit --check-coverage --lines=90 --statements=90 --functions=90 --branches=85 node --test \"${files[@]}\"; npm run coverage:check:unit'",
+    "test:unit": "node --test \"src/**/*.test.mjs\" \"scripts/**/*.test.mjs\"",
+    "test:unit:coverage": "c8 --reporter=text --reporter=text-summary --reporter=json-summary --reporter=lcov --include \"src/**/*.mjs\" --exclude \"src/**/*.test.mjs\" --exclude \"src/game/test-hooks.mjs\" --report-dir=coverage-report-unit --check-coverage --lines=90 --statements=90 --functions=90 --branches=85 node --test \"src/**/*.test.mjs\" \"scripts/**/*.test.mjs\" && npm run coverage:check:unit",
     "serve": "http-server src -p 4173 --silent -c-1",
     "coverage:check:unit": "node scripts/coverage-perfile.mjs --suite=unit --summary=coverage-report-unit/coverage-summary.json",
     "coverage:check:e2e": "node scripts/coverage-perfile.mjs --suite=e2e --summary=coverage-report/coverage-report.json"
