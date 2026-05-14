@@ -2,67 +2,74 @@
   "harness_ref": "unknown",
   "resolved_sha": "0000000000000000000000000000000000000000",
   "config_schema_version": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
-  "synced_at": "2026-05-11T03:06:43.873Z",
+  "synced_at": "2026-05-14T14:52:48.003Z",
   "files": [
+    {
+      "target": ".github/workflows/pr-evidence-lint.yml",
+      "source_template": "template/managed/.github/workflows/pr-evidence-lint.yml",
+      "class": "managed",
+      "rendered_hash": "d5e4a71cc44a1d9e7a6504e8e5fc3453475e3b7d8c9589611028e9d9fc7f32ac",
+      "action": "skipped"
+    },
     {
       "target": "CONVENTIONS.md",
       "source_template": "template/composed/CONVENTIONS.md",
       "class": "composed",
-      "rendered_hash": "80f83db0a5c737e4a4cafa3b2236440b996d2cf6f5f16a1b9d057908808df387",
+      "rendered_hash": "a2fe888628ff8f563098bfab15554b9f39546d979e32f3e5c6ea9d4a402998d9",
       "action": "skipped",
       "blocks": [
         {
           "id": "conventions.project",
           "source_line_range": {
-            "start": 145,
-            "end": 176
+            "start": 160,
+            "end": 191
           },
           "body_hash": "caa9543e98d87a3b3555ee6348fccf8ae7923dabda26c8d72168f3d9fea464cf",
           "template_marker_hash": "d6d8dcea1d31794b2b9a755a199b5c0b76cc2c34e513164718e917c4945f1b92",
           "provenance": "user-authored"
         }
       ],
-      "template_prose_hash": "7a1caa2d8438afb18fbe57e4d1469d8b3802c9c913acd9a24ad4089e9bb8b873"
+      "template_prose_hash": "a71d81cf7c8a72261e9fafd0f1ee380373d06c4e50b831694ebaf2c770b363c9"
     },
     {
       "target": "OPERATIONS.md",
       "source_template": "template/composed/OPERATIONS.md",
       "class": "composed",
-      "rendered_hash": "d823dc69bb2fb973681c034c4e23244db19b8ea8381792c6731a1fee0a425c5e",
-      "action": "updated",
+      "rendered_hash": "7af44ed0bb3dcd5385cf3bcadc6fdaf96d2b78ce7e8acf803831d35f09339320",
+      "action": "skipped",
       "blocks": [
         {
           "id": "operations.project-deploy",
           "source_line_range": {
-            "start": 1079,
-            "end": 1139
+            "start": 1565,
+            "end": 1822
           },
-          "body_hash": "3ea71f4238d2a3098bb14d0e5d206e671d63fef10bd265ce37e532acbbb4b2cc",
+          "body_hash": "00aab320440e0d219500836093f887c9ee3256e146c26526dcfeaa6d59fc35e7",
           "template_marker_hash": "c538812699662e1747082864f419826b433df6e5164cdd28e870df72fcc559e5",
           "provenance": "user-authored"
         }
       ],
-      "template_prose_hash": "66c2b0753d9f057ed15ea7202bf083888d84e2af2ba53f48182c8ad0e31af81c"
+      "template_prose_hash": "8162c07725241d2eec1807f057318f2dd025ae558f5bd3ddeee5c7c1b57ba647"
     },
     {
       "target": "REVIEWS.md",
       "source_template": "template/composed/REVIEWS.md",
       "class": "composed",
-      "rendered_hash": "6ab36407ed059446738a2c009a7e3fe2bb55de0579f86eaf03b93760c8727d30",
+      "rendered_hash": "75cc46de64e70c83d7a212ac93660d2cf83cc59dab8e9e5030565ced7a173e87",
       "action": "skipped",
       "blocks": [
         {
           "id": "reviews.project-gates",
           "source_line_range": {
-            "start": 261,
-            "end": 294
+            "start": 382,
+            "end": 424
           },
-          "body_hash": "7a97121261ea94b8b60d022dd3c382eb21a4bfa5589ce1a70a4cd055a6614655",
+          "body_hash": "464f711b20a4a7f037588e173d498c9c88f4943d1b09e62e607daf5d86636241",
           "template_marker_hash": "5e1b41d3287a93df32706fff5619c8aa4fd7cfacd0f601fd1d23489010a4319e",
           "provenance": "user-authored"
         }
       ],
-      "template_prose_hash": "d8076bee43bac198f63e6e683e281cfe107e5ba02cd9136d48a8d83cf07949a0"
+      "template_prose_hash": "2d6d46c6702b54529402f7cf754c2e6b87b570a79166b5da62c25a137b5e5379"
     }
   ],
   "scaffolds": [

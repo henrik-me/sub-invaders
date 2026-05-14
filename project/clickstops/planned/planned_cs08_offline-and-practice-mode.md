@@ -135,6 +135,11 @@ The CS08 orchestrator must use the standard agent-harness sub-agent dispatch pat
 
 Filled during execution. At minimum, record: SW rollout cadence, observed `__BUILD_SHA__` substitution health on first deploy, pending-scores queue depth observed in staging, and any user feedback on the ranked/practice toggle UX.
 
+## Plan review
+
+| Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
+|---|---|---|---|---|---|---|---|
+| R1 | gpt-5.5 | claude-sonnet-4.6 | rubber-duck dispatched (orchestrator: yoga-si) | b2cd771eec46 | 2026-05-14T07:55:00Z | Go-with-amendments | Grandfathered at v0.5.0 pin-bump per harness CS42-7. Plan content unchanged at backfill; SI orchestrator may add R2 when CS is claimed. |
 ## Plan-vs-implementation review
 
 > _(filled at close-out per the gate)_

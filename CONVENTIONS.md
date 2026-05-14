@@ -43,7 +43,9 @@
 - **Body:** one blank line after the subject, then a paragraph explaining *why* the change
   was made. Include context that is not obvious from the diff. Wrap at 72 characters.
 - **Trailers:** always include the Co-authored-by trailer on every commit made with agent
-  assistance:
+  assistance. Per CS35 Decision C35-5 the harness's PR-evidence B1 gate (lands in CS36)
+  enforces this on **every commit** in `git log <base>..<head>`, NOT only on the squash
+  commit — squashing hides intermediate dirty state and that is exactly what B1 catches.
   ```
   Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
   ```
@@ -70,6 +72,19 @@
 - Draft PRs are welcome for early feedback but must be converted to Ready before the
   rubber-duck review step.
 - Delete the source branch after merge unless it is a long-lived integration branch.
+
+**PR-evidence skip predicates (CS35 C35-7/8/9):**
+- PRs labeled `workboard-only` skip ALL PR-evidence gates (per Decision C35-7) —
+  workflow-level `if: !contains(labels.*.name, 'workboard-only')`. Used for the claim
+  and close-out PRs that touch only `WORKBOARD.md` + the CS rename.
+- Bot-authored PRs (`dependabot[bot]`, `github-actions[bot]`) skip the per-commit
+  trailer (B1), per-file enumeration (A2), and stale-diff (A4) gates per Decision
+  C35-8 (bot PRs lack the doctrine-required content by construction). The plan-review
+  attestation gate (A6, CS35b) and Copilot engagement gate (A16) still apply if a
+  Copilot review is explicitly requested.
+- Fork PRs run all read-only gates normally; the Copilot mutation gate (CS41) cannot
+  run from a fork because `GITHUB_TOKEN` is read-only on fork PRs (per Decision C35-9).
+  The mutation gate fails loudly with a maintainer-rerun instruction; do not paper over.
 
 ---
 
