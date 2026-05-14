@@ -132,7 +132,38 @@ _(none — pin-bump gate G-bump retired with CS04-13)_
 
 ## Notes / Learnings
 
-Filled during execution. At minimum, record scaffold exercise outcomes, two-state validation results, and any scaffold mismatch.
+### Scaffold exercises (CS04-12, deliverables 12 + 13)
+
+**D12 — `feature-flags` scaffold exercise (R4 risk confirmed)**
+
+Read the upstream scaffold README at `agent-harness/scaffolds/feature-flags/README.md` plus `files/flags/flags.json`, `files/lib/feature-flags.mjs`, and `files/scripts/check-feature-flag-policy.mjs`. **Did not adopt the scaffold for SI's frontend.** Findings:
+
+- *Topology mismatch*: scaffold targets a Node-resident process that imports `lib/feature-flags.mjs` and reads `flags/flags.json` from disk. SI's frontend is a no-build static ES module shipped from SWA's CDN — no Node process, no fs reads at runtime. Scaffold's `loadFlags()` is unusable as-is in the browser; the scaffold README itself documents this as the "Swap `loadFlags()` for a remote-config adapter" customization point.
+- *Source-of-truth mismatch*: scaffold treats `flags/flags.json` as the canonical registry. SI uses HTML `<meta name="flags" content="dailyChallenge=off">` as the offline default and `GET /api/health` (overlay) as the live source. The scaffold has no equivalent of an HTML meta default.
+- *Lifecycle mismatch*: scaffold's policy linter enforces `expires`, `rollout`, `owner`, and stale-flag eviction. SI's single `dailyChallenge` flag is intentionally permanent for v1 (it gates a content tier, not a rollout); the scaffold's `expires` requirement would be a false positive.
+- *Adopted*: the scaffold's lifecycle vocabulary (`created → ramped → removed`) is recorded here as the model SI will follow if/when a future flag genuinely needs gradual rollout. At that point a backend-only adoption (api/-rooted `flags.json` consumed by Functions) is the natural fit; frontend would still re-fetch via `/api/health`.
+- *Action*: no `flags/flags.json` added; no `scripts/check-feature-flag-policy.mjs` added. The scaffold exercise yielded a documented "scaffold not applicable to no-build static frontend" outcome which is itself the exit-criterion 8 deliverable.
+- *Upstream note*: scaffold README assumes a Node consumer; consider an explicit "no-build/static frontend not supported — use HTML meta + remote overlay" caveat in the scaffold README. (Logged here; not yet filed upstream — low priority.)
+
+**D13 — `health-check` scaffold exercise (passes)**
+
+Read the upstream scaffold README at `agent-harness/scaffolds/health-check/README.md` plus `files/scripts/health-probe.mjs`. SI's `/api/health` endpoint is implemented in `api/HealthFunction.cs` and shipped via SWA Functions. Verified findings:
+
+- *Endpoint shape match*: `HealthFunction.Run` returns `{status:"ok", version, commit, flags:{dailyChallenge:"on"|"off"}}` (HealthFunction.cs:23-27). `--expect-key status --expect-value ok` (scaffold defaults) match without configuration.
+- *Flag visibility match*: `FeatureFlags.DailyChallengeState` reads `FEATURE_FLAGS_DAILY_CHALLENGE` from process env on each request, so the response reflects live SWA app-setting state without redeploy. This is what CS04-11 + the daily-aware frontend boot path require.
+- *Backend test coverage*: `api/Sub-invaders.Api.Tests/HealthFunctionTests.cs` exercises both `dailyChallenge=on` and `dailyChallenge=off` (and missing) → 53/53 dotnet tests pass.
+- *Frontend overlay verified*: `src/game/flags.mjs::fetchFlags()` calls `GET /api/health` (1500ms AbortController) and surfaces `body.flags.dailyChallenge` to `isDailyChallengeEnabled`. E2E `_fixtures.mjs` now stubs `/api/health` so consoleErrors stays clean (smoke.spec passes).
+- *Probe runner not adopted*: `scripts/health-probe.mjs` would duplicate `scripts/verify-deploy.mjs::checkHealth`, which already validates `/api/health` against the deployed URL with retries. Recording the exercise outcome rather than dropping a redundant probe.
+- *Two-state probe plan*: post-merge, `node scripts/verify-deploy.mjs --url https://happy-coast-04ffcaa1e.7.azurestaticapps.net --expected-version <sha>` runs once; the SWA app-setting `FEATURE_FLAGS_DAILY_CHALLENGE` is then toggled on, and the verify-deploy probe is re-run. Both states must pass for exit criterion 9. (Local two-state probing is captured by the dotnet `HealthFunctionTests` matrix.)
+
+### Validation matrix
+
+- ✅ `npm run test:unit`: 391/391 pass
+- ✅ `dotnet test api/`: 53/53 pass
+- ✅ `npm run test:e2e`: 48/48 pass (after `/api/health` fixture stub added; commit `1d0807d`)
+- ✅ `harness lint --quiet` (v0.5.1): 16 passed, 0 failed, 9 skipped
+- ✅ `harness sync --mode=check`: No drift
+- ⏭ `node scripts/verify-deploy.mjs`: deferred to post-merge SWA staging deploy (requires deployed URL); two-state probe will be performed against the deployed preview slot before opening the close-out PR.
 
 ## Plan review
 
