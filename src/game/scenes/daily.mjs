@@ -1,12 +1,21 @@
 import { createRng } from '../../engine/seed.mjs';
 import { createPlayScene as defaultCreatePlayScene } from './play.mjs';
+import * as bossRush from '../modifiers/boss-rush.mjs';
+import * as fogOfWar from '../modifiers/fog-of-war.mjs';
+import * as invertedControls from '../modifiers/inverted-controls.mjs';
+import * as oneShot from '../modifiers/one-shot.mjs';
+import * as speedRun from '../modifiers/speed-run.mjs';
 
+// Single source of truth for modifier names: each modifier module exports
+// its own NAME, and play.mjs MODIFIER_REGISTRY is keyed by the same. Daily
+// just picks one of those NAME strings via the date-seeded RNG; the
+// matching module is then resolved by play.mjs at scene-init.
 const MODIFIER_NAMES = Object.freeze([
-  'fog-of-war',
-  'speed-run',
-  'one-shot',
-  'boss-rush',
-  'inverted-controls',
+  fogOfWar.NAME,
+  speedRun.NAME,
+  oneShot.NAME,
+  bossRush.NAME,
+  invertedControls.NAME,
 ]);
 const ENEMY_FIRE_MULTIPLIERS = Object.freeze([0.8, 1.0, 1.2, 1.5]);
 const FORMATION_SPEED_MULTIPLIERS = Object.freeze([0.8, 1.0, 1.2, 1.5]);

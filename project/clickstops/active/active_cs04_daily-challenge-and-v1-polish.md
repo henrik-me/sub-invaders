@@ -204,12 +204,14 @@ Read the upstream scaffold README at `agent-harness/scaffolds/health-check/READM
 | R4 (Copilot) | copilot-pull-request-reviewer | harness copilot-engage 66 | 121242ac18c50137df0a5801a335f132a7ee39b8 | 2026-05-15T04:10:00Z | COMMENTED | 10 inline doc/non-blocking findings (5 doc-only fixed in 2689986; 3 non-blocking filed as #67/#68/#69; 1 false-positive replied inline; 1 already-deferred). |
 | R5 (Copilot) | copilot-pull-request-reviewer | harness copilot-engage 66 | 2689986130acb4ae7857c3130cb1244341a69353 | 2026-05-15T04:30:00Z | COMMENTED | 4 new findings: (a) BLOCKING — whale-shark not spawned in normal mode (CS04-D7) → fixed in fa1b2bb; (b) doc nit "two parameter rolls" → fixed in fa1b2bb; (c)+(d) date-validation regex (dup of #67) → no change. |
 
-> R3 (gpt-5.5): **Go** at HEAD `121242a`. R4 (Copilot, COMMENTED) at HEAD `121242a` flagged 10 doc/non-blocking findings; doc-only fixes pushed in `2689986`. R5 (Copilot, COMMENTED) at HEAD `2689986` surfaced 1 BLOCKING gap (normal-mode whaleshark per CS04-D7) + 1 doc fix; both fixed in `fa1b2bb`. Final verdict will be filled at close-out per the gate.
+| R6-R10 (Copilot) | copilot-pull-request-reviewer | harness copilot-engage 66 | (see PR #66 body Review log) | 2026-05-15T04:45:00Z–05:45:00Z | COMMENTED | Iterative doc polish (stale src-line refs; CHANGELOG/ARCHITECTURE.md cadence; modifier-comment v1.0 limitations; Y_BAND comment correction; daily.mjs DRY refactor to use NAME imports). 1 follow-up issue filed for daily score-cap multiplier interaction. PR body Review log is the canonical analyzed_head ledger. |
 
-## Resume point — 2026-05-15T04:35Z (Copilot R2 BLOCKING fixed)
+> R3 (gpt-5.5): **Go** at HEAD `121242a`. Copilot R4-R10 iteratively surfaced doc polish + 1 BLOCKING (normal-mode whaleshark per CS04-D7, fixed in `fa1b2bb`). 4 follow-up issues filed (#67/#68/#69 + score-cap). PR ready for admin-merge.
 
-- **Branch:** `cs04/content` HEAD `fa1b2bb3f3c485ab38444cc4d63769205f66d774` (14 commits ahead of main).
-- **PR #66:** open, REVIEW_REQUIRED. PvI R1+R2+R3 all logged; Copilot R4 (10 inline) + R5 (4 inline, 1 BLOCKING) addressed.
+## Resume point — admin-merge ready
+
+- **Branch:** `cs04/content` (latest HEAD on remote; PR #66 body Review log is the canonical analyzed_head ledger).
+- **PR #66:** open, REVIEW_REQUIRED. Full Copilot review cycle complete (R4-R10).
 - **Worktree:** `C:\src\sub-invaders-wt\wt-cs04-content`.
 - **agent-harness pin:** `v0.5.1` (HEAD `fe2c0b9`). Local `C:\src\agent-harness` MUST be checked out at `v0.5.1` for sync-check; gets clobbered by parallel sessions — re-`git checkout v0.5.1` before each sync.
-- **Next**: re-engage Copilot at HEAD `fa1b2bb` to confirm R5 BLOCKING fix; push updated PR body Review log; admin-merge; Phase 3 close-out PR.
+- **Next**: admin-merge PR #66 via `gh pr merge 66 --squash --admin` per CS07/CS11 precedent (Copilot delivers as `COMMENTED`, never `APPROVED` on this repo). Then Phase 3 close-out PR.

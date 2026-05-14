@@ -13,15 +13,16 @@ const SCORE_VALUES = Object.freeze([50, 100, 200]);
 const FILL = '#6fe7ff';
 const STROKE = '#dffbff';
 
-// The mystery enemy spawns with its top edge in the band y=32..48 (Y_BAND
-// is the spawn-y range). With DEFAULT_HEIGHT=24, the rendered/collidable
-// rectangle therefore spans y=32..72 worst-case (default spawn y=40 -> y=40..64).
+// The mystery enemy spawns at a fixed y position derived from Y_BAND: the
+// midpoint of the band clamped to the canvas (default canvas: spawn y=40).
+// Y_BAND is therefore a "where in the top band can the spawn-y land if the
+// canvas changes" range, not a per-spawn random pick. With DEFAULT_HEIGHT=24,
+// the rendered/collidable rectangle on the default canvas spans y=40..64.
 // The default formation (invaders.mjs DEFAULT_SPAWN_Y=64) places its top
-// row at y=64..88 on wave 1 (descends further on later waves), so there is
-// a small visual touch zone (y=64..72) at the upper spawn-y bound on wave 1.
-// This is acceptable because the whale-shark and invaders do not interact
-// (only player torpedoes hit the whale-shark; invader shots and the
-// whale-shark do not exchange collisions).
+// row at y=64..88 on wave 1 (descends further on later waves), so the shark
+// and top invader row visually touch at y=64 on wave 1. This is acceptable
+// because the whale-shark and invaders do not exchange collisions (only
+// player torpedoes hit the whale-shark).
 const Y_BAND = Object.freeze({ min: 32, max: 48 });
 
 const finitePositive = (value, fallback) => {
