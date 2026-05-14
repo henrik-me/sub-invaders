@@ -197,13 +197,14 @@ Read the upstream scaffold README at `agent-harness/scaffolds/health-check/READM
 | Round | Reviewer model | Reviewer agent | Analyzed HEAD | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
 |---|---|---|---|---|---|---|
 | R1 | gpt-5.5 | rubber-duck dispatched (orchestrator: yoga-si) | 84380b3b7d7d2a3a0e61f0a45d05682bf53b4abe | 2026-05-15T03:14:00Z | Needs-Fix | 5 BLOCKING: PVI-CS04-001 modifiers unwired in play.mjs; -002 whaleshark unwired; -003 daily HUD unwired; -004 leaderboard period unthreaded from main; -005 review log empty. CS03 back-compat preserved. |
+| R2 | gpt-5.5 | rubber-duck dispatched (orchestrator: yoga-si) | 9830996f4e6d28c7149f0f927e394429b4397c84 | 2026-05-15T03:35:00Z | Needs-Fix | R1: F-1 partial, F-2 partial, F-3 resolved, F-4 resolved, F-5 partial. NEW: R2-F-1 fog-of-war.renderOverlay used `renderer.ctx` as property but real renderer exposes `ctx()`; R2-F-2 play.mjs passed `dt*1000` to whaleshark which expects seconds. |
 
-> R2 verdict to be appended after re-review at HEAD `64d2c0d5efc0f37a5e9ecffe2d13e6ecbd6f45dd`. Final verdict will be filled at close-out per the gate.
+> R3 verdict to be appended after re-review at HEAD `dbeab2207ce069263b1ce4f8957b7812afb8c375`. Final verdict will be filled at close-out per the gate.
 
 ## Resume point — 2026-05-15T03:30Z (PvI R1 fixes pushed)
 
-- **Branch:** `cs04/content` HEAD `64d2c0d5efc0f37a5e9ecffe2d13e6ecbd6f45dd` (10 commits ahead of main).
-- **PR #66:** open, REVIEW_REQUIRED. Body updated with `Known v1.0 sub-limitations` (replaces deferred-modifier note), validation matrix at 404/404 unit + 53/53 dotnet + 48/48 e2e, R1 row appended to Review log.
+- **Branch:** `cs04/content` HEAD `dbeab2207ce069263b1ce4f8957b7812afb8c375` (12 commits ahead of main).
+- **PR #66:** open, REVIEW_REQUIRED. Body updated with `Known v1.0 sub-limitations` (replaces deferred-modifier note), validation matrix at 406/406 unit + 53/53 dotnet + 48/48 e2e, R1+R2 rows in Review log.
 - **Worktree:** `C:\src\sub-invaders-wt\wt-cs04-content`.
-- **agent-harness pin:** `v0.5.1`. Local `C:\src\agent-harness` checked out at `v0.5.1` for sync-check (was on cs46 branch — stashed before checkout).
-- **Next**: dispatch PvI R2 (gpt-5.5 via rubber-duck) at HEAD `64d2c0d5efc0f37a5e9ecffe2d13e6ecbd6f45dd` focusing on PVI-CS04-001/002/003/004 resolution + PVI-CS04-005 (PR body). On Go → `node C:\src\agent-harness\bin\harness.mjs copilot-engage 66` → admin-merge → Phase 3 close-out PR on `cs04/close-out` (rename active→done, fill PvI verdict with `**Reviewer:**`/`**Date:**`/`**Outcome:**` field labels).
+- **agent-harness pin:** `v0.5.1`. Local `C:\src\agent-harness` MUST be checked out at `v0.5.1` for sync-check; gets clobbered when other sessions switch branches. Re-run `git -C C:\src\agent-harness checkout v0.5.1` before each sync.
+- **Next**: dispatch PvI R3 (gpt-5.5 via rubber-duck) at HEAD `dbeab2207ce069263b1ce4f8957b7812afb8c375` — focus on R2-F-1 (fog-of-war ctx contract) + R2-F-2 (whaleshark dt units) resolution. On Go → `node C:\src\agent-harness\bin\harness.mjs copilot-engage 66` → admin-merge → Phase 3 close-out PR.
