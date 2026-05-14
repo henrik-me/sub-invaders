@@ -311,6 +311,10 @@ export function createPlayScene(opts = {}) {
   const hud = createHud(opts.hud ?? {});
   const apiClient = opts.apiClient ?? null;
   const now = typeof opts.now === 'function' ? opts.now : () => new Date();
+  // CS04 v1.0 STUB: `daily` is consumed only for the submit-payload partition
+  // routing (utcDate → leaderboard daily-YYYY-MM-DD). The named modifier and
+  // parameter rolls are NOT yet applied to runtime gameplay. dailyChallenge
+  // flag defaults to `off`; tracked as post-v1.0 follow-up CS.
   const daily = opts.daily ?? null;
 
   let player;

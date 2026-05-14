@@ -54,9 +54,13 @@ function createDailyDefinition(utcDate) {
 /**
  * Creates a deterministic daily scene wrapper around play.mjs.
  *
- * play.mjs does not yet expose the modifier hook owned by CS04 integration row 10,
- * so this factory forwards `{ daily: { utcDate, modifierName, params } }` and the
- * UTC date seed into createPlayScene for that integration to wire into gameplay.
+ * v1.0 STUB — gameplay modifier wiring deferred:
+ * play.mjs currently consumes only `daily.utcDate` (for the leaderboard partition
+ * on submit). The named modifier (`daily.modifierName`) and the parameter rolls
+ * (`daily.params.{enemyFireMultiplier, formationSpeedMultiplier, whaleSharkInterval}`)
+ * are forwarded but NOT yet applied to player/formation/enemy-fire/whale-shark
+ * behavior. The `dailyChallenge` feature flag defaults to `off`, so this stub
+ * is not user-visible at v1.0 ship. Tracked as a post-v1.0 follow-up CS.
  */
 export function createDailyScene(opts = {}) {
   const {

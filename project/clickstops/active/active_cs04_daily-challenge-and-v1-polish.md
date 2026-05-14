@@ -165,6 +165,19 @@ Read the upstream scaffold README at `agent-harness/scaffolds/health-check/READM
 - ✅ `harness sync --mode=check`: No drift
 - ⏭ `node scripts/verify-deploy.mjs`: deferred to post-merge SWA staging deploy (requires deployed URL); two-state probe will be performed against the deployed preview slot before opening the close-out PR.
 
+### Known v1.0 limitations
+
+- **Daily-challenge modifier wiring deferred.** `daily.mjs` resolves the date-seeded
+  modifier name + params but `play.mjs` only consumes `daily.utcDate` (for leaderboard
+  partition routing on submit). The five `src/game/modifiers/*.mjs` mutators and the
+  `daily.params.{enemyFireMultiplier, formationSpeedMultiplier, whaleSharkInterval}`
+  rolls are forwarded but NOT applied to runtime gameplay. Documented in
+  `CHANGELOG.md` "Known limitations (SI-CS04)" and as TODO comments in `daily.mjs`
+  + `play.mjs`. The `dailyChallenge` flag defaults to `off`, so this stub is not
+  user-visible at v1.0 ship. Tracked as a follow-up issue / post-v1.0 CS.
+- **Whale-shark sprite is a placeholder rectangle.** Slotted but the dedicated sprite
+  is not yet authored.
+
 ## Plan review
 
 | Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
