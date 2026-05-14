@@ -158,7 +158,55 @@ None expected. CS01 cleared all infrastructure gates, including Azure subscripti
 - **D14 (`container-validate`) blocked by tooling** — Azure Functions Core Tools v4 + Azurite are not installed in this orchestrator environment. Substitute coverage: 42 xUnit tests exercise the same code paths (validation, replay, rate-limit, plausibility, ETag conditional consume, leaderboard contract); deployed smoke runs via `verify-deploy.mjs` `leaderboard-sequence` probe post-merge (now strengthened — see next bullet).
 - **Plan-vs-impl R1 (GPT-5.5)** flagged 3 findings: F-001 BLOCKING (deployed `verify-deploy` `leaderboard-sequence` probe asserted only response shape, not row persistence — a backend that returned `accepted` from `/api/score` but never persisted would have passed); F-002 NON-BLOCKING (`SUB_INVADERS_COMMIT` env var read by `HealthFunction` is not injected by any deploy step → `commit: "unknown"`); F-003 NIT (stale `--if-not-exists` flag mention on CHANGELOG line 32). **Adopted in PR #47:** F-001 fixed (probe now uses `probeScore=500` + matches the row by exact `(score, finishedAt)` and surfaces a clear diagnostic if missing; +2 regression tests in `scripts/verify-deploy.checks.test.mjs` for sparse and saturated leaderboards) and F-003 fixed (CHANGELOG line 32 updated). **Deferred:** F-002 → Issue #52 (commit-injection at deploy needs `AZURE_CREDENTIALS` workflow secret + post-deploy `az staticwebapp appsettings set` step — separate scope from CS03 backend).
 - **Follow-up issues filed for deferred items:** #49 (server-clock bound on `/api/score`), #50 (wire `scripts/**/*.test.mjs` into CI globs), #51 (external hourly scheduler for `/api/admin/sessions-cleanup`), #52 (commit injection at deploy time per F-002).
+- **Plan-vs-impl R2 (GPT-5.5)** at HEAD `b05012d`: **GO**. All R1 BLOCKING findings RESOLVED (F-001 verified at `scripts/verify-deploy.checks.mjs:111-163` with 17/17 regression tests passing; cap arithmetic verified `11s × 50 = 550 ≥ 500` against `api/ScoreFunction.cs:87-91,129-132`). F-003 RESOLVED at `CHANGELOG.md:31-33`. F-002 DEFERRED-ACCEPTABLE via Issue #52 (non-blocking, non-high-risk CS, follow-up filed with concrete plan). No new findings introduced by R1→R2 delta. Full verdict captured below in the `## Plan-vs-implementation review` section. **Close-out gate is GO.**
+- **Copilot review cycle complete:** R1 GO @ `c9b0f0f`, R2 GO @ `ec2c5ff`, R3 GO @ `b05012d` (all via `@copilot review` PR-comment mechanism — only path that works on this repo per CS07 retro line 212 / repo memory). All 3 rounds returned with no blocking findings.
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (plan-vs-impl close-out gate, R2)
+**Date:** 2026-05-14
+**Outcome:** GO
+
+### R1→R2 delta
+- F-001 (BLOCKING): verified fixed — `leaderboard-sequence` now submits `probeScore=500`, matches the returned leaderboard row by exact `(score, finishedAt)`, and emits distinct diagnostics for sparse vs saturated top-100 cases (`scripts/verify-deploy.checks.mjs:111-163`).
+- F-002 (NON-BLOCKING): verified deferred to #52 — issue is open and captures the deploy-time `SUB_INVADERS_COMMIT` app-setting plan, including `az staticwebapp appsettings set` and required `AZURE_CREDENTIALS`.
+- F-003 (NIT): verified fixed — stale `--if-not-exists` claim is gone; CHANGELOG now states explicit `TableAlreadyExists` handling and aligns with the doc-correction note (`CHANGELOG.md:31-33`, `CHANGELOG.md:103-105`).
+
+### Per-finding re-assessment
+
+#### F-001
+- Original finding summary: `scripts/verify-deploy.checks.mjs` accepted `/api/score` success without proving the row persisted to `/api/leaderboard`, leaving CS03 D13 / acceptance criterion 7 under-verified.
+- What changed in the R1→R2 commit: commit `b05012d` raises the probe score to `500`, keeps elapsed time at 11 seconds, and adds step 4 to assert the submitted row appears in the top-100 by exact `(score, finishedAt)` (`scripts/verify-deploy.checks.mjs:111-116`, `scripts/verify-deploy.checks.mjs:147-163`).
+- Verdict: RESOLVED.
+- Evidence: server plausibility cap remains `elapsed.TotalSeconds * _maxScorePerSecond`; default `_maxScorePerSecond` is `50`, so `11s × 50 = 550 ≥ 500` (`api/ScoreFunction.cs:87-91`, `api/ScoreFunction.cs:129-132`). Existing pass test now mocks the matching probe row and validates score POST payload (`scripts/verify-deploy.checks.test.mjs:81-128`). New regression tests cover sparse-board missing-row diagnostics and saturated-top-100 diagnostics (`scripts/verify-deploy.checks.test.mjs:201-263`). Independent run: `node --test ...\scripts\verify-deploy.checks.test.mjs` passed 17/17.
+
+#### F-002
+- Original finding summary: `/api/health` can return `commit: "unknown"` because deploy does not inject `SUB_INVADERS_COMMIT` or `GITHUB_SHA`.
+- What changed in the R1→R2 commit: no inline implementation; deferred to follow-up Issue #52.
+- Verdict: DEFERRED-ACCEPTABLE.
+- Evidence: Issue #52 is OPEN, titled `ops: inject SUB_INVADERS_COMMIT app setting at deploy time (cs03 follow-up, PvI F-002)`, and includes a concrete post-deploy `az staticwebapp appsettings set` plan plus the required `AZURE_CREDENTIALS` secret. Because CS03 is non-high-risk and F-002 was non-blocking, deferral with a filed follow-up is acceptable.
+
+#### F-003
+- Original finding summary: `CHANGELOG.md` still mentioned non-existent `az storage table create --if-not-exists`.
+- What changed in the R1→R2 commit: line now documents `az storage table create` with explicit `TableAlreadyExists` handling (`CHANGELOG.md:31-33`).
+- Verdict: RESOLVED.
+- Evidence: replacement text matches the existing correction note that provisioning uses stderr-`grep` for `TableAlreadyExists` (`CHANGELOG.md:103-105`).
+
+### New findings (introduced by R1→R2 delta, if any)
+
+- BLOCKING: None
+- NON-BLOCKING: None
+- NIT: None
+
+### Final verdict
+
+GO
+
+All R1 BLOCKING findings are RESOLVED. The only remaining R1 concern, F-002, is NON-BLOCKING and has an adequate open follow-up issue (#52); CI for PR #47 at `b05012d` is green with all checks successful.
+
+### Preflight compliance
+
+- Starting HEAD: `b05012d27cbb7b107bda637477ed290934147258`
+- Final HEAD: `b05012d27cbb7b107bda637477ed290934147258`
+- `git status --porcelain`: empty
+- "No commit was created. No file in either checkout was modified."
