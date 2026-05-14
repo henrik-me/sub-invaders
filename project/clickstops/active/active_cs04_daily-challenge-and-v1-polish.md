@@ -194,4 +194,16 @@ Read the upstream scaffold README at `agent-harness/scaffolds/health-check/READM
 | R4 | gpt-5.5 | claude-sonnet-4.6, claude-opus-4.7 | rubber-duck dispatched (orchestrator: yoga-si) | eb9b647f8ece | 2026-05-14T18:05:57Z | Go | All R3 BLOCKING resolved (api row 9 + Storage paths + row-10 await). 3 NON-BLOCKING amendments (fetch timeout, row-10 test ownership, row-9→row-10 ref) adopted inline. |
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+| Round | Reviewer model | Reviewer agent | Analyzed HEAD | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
+|---|---|---|---|---|---|---|
+| R1 | gpt-5.5 | rubber-duck dispatched (orchestrator: yoga-si) | 84380b3b7d7d2a3a0e61f0a45d05682bf53b4abe | 2026-05-15T03:14:00Z | Needs-Fix | 5 BLOCKING: PVI-CS04-001 modifiers unwired in play.mjs; -002 whaleshark unwired; -003 daily HUD unwired; -004 leaderboard period unthreaded from main; -005 review log empty. CS03 back-compat preserved. |
+
+> R2 verdict to be appended after re-review at HEAD `64d2c0d5efc0f37a5e9ecffe2d13e6ecbd6f45dd`. Final verdict will be filled at close-out per the gate.
+
+## Resume point — 2026-05-15T03:30Z (PvI R1 fixes pushed)
+
+- **Branch:** `cs04/content` HEAD `64d2c0d5efc0f37a5e9ecffe2d13e6ecbd6f45dd` (10 commits ahead of main).
+- **PR #66:** open, REVIEW_REQUIRED. Body updated with `Known v1.0 sub-limitations` (replaces deferred-modifier note), validation matrix at 404/404 unit + 53/53 dotnet + 48/48 e2e, R1 row appended to Review log.
+- **Worktree:** `C:\src\sub-invaders-wt\wt-cs04-content`.
+- **agent-harness pin:** `v0.5.1`. Local `C:\src\agent-harness` checked out at `v0.5.1` for sync-check (was on cs46 branch — stashed before checkout).
+- **Next**: dispatch PvI R2 (gpt-5.5 via rubber-duck) at HEAD `64d2c0d5efc0f37a5e9ecffe2d13e6ecbd6f45dd` focusing on PVI-CS04-001/002/003/004 resolution + PVI-CS04-005 (PR body). On Go → `node C:\src\agent-harness\bin\harness.mjs copilot-engage 66` → admin-merge → Phase 3 close-out PR on `cs04/close-out` (rename active→done, fill PvI verdict with `**Reviewer:**`/`**Date:**`/`**Outcome:**` field labels).
