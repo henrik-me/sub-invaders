@@ -1,6 +1,6 @@
 # CS03 — Backend Function project + persistent leaderboard
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-si
 **Branch:** cs03/content
 **Started:** 2026-05-13
