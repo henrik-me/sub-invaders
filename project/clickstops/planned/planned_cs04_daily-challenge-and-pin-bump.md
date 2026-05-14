@@ -153,6 +153,11 @@ Dispatch prompts must include no-commit preflight, explicit ownership, required 
 
 Filled during execution. At minimum, record the chosen harness pin, `sync --mode=apply` command and result, lint/test summaries, scaffold exercise outcomes, three-state validation results, and any harness friction or scaffold mismatch.
 
+## Plan review
+
+| Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
+|---|---|---|---|---|---|---|---|
+| R1 | gpt-5.5 | claude-sonnet-4.6 | rubber-duck dispatched (orchestrator: yoga-si) | cfa059fd4241 | 2026-05-14T07:55:00Z | Go-with-amendments | Grandfathered at v0.5.0 pin-bump per harness CS42-7. Plan content unchanged at backfill; SI orchestrator may add R2 when CS is claimed. |
 ## Plan-vs-implementation review
 
 > _(filled at close-out per the gate)_

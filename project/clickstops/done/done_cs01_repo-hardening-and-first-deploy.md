@@ -71,7 +71,7 @@ Each sub-agent briefing must paste the canonical preamble from `../../../OPERATI
 | 2 | `cs01-security-settings` | No repo files by default; runs `gh api` security, CodeQL, Dependabot, PVR, and App-install verification commands; reports evidence for orchestrator to paste into active CS Notes |
 | 3 | `cs01-governance-docs` | `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `.github/pull_request_template.md`, `.github/CODEOWNERS`, `.github/ISSUE_TEMPLATE/bug_report.md`, `.github/ISSUE_TEMPLATE/feature_request.md` |
 | 4 | `cs01-architecture-author` | `ARCHITECTURE.md` |
-| 5 | `cs01-composed-blocks-customiser` | `template/composed/CONVENTIONS.md` project local block, `template/composed/OPERATIONS.md` project local block, `template/composed/REVIEWS.md` project local block; rendered roots only through `harness sync --mode=apply` if the orchestrator assigns that step |
+| 5 | `cs01-composed-blocks-customiser` | `template/composed/CONVENTIONS.md` project local block, `template/composed/OPERATIONS.md` project local block, `template/composed/REVIEWS.md` project local block; rendered roots only through `harness sync --mode=apply` if the orchestrator assigns that step (compose-v2 docs: https://github.com/henrik-me/agent-harness/) |
 | 6 | `cs01-ci-workflows-author` | `.github/workflows/ci.yml`, `.github/workflows/swa-deploy.yml`, `.github/workflows/workboard-auto-approve.yml`, `.github/dependabot.yml` |
 | 7 | `cs01-azure-provisioning-script` | `infra/provision.sh` |
 | 8 | `cs01-stub-frontend-and-backend` | `src/index.html`, `api/Sub-invaders.Api.csproj`, `api/Program.cs`, `api/host.json`, `api/local.settings.json.example`, `api/HealthFunction.cs`, `api/Sub-invaders.Api.Tests/` |
@@ -170,7 +170,7 @@ G6 Ruleset and G7 security settings are orchestrator-runnable via `gh api` durin
 > `.harness-lock.json`). Post-bump validation: `harness lint` 13/13 pass,
 > `harness sync --mode=check` clean, `dotnet test` 1/1 pass.
 
-- **Composed-blocks plan wording (A5):** CS01 plan deliverable 6 says "edit `template/composed/CONVENTIONS.md`" (harness-repo perspective) but consumer repos edit root `CONVENTIONS.md` directly. Future plans should use consumer-relative paths.
+- **Composed-blocks plan wording (A5):** CS01 plan deliverable 6 says "edit `template/composed/CONVENTIONS.md`" (harness-repo perspective; see https://github.com/henrik-me/agent-harness/) but consumer repos edit root `CONVENTIONS.md` directly. Future plans should use consumer-relative paths.
 - **SDK glob collision (A8):** `Microsoft.NET.Sdk` default `**/*.cs` glob picks up subdirectory test files. Fix: explicit `<Compile Remove="Sub-invaders.Api.Tests/**" />` in main csproj.
 - **HttpRequestData mocking (A8):** `HttpRequestData` is abstract and requires a live DI container to mock; CS01 test uses constant-string assertion (`HealthFunction.ResponseBody`) as a pragmatic workaround. Real HTTP-shape integration tests deferred to CS03+.
 - **az CLI version drift (A7, R6):** `az consumption budget create --resource-group` scope is unreliable across `az` 2.x minor versions. `provision.sh` uses ARM REST PATCH for budget notifications as a stable fallback (non-fatal if it fails).

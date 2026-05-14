@@ -75,6 +75,23 @@ workboard PR. It prompts the user only if stale `open` learnings tagged
 `claim_area` metadata for the current CS area. Resolve stale learnings
 before the workboard-claim PR lands.
 
+### Pre-claim planning-locality self-check (CS35 C35-11)
+
+Before claiming any CS, verify no strategic planning content lives outside
+the canonical `project/clickstops/{planned,active,done}/**` arc:
+
+1. Run `node scripts/check-planning-locality.mjs --cwd .` — must exit 0.
+   (Also runs as part of `harness lint` per CS35.)
+2. If the orchestrator's session-state plan file (`~/.copilot/session-state/<id>/plan.md`)
+   contains anything beyond (a) which CS this session is currently executing
+   and (b) ephemeral todos for that one CS, externalize the strategic content
+   into `project/clickstops/planned/planned_csNN_<slug>.md` BEFORE claiming.
+   Session storage is non-durable; any agent restart, model swap, or handoff
+   must succeed from the repo alone (per Decision C35-11).
+3. Issues filed by the agent are forbidden (Decision C35-13). GitHub issues
+   are an INBOUND channel from external contributors / the user; the agent
+   reads them as input to file CSs but never opens them.
+
 ### Plan-vs-implementation review (close-out gate)
 
 This gate is **mandatory** before opening the close-out PR and before
@@ -125,6 +142,89 @@ branch and re-run the gate before proceeding.
 `check-clickstop.mjs` enforces the presence of the
 `## Plan-vs-implementation review` section and its required content for all
 `done/` files. The linter is wired into `harness lint` and runs on every PR.
+
+### Plan review attestation procedure (CS35b)
+
+This procedure is the **planning-phase counterpart** of the close-out gate
+above. Per CS35b decisions C35b-1 through C35b-15, every clickstop file in
+`project/clickstops/planned/` and `project/clickstops/active/` MUST carry a
+`## Plan review` H2 section recording one or more independent plan reviews.
+Done files are exempt — the close-out gate above already covers that surface.
+
+**Reviewer:** GPT-5.5 (rubber-duck). Fallback rules from [REVIEWS.md](REVIEWS.md)
+apply (independence invariant per C35b-4: reviewer model MUST NOT appear in
+the row's `Plan author model(s)` column or in any earlier row's
+`Plan author model(s)`).
+
+**Inputs the reviewer must consume:**
+
+- The full plan file: Background, Decisions, Deliverables, Sub-agent fan-out,
+  Exit criteria, Risks + open questions.
+- Any cross-CS dependencies the plan declares.
+
+**Required outputs the reviewer must produce:**
+
+- A verdict from the enum `Go` | `Go-with-amendments` | `Needs-Fix` (C35b-5).
+- A findings recap ≤ 200 characters suitable for the table cell.
+
+**Recording the review:**
+
+The orchestrator records the review verbatim in the plan file's
+`## Plan review` section, placed after `## Decisions` and before
+`## Deliverables` (per C35b-1). Section template (paste-ready, fill the
+eight cells; compute the hash via `harness plan-review-hash <file>`):
+
+```
+## Plan review
+
+| Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
+|---|---|---|---|---|---|---|---|
+| R1 | <reviewer-model-id> | <author-model-id-1,author-model-id-2,...> | <agent-id (or "rubber-duck dispatched")> | <12-char-hash from `harness plan-review-hash <file>`> | YYYY-MM-DDThh:mm:ssZ | Go | <short summary, ≤200 chars> |
+```
+
+Subsequent amendment rounds append `R2`, `R3`, ... rows below `R1`. The
+latest row's `Reviewed sections hash` MUST equal the SHA-256-prefix-12 of
+the file's current `## Decisions` + `## Deliverables` bodies (per C35b-3 —
+the linter computes this on every run via `lib/plan-review-hash.mjs`).
+
+**Blocking behaviour:**
+
+A `Needs-Fix` latest verdict blocks merge. Apply the requested amendments
+on the same branch, re-dispatch the reviewer, and append a new attestation
+row with the post-amendment hash. The plan-vs-implementation review ladder
+in [REVIEWS.md](REVIEWS.md) (3-round cap, escalate on R3 Needs-Fix) applies
+identically to the planning-phase ladder.
+
+**Strictness asymmetry (C35b-9 / C35b-10 / C42-7):**
+
+- `harness lint` (standalone, pre-PR convenience) ran the linter with
+  `--strict=false` in v0.4.0 (warn-only on missing-section). v0.5.0 (CS42)
+  flipped the default to `true`; standalone lint now ERRORS on missing
+  section by default. Consumers mid-migration can pass `--strict false`
+  explicitly.
+- The PR-time A6 gate dispatched by `harness pr-evidence` (CS36) ALWAYS
+  runs in `--mode=pr-evidence`, which is STRICT regardless of `--strict`.
+  The v0.4.0 asymmetry between local warn and PR strict has been collapsed
+  to "always strict by default" in v0.5.0.
+- Schema / independence / hash / verdict violations are ALWAYS errors,
+  regardless of mode or `--strict`. Only the "section entirely absent"
+  case is governed by the warn-vs-strict toggle.
+
+**Mechanical enforcement:**
+
+`scripts/check-clickstop-plan-review.mjs` (registered as
+`check-clickstop-plan-review` in `harness lint` per CS35b decision C35b-8)
+parses the table, validates the schema, enforces independence, verifies
+hash freshness, and gates on the latest verdict. The CS36 PR-evidence
+aggregator dispatches the same script in strict pr-evidence mode (A6).
+
+**Honor-system caveat (C35b-14):**
+
+The linter cannot verify the claimed reviewer model actually ran. As with
+B1 commit trailers, this is honor-system attestation: the schema enforces
+deliberation; orchestrator discipline + the close-out plan-vs-implementation
+review catch lies. Future CS may add cryptographic evidence; this is
+documented in [LEARNINGS.md](LEARNINGS.md).
 
 ### Enforcement model
 
@@ -444,6 +544,14 @@ need" produces silent gaps that surface as integration failures later.
   cwd, not the harness source location. Never use `import.meta.url` or
   `process.cwd()` to resolve consumer-repo files.
 
+- Cross-repo path discipline (LRN-105). When a sub-agent operates in a repo
+  OTHER than the orchestrator's, every path in the briefing must be rooted
+  in the executing repo. For composed-block edits in a consumer repo:
+  edit `<consumer-root>/<file>` between `<​!-- harness:local-start id=X -->`
+  markers, NOT `template/composed/<file>` (that path only exists in the
+  harness repo). Disambiguate any `template/`, `scripts/`, or other
+  directory name that exists in both repos with different semantics.
+
 - Fail-closed parsers (LRN-033). Malformed JSON/YAML/etc → clear error
   message to stderr + process.exit(1). NEVER silent default. NEVER let a
   stack trace be the only error signal.
@@ -487,6 +595,93 @@ missing fields explicitly listed.
     NEXT STEPS (if partial/blocked):
       - <what's needed to complete>
 ```
+
+### Canonical reviewer preamble (CS35 C35-1)
+
+When dispatching a rubber-duck reviewer (per [REVIEWS.md § 2.1](REVIEWS.md#21-review-model)),
+the orchestrator MUST paste the block below verbatim into the dispatch.
+Reviewer dispatch ownership lives with the orchestrator — the harness CLI
+never emits prompts, never paste-protocols, never calls an LLM API
+(per Decision C35-1).
+
+The block is delimited by sentinel markers so `tests/operations-reviewer-preamble.test.mjs`
+can assert presence and required-field coverage:
+
+<!-- harness:reviewer-preamble:start -->
+## Reviewer dispatch — canonical preamble
+
+**role:** Independent rubber-duck reviewer for the active CS.
+
+**scope:** Review the diff at the current HEAD against the base branch,
+the active CS file (Decisions, Deliverables, Tasks), the test count delta,
+and any sub-agent reports. Produce findings classified per
+REVIEWS.md § 2.6 (Blocking | Non-blocking | Suggestion).
+
+**independence-invariant:** Your model MUST NOT appear in the active CS file's
+`## Model audit` `Implementer models` field. If it does, refuse the dispatch
+and instruct the orchestrator to escalate per the C35-2 fallback ladder.
+Beyond model independence, agent-identity independence (CS35 C35-18) also
+applies: your GitHub username MUST differ from the implementer agent's.
+
+**model-fallback-ladder (per CS35 C35-2):** GPT-highest-available
+(5.5 → 5.4 → ...) → Claude Sonnet-highest (4.7 → 4.6 → ...) → orchestrator's
+own model (last resort, requires explicit user waiver and is forbidden for
+HIGH-RISK CSs per REVIEWS.md § 2.3).
+
+**output-schema-link:** Your report MUST conform to REVIEWS.md § 2.6
+(Findings taxonomy) and § 2.7 (Finding disposition). For
+plan-vs-implementation reviews, also conform to OPERATIONS.md
+§ Plan-vs-implementation review (close-out gate). Always report a verdict:
+`Go` / `Needs-Fix` / `Block`.
+
+**required-output-fields:** Every plan-vs-implementation review row you (or the orchestrator on your behalf) record in the active CS file's `## Plan-vs-implementation review` table MUST contain these five fields, in this order:
+
+- `model:` the reviewer model identifier (e.g., `gpt-5.5`) — drawn from the C35-2 fallback ladder above; must satisfy the independence invariant against `Implementer models`.
+- `branch HEAD SHA:` the full 40-char SHA you reviewed against. Per CS35 C35-3 stale-diff doctrine, a verdict row whose SHA ≠ current HEAD at merge time is INVALID and forces a re-review (A4 enforces this mechanically in CS36).
+- `R-round:` `R1` / `R2` / `R3`. Capped at 3 rounds per C35-2; if R3 returns Needs-Fix, the orchestrator MUST escalate to the user rather than open R4.
+- `verdict:` exactly one of `Go` / `Needs-Fix` / `Block` (matches `output-schema-link` above and the A3/A4 PR-evidence parsers in CS36).
+- `evidence link:` a PR comment URL, commit SHA, or file:line reference that cites the primary artefact(s) supporting the verdict. No vibes-based verdicts.
+<!-- harness:reviewer-preamble:end -->
+
+After pasting the block, append CS-specific context (which CS, which files
+changed, which prior review rounds are on file). Do not modify the block itself.
+
+### Post-review validation (CS40 — `harness review-output`)
+
+After the dispatched reviewer returns its markdown output, the orchestrator
+MUST validate the output's content shape via `harness review-output` before
+recording the verdict in the active CS file's `## Plan-vs-implementation
+review` table or in the PR body's `## Review log`. This closes #145 gap #3
+(PR #28's reviewer summary-passed YAML / package.json without per-file
+enumeration; the linter would have caught that).
+
+```
+harness review-output \
+  --review-output <path-to-reviewer-markdown> \
+  --round R1 \
+  --base <merge-base-sha> \
+  --head <pr-head-sha> \
+  [--prev-head <prior-head-sha>]   # required for --round Rn
+  [--repo <owner/repo> --pr <num> --reviewer-model <id>]   # independence guard
+  [--update-pr]   # idempotently appends a row to the PR body's ## Review log
+```
+
+What the linter checks (per CS40 C40-2/3/5):
+
+- Reviewer output has an `Analyzed HEAD: <40-char-sha>` line near top.
+- For `--round R1`, the per-file enumeration exactly matches `git diff
+  --name-only <base>..<head>` (missing files = error; extras = warning).
+- Each finding row matches `- [Blocking|Non-blocking|Suggestion] <file>:<line>: <desc>`.
+- Verdict line `Verdict: {Go|Needs-Fix|Block}` is present near end. Verdicts
+  ≠ Go require at least one finding row.
+- Optional independence-invariant guard: if `--repo`/`--pr`/`--reviewer-model`
+  are all provided, fetches the PR body via `gh` and asserts the reviewer
+  model is NOT in the implementer model set.
+
+Exit 0 = pass (warnings allowed); exit 1 = at least one error; exit 2 = bad
+usage. The aggregator `harness pr-evidence` does NOT include this gate (per
+C40-8 — it requires the reviewer-output file which is not available in CI);
+this is a standalone orchestrator-side step.
 
 ### Sub-agent report shape (mandatory)
 
@@ -580,6 +775,277 @@ invariants may require 5–8 rounds ([LRN-024](LEARNINGS.md#lrn-024)).
 
 ---
 
+## Copilot engagement procedure (CS35 C35-10, updated CS37 + CS41)
+
+GitHub Copilot review engagement on a content PR (gate A16 in REVIEWS.md
+PR-evidence list) is performed locally by the orchestrator using
+`harness copilot-engage` (CS41). The CI workflow only VERIFIES
+the engagement happened (PR-evidence gate dispatched by
+`harness pr-evidence` via `scripts/check-copilot-review.mjs` from CS37);
+CI never mutates the PR.
+
+**Spike outcome (CS37, ADR-0004):** the `requestReviews` GraphQL mutation
+REJECTS the Copilot reviewer ID with "Could not resolve to User node"
+because the Copilot reviewer is `__typename: Bot`, not `User`. The
+documented engagement primitive is therefore the REST-backed
+`gh pr edit --add-reviewer` invocation that `harness copilot-engage`
+wraps — NOT a GraphQL mutation. See `docs/adr/0004-copilot-graphql-spike.md`
+for the full transcript.
+
+### Recommended invocation (CS41+):
+
+```
+harness copilot-engage <pr-number> [--repo owner/name] [--no-poll] [--poll-timeout 300] [--submitted-after <iso>]
+```
+
+The CLI:
+
+1. Auto-detects `--repo` from the current working directory's `git remote origin url`
+   when omitted. Errors with a clear message on detached/missing remotes.
+2. Resolves the Copilot reviewer's Bot node ID via `node(login:)` / `... on Bot`
+   GraphQL fragment (cached for 7 days under `~/.cache/harness/copilot-id.json`
+   per C41-2).
+3. Shells out to `gh pr edit <pr> --add-reviewer copilot-pull-request-reviewer` to
+   request the review (per ADR-0004 § ADR4-2 — `requestReviews` GraphQL rejects
+   Bot IDs).
+4. Polls the PR's reviews via GraphQL every 30s up to `--poll-timeout` (default 300s);
+   exits 0 when at least one Bot review by `copilot-pull-request-reviewer` with state
+   ∈ {APPROVED, COMMENTED, CHANGES_REQUESTED} is observed at the current PR head AND
+   submitted at or after the engage-request timestamp (or the explicit
+   `--submitted-after <iso>` floor if provided). The submitted-after floor enforces
+   the A5 ordering doctrine: a stale Copilot review on the same HEAD that predates
+   the latest local Go MUST NOT satisfy the gate.
+5. Exits 0 immediately after the request when `--no-poll` is set (CI use case
+   where verification happens in a separate job).
+6. Exits 2 on fork PRs (`isCrossRepository == true`) with the maintainer-rerun
+   hint per ADR4-6.
+
+The poll predicate is identical to the A5+A16 gate
+(`scripts/check-copilot-review.mjs`) so "engage CLI says satisfied" =
+"PR-evidence gate says satisfied".
+
+### Manual fallback (only if `harness copilot-engage` is unavailable):
+
+1. Request a Copilot review with the maintainer's `gh` auth:
+   ```
+   gh pr edit <pr-number> --add-reviewer copilot-pull-request-reviewer
+   ```
+2. Wait 3–5 minutes; Copilot's review pipeline is asynchronous (typically
+   delivers within ~3 minutes per spike S3).
+3. Verify the review was submitted AND is on the current HEAD:
+   ```
+   gh api graphql -f query='
+     query($owner: String!, $name: String!, $pr: Int!) {
+       repository(owner: $owner, name: $name) {
+         pullRequest(number: $pr) {
+           headRefOid
+           reviews(last: 20) {
+             nodes {
+               state
+               submittedAt
+               commit { oid }
+               author { __typename ... on Bot { login } ... on User { login } }
+             }
+           }
+         }
+       }
+     }' -F owner=<owner> -F name=<repo> -F pr=<pr-number>
+   ```
+   The CS37 verifier `scripts/check-copilot-review.mjs` runs the same
+   query and enforces A5 + A16 (state, currency, ordering vs local Go).
+4. Address every Blocking finding before merge per REVIEWS.md § 2.7.
+
+Decision authority: step (1) requires maintainer credentials; the
+harness CLI MUST run engagement only under the maintainer's `gh` auth,
+never under a CI `GITHUB_TOKEN` (which is read-only on fork PRs anyway
+per Decision C35-9).
+
+### A5 ordering doctrine (PR #172 reconfirmation, CS40):
+
+Each new HEAD requires a NEW `R` row in the PR body's `## Review log`
+section. The latest local Go row's timestamp must be BEFORE the
+most-recent Copilot review's `submittedAt`. If you add a Go row AFTER
+Copilot has reviewed, you MUST re-engage Copilot (re-run
+`harness copilot-engage <pr>`) so a new review lands on the new HEAD.
+Wait ~3–4 minutes for the new review then re-run failed CI jobs. The
+A5+A16 gate enforces this strict ordering mechanically.
+
+CI implication (ADR4-8): an engage-and-verify workflow run will always
+fail the verify step on first execution because the review is delivered
+asynchronously after the workflow completes. CS38a CI splits engage
+and verify into separate jobs/events (e.g. engage on `pull_request`,
+verify on a later `pull_request_review` or scheduled rerun).
+
+Fork PR caveat (ADR4-6): on `pullRequest.isCrossRepository == true`, the
+`check-copilot-review` gate exits 2 with a maintainer-rerun hint —
+forks cannot self-engage Copilot under their own token. `harness copilot-engage`
+mirrors this exit-2 behavior on fork PRs.
+
+---
+
+## PR-evidence aggregator (CS36)
+
+`harness pr-evidence` is the **single entry point** that runs the mechanical
+PR-state evidence gates against an open PR's commit graph and body markdown.
+It exists as a separate subcommand (not folded into `harness lint`) because
+PR-state checks need PR context (`--base`, `--head`, `--pr-body`) that
+default `harness lint` runs do not have (per CS35 decision C35-17).
+
+### Gates registered
+
+| Gate | Predicate script | Owns |
+|---|---|---|
+| B1 | `scripts/check-pr-commits.mjs` | Every commit in `<base>..<head>` carries the `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>` trailer. |
+| A3 | `scripts/check-review-evidence.mjs` | PR body's `## Model audit` rows have no implementer-vs-reviewer model overlap. |
+| A4 | `scripts/check-review-evidence.mjs` | PR body's `## Review log` latest `Go` row's `analyzed_head` equals `--head`. |
+| A5+A16 | `scripts/check-copilot-review.mjs` | (CS37) Copilot review verifier — confirms `copilot-pull-request-reviewer` (`__typename: Bot`) submitted a review at the current HEAD with state in `{COMMENTED, APPROVED, CHANGES_REQUESTED}` AND submitted-at is after the latest local Go (A5 ordering, ADR4-5). Conditional dispatch: requires `--repo` + `--pr`; skipped with notice otherwise. Forks exit 2 with maintainer-rerun hint per ADR4-6. |
+| A6 | `scripts/check-clickstop-plan-review.mjs` | Diff-scoped: any planned/active CS file in the PR diff carries a fresh `## Plan review` row with verdict in `{Go, Go-with-amendments}` (predicate from CS35b, `--files <csv>` invocation per CS36 C36-11). |
+
+A3 and A4 share a single script because they parse the same PR body. A6
+re-uses the CS35b predicate; the aggregator computes the diff-scoped file
+list (`git diff --name-only $base..$head -- project/clickstops/{planned,active}/`)
+and threads it via `--files` so that pre-arc grandfathered files cannot
+fail unrelated PRs ([LRN-108](LEARNINGS.md#lrn-108)). A5+A16 is a single
+script because both gates share the same GraphQL fetch — exposing them as
+two scripts would double the API spend without adding signal (per ADR4-3).
+
+### Canonical local invocation (orchestrator pre-PR sanity check)
+
+```sh
+PR_BODY=$(mktemp)
+gh pr view <num> --json body --jq .body > "$PR_BODY"
+node bin/harness.mjs pr-evidence \
+  --base "$(gh pr view <num> --json baseRefOid --jq .baseRefOid)" \
+  --head "$(gh pr view <num> --json headRefOid --jq .headRefOid)" \
+  --pr-body "$PR_BODY"
+```
+
+Exits 0 when all gates pass, 1 on any gate failure, 2 on bad usage.
+
+### Canonical CI invocation (CS38a wiring)
+
+The harness ships a managed workflow template at
+`template/managed/.github/workflows/pr-evidence-lint.yml` (added by CS38a).
+Consumers opt in via `harness init --enable-review-gates` (writes the
+`review_gates` block in `harness.config.json`, migrates
+`.github/pull_request_template.md` from the `managed` to the `composed`
+file class so consumers can keep custom prose, and prints branch-protection
+instructions per C38a-7/8) and the next `harness sync` lands the workflow
+in the consumer repo.
+
+The workflow is split into TWO jobs per [ADR4-8 (`docs/adr/0004-copilot-graphql-spike.md`)](https://github.com/henrik-me/agent-harness/blob/main/docs/adr/0004-copilot-graphql-spike.md):
+
+- **`read-only-gates`** runs on `pull_request` (`opened`, `synchronize`,
+  `reopened`, `edited` per [LRN-100](LEARNINGS.md#lrn-100)) with
+  `permissions: { contents: read, pull-requests: read }`. Computes
+  `--skip-reasons` from the event payload (workboard-only label,
+  `[bot]`-suffix login, fork detection via `head.repo != base.repo`),
+  then invokes `node "$HARNESS_DIR/bin/harness.mjs" pr-evidence` with
+  `--base $PR_BASE_SHA --head $PR_HEAD_SHA --pr-body /tmp/pr-body.md
+  --repo $GH_REPO_FULL --pr $PR_NUM`. This job NEVER mutates the PR.
+- **`mutation-engage`** runs on `workflow_dispatch` only, with
+  `permissions: { contents: read, pull-requests: write }`. Calls
+  `gh pr edit "$PR_NUM" --add-reviewer copilot-pull-request-reviewer`
+  per ADR4-2. Engagement and verification MUST live on separate events
+  because Copilot delivers reviews asynchronously (~3 min); a single-run
+  engage-and-verify will always fail the verify step the first time.
+
+The workflow uses the canonical clone-then-`node bin/harness.mjs` install
+pattern from `.github/workflows/harness-checks.yml` (NOT `npx harness@<ref>`
+— `harness` is a private package and npm 10.8.x's GitFetcher regression
+makes `npx` invocation flaky). The derive-ref step validates the resolved
+ref against the allowlist `^[a-zA-Z0-9._/-]+$` (CS12 R1 — shell-injection
+hardening) and uses environment-variable indirection for all interpolation.
+
+CI step is OPT-IN per repository (consumers list
+`pr-evidence-lint / read-only-gates` in their branch ruleset's required
+status checks). The instruction block emitted by `harness init
+--enable-review-gates` is intentionally manual: the harness CLI does not
+assume maintainer authority to apply branch rulesets remotely.
+
+### Skip-reasons matrix (CS35 C35-19 / CS36 C36-5)
+
+The aggregator centralises skip semantics so individual gate scripts do not
+duplicate skip logic. The caller (CI workflow or orchestrator) computes
+skip applicability and passes via `--skip-reasons <csv>`:
+
+| Skip reason | B1 | A3 | A4 | A6 | Notes |
+|---|---|---|---|---|---|
+| `workboard-only` | skip | skip | skip | skip | Short-circuits to exit 0; used for workboard-only PRs (claim/close-out) per CS35-7. |
+| `bot-author` | skip | skip | skip | run | A6 still runs because plan attestation is not author-dependent. |
+| `fork-source` | run | run | run | run | Read-only gates remain in force; A16 (CS41) is the gate this reason will skip. |
+
+The harness MUST NOT call `gh pr view` or any other authenticated API to
+determine skip applicability — caller computes and passes the CSV. This
+keeps `harness pr-evidence` callable from forked PR contexts where the
+runner has only `read` permissions (per CS35 C35-9).
+
+### Output modes
+
+- Default: human-readable per-gate sections + a summary line listing
+  pass/fail counts.
+- `--quiet`: suppresses per-gate output; prints only the summary line.
+  Suitable for CI logs that want to surface failure detail only via
+  `actions/upload-artifact` of the gate-specific stderr streams.
+- `--json`: emits a structured `{gates: [{name, status, exitCode}]}`
+  payload to stdout. Suitable for downstream tooling (e.g. PR comment
+  renderers added in a future CS).
+
+### Wiring discipline
+
+The `harness lint` aggregator (root linter) MUST NOT register the three
+PR-evidence linters. Wiring them into `harness lint` would force every
+local lint run to require `--base`/`--head`/`--pr-body`, which is hostile
+to the local pre-PR convenience use case (per CS35 decision C35-17). The
+PR-evidence linters are dispatched ONLY via `harness pr-evidence`.
+
+---
+
+## Init
+
+`harness init` bootstraps a consumer repo with the harness file-class
+manifest, scaffolds `harness.config.json` and `.harness-lock.json`, and
+optionally opts the project into the PR-evidence gate set.
+
+### `--enable-review-gates` (CS38a)
+
+Passing `--enable-review-gates` to `harness init` performs three idempotent
+operations:
+
+1. **Patches `harness.config.json`** with a `review_gates` block — by default
+   `{ enabled: true, copilot_required: true, gate_set: ['B1','A3','A4','A5','A16','A6'] }`.
+   The default gate set is the CS37 spike PASS branch — full A5+A16
+   enforcement (per [ADR4-1](https://github.com/henrik-me/agent-harness/blob/main/docs/adr/0004-copilot-graphql-spike.md)).
+   Custom gate sets are accepted via direct config edit; the schema enum
+   bounds the vocabulary.
+2. **Migrates `.github/pull_request_template.md`** from `managed.files`
+   to `composed.files` via `lib/file-class-migration.mjs`. The composed
+   override gets `_inherited_class: 'managed'` (records the prior class
+   for future audit) and `local_blocks: ['pull-request.review-evidence']`
+   (the marker block carrying the `## Model audit` + `## Review log`
+   tables that CS37's A5+A16 + CS36's A3+A4 read). Consumers that
+   already have local prose in their PR template need to re-add it
+   (the marker block is appended; outside-marker prose from the prior
+   managed template is preserved as the composed skeleton).
+3. **Lands the workflow file** `template/managed/.github/workflows/pr-evidence-lint.yml`
+   in the consumer repo on the next `harness sync`.
+
+After completion, the command prints a branch-protection instruction
+block. The instruction is intentionally manual — the harness CLI does
+NOT silently apply branch rulesets because branch-protection mutations
+require maintainer authority that the harness deliberately does not
+assume (per C38a-8).
+
+The flag is opt-in (`review_gates.enabled` defaults to `false` in
+v0.4.0). The default flips to `true` in v0.5.0 (CS41) once the
+`harness copilot-engage` wrapper closes the manual-step gap.
+
+Idempotency: re-invoking `harness init --enable-review-gates` on an
+already-migrated repo is a no-op (re-emits the instruction block,
+makes no config or filesystem changes).
+
+---
+
 ## Sync
 
 `harness sync` updates managed and composed files in a consumer repo from the
@@ -622,6 +1088,26 @@ pinned harness version recorded in `.harness-lock.json`.
 | **composed** | Re-render template sections; splice in preserved local-block contents. Consumer prose outside markers is replaced; block contents are kept verbatim. |
 | **seeded** | Create if missing (seed once); skip completely if the file already exists. |
 | **excluded** | Never touched (e.g. `README.md` per ADR 0002). Listed in `harness.config.json` `excluded[]`. |
+
+### `review_gates` block currency (CS38a / CS41)
+
+`harness sync` checks the `review_gates` block in `harness.config.json`
+against the version pinned in `.harness-lock.json`:
+
+- **v0.4.0 (CS38a):** if `review_gates` is absent, sync emits a WARN
+  to stderr advising the consumer to run `harness init
+  --enable-review-gates` to opt in. Sync still succeeds (exit 0). The
+  warning is suppressed by `--quiet`.
+- **v0.5.0 (CS41):** the warn is escalated to an ERROR — sync exits 1
+  unless `review_gates` is present (any value, including `enabled: false`).
+  Consumers that want to remain opted-out must EXPLICITLY record
+  `review_gates: { enabled: false }` to acknowledge the choice. Silent
+  absence is no longer a valid state because by v0.5.0 the gates are
+  the default expectation, not the exception.
+
+Document this escalation path in CS41's release notes; the v0.5.0
+upgrade guide must list the manual edit required for any consumer
+that wants opt-out without invoking `harness init --enable-review-gates`.
 
 ### Composed file sync invariant
 

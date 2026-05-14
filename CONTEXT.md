@@ -61,7 +61,7 @@ Highlights:
   toolchain at `Microsoft.NET.Test.Sdk 18.5.1` + `xunit.runner.visualstudio
   3.1.5`; actions at `actions/checkout 6.0.2` + `actions/setup-node 6.4.0`
   + `actions/setup-dotnet 5.2.0`.
-- Harness pin: `v0.3.1` (bumped from v0.1.0 mid-CS01 to absorb upstream fixes).
+- Harness pin: `v0.5.0` (bumped from `v0.3.1` in CS11; skipped `v0.4.0` since CS10 was never claimed and is fully subsumed by CS11). The v0.5.0 release ships review_gates default-on, the new `cs-plan` / `clickstop-plan-review --strict` linters, the `harness copilot-engage` CLI, and the `Implementer agent` + `Reviewer agent` columns in `## Model audit`. PR template migration to composed-v2 is deferred (existing SI custom template structure does not map cleanly; tracked as a follow-up). `cs_plan_lint.forbidden_path_prefixes` is overridden to `template/composed/` + `template/seeded/` only as a workaround for [henrik-me/agent-harness#183](https://github.com/henrik-me/agent-harness/issues/183) (default list flagged universal consumer-repo dirs `scripts/`, `bin/`, `lib/`).
 - Test counts: backend `dotnet test api/` 1/1 passing; frontend `node --test`
   on `src/` + `scripts/` reports **134 tests passing** (was 0 at end of CS01;
   CS02 added 117, CS02 follow-up PR #20 added another 17 — `constants.test.mjs`
@@ -77,7 +77,7 @@ Highlights:
 
 ## Constraints
 
-See `.harness-known-constraints.md` for repository tier and disposition (detected 2026-05-11T01:10:46.511Z).
+See `.harness-known-constraints.md` for repository tier and disposition (detected 2026-05-14T14:51:09.548Z).
 
 ## Architecture pointer
 

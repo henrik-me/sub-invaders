@@ -84,23 +84,40 @@ On the next `harness sync` after upgrading the pin to `v0.5.0`:
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| D1 — Configure `cs_plan_lint.forbidden_path_prefixes` workaround in `harness.config.json` | pending | orchestrator | Per filed agent-harness issue [#183](https://github.com/henrik-me/agent-harness/issues/183): narrow defaults to `template/composed/` + `template/seeded/` until upstream fix lands. Removes 27 false-positive `cs-plan` violations on SI's legitimate `scripts/` / `bin/` / `lib/` references. |
-| D2 — Backfill `## Plan review` grandfather rows on `planned_cs04`, `planned_cs05`, `planned_cs06`, `planned_cs08` | pending | orchestrator | Per C11-4. Use `Verdict: Go-with-amendments`; recap: "grandfathered at v0.5.0 pin-bump per harness CS42-7"; reviewer model independent of implementer model. |
-| D3 — Add `review_gates` block to `harness.config.json` (per C11-3) | pending | orchestrator | Hand-add `{"enabled": true}` since CS10 was never claimed (otherwise `harness sync --mode=check` ERRORs in v0.5.0). |
-| D4 — Bump `harness.config.json#version` from `v0.3.1` → `v0.5.0` | pending | orchestrator | Skip v0.4.0 (CS10 superseded by this CS). |
-| D5 — Run `harness sync --mode=apply` and accept the resulting diff | pending | orchestrator | Composed PR template gains `Implementer agent` + `Reviewer agent` rows; `pr-evidence-lint.yml` workflow added; OPERATIONS.md / REVIEWS.md doctrine sections refresh. |
-| D6 — Verify `harness lint --quiet` exits 0 | pending | orchestrator | Address remaining true-positive `cs-plan` violations (e.g., `done_cs01:74,173` referencing `template/composed/...` in inline code). |
-| D7 — Verify `harness sync --mode=check` exits 0 | pending | orchestrator | Confirms no drift after the apply. |
-| D8 — Re-confirm `pr-evidence-lint / read-only-gates` is still a required check on `main` branch protection | pending | orchestrator | Per C11-8 (sync does not touch repo settings). |
-| D9 — Update `CONTEXT.md` to record the pin bump v0.3.1 → v0.5.0 (skipping v0.4.0) | pending | orchestrator | Per deliverable 7. |
-| D10 — Engage Copilot review on the CS11 content PR via the new `harness copilot-engage <pr>` CLI | pending | orchestrator | Per C11-7; validates the new CLI ships working. |
-| D11 — Move `planned_cs10_pin-harness-v0.4.0.md` → `done/done_cs10_pin-harness-v0.4.0.md` with supersession header (per C11-2) | done | orchestrator | Done in this claim PR. |
+| D1 — Configure `cs_plan_lint.forbidden_path_prefixes` workaround in `harness.config.json` | done | orchestrator | Per filed agent-harness issue [#183](https://github.com/henrik-me/agent-harness/issues/183): narrow defaults to `template/composed/` + `template/seeded/` until upstream fix lands. Removes 27 false-positive `cs-plan` violations on SI's legitimate `scripts/` / `bin/` / `lib/` references. |
+| D2 — Backfill `## Plan review` grandfather rows on `planned_cs04`, `planned_cs05`, `planned_cs06`, `planned_cs08` | done | orchestrator | Per C11-4. R1 row each: reviewer `gpt-5.5`, author `claude-sonnet-4.6`, verdict `Go-with-amendments`, hash via `node bin/harness.mjs plan-review-hash`. |
+| D3 — Add `review_gates` block to `harness.config.json` (per C11-3) | done | orchestrator | `harness init --enable-review-gates` populated `enabled: true` + `copilot_required: true` + `gate_set: [B1, A3, A4, A5, A16]`. |
+| D4 — Bump `harness.config.json#version` from `v0.3.1` → `v0.5.0` | done | orchestrator | Skip v0.4.0 (CS10 superseded by this CS). |
+| D5 — Run `harness sync --mode=apply` and accept the resulting diff | done | orchestrator | 3 composed files refreshed (CONVENTIONS / OPERATIONS / REVIEWS). `pr-evidence-lint.yml` workflow created via `harness init --enable-review-gates`. |
+| D6 — Verify `harness lint --quiet` exits 0 | done | orchestrator | All 17 linters pass under v0.5.0; 8 skipped (target not found). |
+| D7 — Verify `harness sync --mode=check` exits 0 | done | orchestrator | "No drift detected" after settle. |
+| D8 — Re-confirm `pr-evidence-lint / read-only-gates` is still a required check on `main` branch protection | pending | user | Per C11-8 — `harness init` printed the manual instruction; orchestrator cannot apply branch rulesets. |
+| D9 — Update `CONTEXT.md` to record the pin bump v0.3.1 → v0.5.0 (skipping v0.4.0) | done | orchestrator | Per deliverable 7. |
+| D10 — Engage Copilot review on the CS11 content PR via the new `harness copilot-engage <pr>` CLI | pending | orchestrator | Per C11-7; validates the new CLI ships working. Run after PvI / GPT-5.5 review is clean. |
+| D11 — Move `planned_cs10_pin-harness-v0.4.0.md` → `done/done_cs10_pin-harness-v0.4.0.md` with supersession header (per C11-2) | done | orchestrator | Done in claim PR #59. |
+| D12 — PR template composed-v2 migration | deferred | orchestrator | `harness init --enable-review-gates` warned `Composed merge failed for ".github/pull_request_template.md": Consumer file contains content outside local blocks that does not match the template`. SI's existing PR template (CS reference / What / Why / Testing / Known limitations / Review log / Model audit) does not map cleanly to the composed shape (Summary / Changes / Testing / Model audit / Notes). Deferred to follow-up CS to avoid scope creep on the pin bump. The PR template line was removed from `harness.config.json#composed.files` to keep `sync --mode=check` clean. |
 | C1 — Close-out: docs/restart-state refreshed (CHANGELOG, restart-state files) | pending | orchestrator | Per OPERATIONS.md close-out procedure. |
 | C2 — Close-out: learnings + follow-up issues filed (incl. issue #183 link); `## Plan-vs-implementation review` filled | pending | orchestrator | Per RETROSPECTIVES.md and OPERATIONS.md close-out procedure. |
 
 ## Notes / Learnings
 
-(filled during execution)
+**Issues filed against agent-harness during this CS:**
+
+- [#183](https://github.com/henrik-me/agent-harness/issues/183) — `cs-plan` linter (NEW in v0.5.0): default `forbidden_path_prefixes` includes universal consumer-repo dirs (`scripts/`, `bin/`, `lib/`) producing 27 false-positives on SI; matcher does not honor inline-code spans (only fenced blocks). Workaround in place: `cs_plan_lint.forbidden_path_prefixes` overridden to `template/composed/` + `template/seeded/` only.
+
+**Other v0.5.0 friction observed (pending decision whether to file):**
+
+1. `cs_plan_lint` schema sets `additionalProperties: false`, so consumer cannot annotate the override with `_workaround_for` / `_reason` fields documenting WHY the default was changed. The SI-internal coverage-thresholds.json convention (per stored memory) uses `_reason` overrides; harness `cs_plan_lint` should accept the same pattern.
+2. `harness init --enable-review-gates` seeded a 0-byte `.gitkeep` at the consumer repo root (from the harness seeded-templates `.gitkeep` placeholder). Root-level `.gitkeep` is meaningless and was removed manually. Likely the seeded `.gitkeep` should only be dropped inside otherwise-empty dirs, not at root.
+3. PR template composed-v2 migration is non-trivial: SI's existing template structure (CS reference / What / Why / Testing / Known limitations / Review log / Model audit) does not map cleanly to the composed shape (Summary / Changes / Testing / Model audit / Notes). Migration deferred via removing the entry from `composed.files`. A `legacy_composed_mapping.json` story or a friendlier "first-time migration" mode would help.
+
+**Migration recap:**
+
+- 29 → 0 `cs-plan` violations after the workaround config (27 of 29 were false positives on `scripts/` / `bin/` / `lib/`).
+- 4 → 0 `clickstop-plan-review` errors after backfilling grandfather rows on `planned_cs04` / `planned_cs05` / `planned_cs06` / `planned_cs08` with reviewer = `gpt-5.5`, author = `claude-sonnet-4.6`.
+- 1 sync ERROR ("review_gates is now opt-out by default in v0.5.0") resolved by `harness init --enable-review-gates`.
+- 7 `clickstop-implementer-not-reviewer` warnings remain (deferred per C11-5 — backfill in v0.6.0 cycle when `--strict-agent-columns` flips to error).
+- All 17 v0.5.0 linters PASS; `harness sync --mode=check` reports "No drift detected".
 
 ## Plan review
 
