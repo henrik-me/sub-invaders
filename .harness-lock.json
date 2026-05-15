@@ -1,8 +1,8 @@
 {
-  "harness_ref": "unknown",
-  "resolved_sha": "0000000000000000000000000000000000000000",
+  "harness_ref": "v0.5.1",
+  "resolved_sha": "fe2c0b97cae661f9882979662f4d793330510c45",
   "config_schema_version": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
-  "synced_at": "2026-05-14T14:52:48.003Z",
+  "synced_at": "2026-05-15T03:05:31.114Z",
   "files": [
     {
       "target": ".github/workflows/pr-evidence-lint.yml",
@@ -35,16 +35,16 @@
       "target": "OPERATIONS.md",
       "source_template": "template/composed/OPERATIONS.md",
       "class": "composed",
-      "rendered_hash": "7af44ed0bb3dcd5385cf3bcadc6fdaf96d2b78ce7e8acf803831d35f09339320",
-      "action": "skipped",
+      "rendered_hash": "2c9a8af4dc80b5ccf37e291cd266395866cc0551f864d779615081fd71fea164",
+      "action": "updated",
       "blocks": [
         {
           "id": "operations.project-deploy",
           "source_line_range": {
             "start": 1565,
-            "end": 1822
+            "end": 1786
           },
-          "body_hash": "00aab320440e0d219500836093f887c9ee3256e146c26526dcfeaa6d59fc35e7",
+          "body_hash": "df53710f4a1473c4cd2883c9d3b82d460c9c3683aba8701fd12e657c6d1a24f1",
           "template_marker_hash": "c538812699662e1747082864f419826b433df6e5164cdd28e870df72fcc559e5",
           "provenance": "user-authored"
         }
@@ -56,7 +56,7 @@
       "source_template": "template/composed/REVIEWS.md",
       "class": "composed",
       "rendered_hash": "75cc46de64e70c83d7a212ac93660d2cf83cc59dab8e9e5030565ced7a173e87",
-      "action": "skipped",
+      "action": "updated",
       "blocks": [
         {
           "id": "reviews.project-gates",
@@ -75,23 +75,23 @@
   "scaffolds": [
     {
       "name": "feature-flags",
-      "version": "unknown"
+      "version": "v0.5.1"
     },
     {
       "name": "verify-deploy",
-      "version": "unknown"
+      "version": "v0.5.1"
     },
     {
       "name": "container-validate",
-      "version": "unknown"
+      "version": "v0.5.1"
     },
     {
       "name": "seed",
-      "version": "unknown"
+      "version": "v0.5.1"
     },
     {
       "name": "health-check",
-      "version": "unknown"
+      "version": "v0.5.1"
     }
   ],
   "excluded": []

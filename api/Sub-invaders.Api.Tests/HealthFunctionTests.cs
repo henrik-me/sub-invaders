@@ -63,12 +63,40 @@ public class HealthFunctionTests
     }
 
     [Fact]
-    public void BuildInfoProvider_falls_back_to_unknown_when_env_unset()
+    public void BuildInfoProvider_loaded_assembly_exposes_version_and_a_commit_string()
     {
-        System.Environment.SetEnvironmentVariable("SUB_INVADERS_COMMIT", null);
-        System.Environment.SetEnvironmentVariable("GITHUB_SHA", null);
+        // Loaded-assembly smoke test: regardless of whether dotnet build was invoked
+        // with BUILD_COMMIT set or unset, BuildInfoProvider must construct successfully
+        // and expose non-empty Version + Commit strings. The pure-function tests below
+        // cover the actual parsing rules.
         var info = new BuildInfoProvider();
-        Assert.Equal("unknown", info.Commit);
         Assert.False(string.IsNullOrWhiteSpace(info.Version));
+        Assert.False(string.IsNullOrWhiteSpace(info.Commit));
+    }
+
+    [Theory]
+    // Default: MSBuild "1.0.0" with SourceLink-appended source SHA -> "unknown".
+    [InlineData("1.0.0+0123456789abcdef0123456789abcdef01234567", "unknown")]
+    // Default with no SourceLink suffix.
+    [InlineData("1.0.0", "unknown")]
+    // BUILD_COMMIT set to a full 40-char SHA, with SourceLink suffix appended:
+    // returns first 7 chars of the BUILD_COMMIT (NOT the SourceLink suffix).
+    [InlineData("abc1234567890fedcba0987654321abcdef01234+f00ba12abc1234567890fedcba0987654321abcd", "abc1234")]
+    // BUILD_COMMIT set to a 7-char prefix.
+    [InlineData("abc1234+f00ba12abc1234567890fedcba0987654321abcd", "abc1234")]
+    // BUILD_COMMIT alone (no SourceLink suffix), 40 chars.
+    [InlineData("0123456789abcdef0123456789abcdef01234567", "0123456")]
+    // Future-proofing: a deliberately set semantic <Version> like "1.1.0" must NOT be
+    // mistaken for a commit. Hex shape rejects "1.1.0" (period is non-hex).
+    [InlineData("1.1.0+0123456789abcdef0123456789abcdef01234567", "unknown")]
+    [InlineData("2.0.0-beta.1", "unknown")]
+    // Edge cases: too short, mixed garbage, empty.
+    [InlineData("abc12+f00ba12abc1234567890fedcba0987654321abcd", "unknown")]
+    [InlineData("garbage", "unknown")]
+    [InlineData("", "unknown")]
+    [InlineData(null, "unknown")]
+    public void ParseCommitFromInformationalVersion_returns_expected(string? input, string expected)
+    {
+        Assert.Equal(expected, BuildInfoProvider.ParseCommitFromInformationalVersion(input));
     }
 }
