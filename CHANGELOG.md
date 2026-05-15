@@ -244,7 +244,8 @@ once a tagged release exists.
   `Set SUB_INVADERS_COMMIT app setting on prod SWA` / `Azure logout` workflow
   steps; the `Configuring deploy-time commit injection` runbook in
   `OPERATIONS.md` (replaced with the resolution note); `SUB_INVADERS_COMMIT` /
-  `GITHUB_SHA` env-var read in `BuildInfoProvider.ResolveCommit()`.
+  `GITHUB_SHA` env-var fallback logic in `BuildInfoProvider` (replaced by
+  `ParseCommitFromInformationalVersion()` reading the assembly attribute).
 
 
 ### Added (SI-CS07 — 2026-05-13) — End-to-end Playwright tests
