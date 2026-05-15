@@ -75,6 +75,11 @@ const checks = [
         if (commit === 'unknown') {
           return 'health.commit is "unknown" — BUILD_COMMIT was not propagated through the build (Issue #52 regression)';
         }
+        // Always enforce hex shape: BuildInfoProvider only emits 7-hex-or-"unknown".
+        // Anything else means the wire format changed or someone is spoofing the response.
+        if (!/^[0-9a-fA-F]{7}$/.test(commit)) {
+          return `health.commit "${commit}" is not a 7-char hex prefix (BuildInfoProvider contract violation)`;
+        }
         const expected = ctx && typeof ctx.expectedVersion === 'string' ? ctx.expectedVersion : '';
         if (expected && /^[0-9a-fA-F]{7,40}$/.test(expected)) {
           const expectedPrefix = expected.slice(0, 7).toLowerCase();

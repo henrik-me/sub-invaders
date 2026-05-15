@@ -76,6 +76,22 @@ describe('verify-deploy.checks — wired CS02 deliverable 9 probe', () => {
       null,
       'rejects commit:"unknown" (BUILD_COMMIT was not propagated)'
     );
+    // Always enforce hex shape on commit, even when expectedVersion is non-hex.
+    assert.notEqual(
+      c.expect.body('{"commit":"banana1"}', { baseUrl: '', expectedVersion: 'v1.0.0' }),
+      null,
+      'rejects non-hex commit even when expectedVersion is non-hex'
+    );
+    assert.notEqual(
+      c.expect.body('{"commit":"abc123"}', ctx),
+      null,
+      'rejects commit shorter than 7 chars'
+    );
+    assert.notEqual(
+      c.expect.body('{"commit":"abc12345"}', ctx),
+      null,
+      'rejects commit longer than 7 chars (BuildInfoProvider always emits exactly 7)'
+    );
   });
 
   it('health validator accepts a valid commit and (when --expected-version is hex) enforces prefix match', () => {
