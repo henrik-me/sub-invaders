@@ -837,13 +837,15 @@ returned `{"commit":"8b9b149"}` (a real 7-char hex prefix, not "unknown");
 prod after merge returned `{"commit":"a575829"}` matching the merge SHA
 exactly. The pattern is now production-proven.
 
-**Sub-finding (SourceLink suffix):** .NET 5+ auto-applies SourceLink on
-`dotnet build`, which appends `+<source-git-sha>` to whatever
-`InformationalVersion` value MSBuild evaluates. Reflection-based parsers
-must split on `'+'` *before* doing shape validation; otherwise a
-BUILD_COMMIT of e.g. `abc1234567890fedcba0987654321abcdef01234` reads back
-at runtime as `abc1234567890fedcba0987654321abcdef01234+<sha>` and a naïve
-length/format check produces nonsense.
+**Sub-finding (SourceLink suffix):** With the .NET 8 SDK used here, Source
+Link ships in-box and the SDK appends `+<SourceRevisionId>` (the source
+git SHA) to `AssemblyInformationalVersionAttribute` by default. Opt out by
+setting `<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>`
+in the csproj. Reflection-based parsers must split on `'+'` *before* doing
+shape validation; otherwise a BUILD_COMMIT of e.g.
+`abc1234567890fedcba0987654321abcdef01234` reads back at runtime as
+`abc1234567890fedcba0987654321abcdef01234+<sha>` and a naïve length/format
+check produces nonsense.
 
 **Reusability:** This pattern generalises to any string the build pipeline
 needs to surface at runtime (build number, branch name, release channel,
@@ -934,52 +936,80 @@ date: 2026-05-14
 category: process
 source_cs: CS03
 status: open
-tags: [github, copilot, pr-review, engagement, status-checks, a5-a16, issue-52]
+tags: [github, copilot, pr-review, engagement, status-checks, a5-a16, graphql, issue-52]
 ```
 
 **Problem:** This repo's read-only-gates A5+A16 check requires
-`copilot-pull-request-reviewer[bot]` to have submitted a review against the
-*current* PR HEAD. After every push that updates HEAD, Copilot must
-re-review or A5+A16 stays red even when all substantive review feedback is
-addressed. A previously-stored memory implied Copilot review on this repo
-must be requested via the GitHub web UI because both
+`copilot-pull-request-reviewer[bot]` to have submitted a review against
+the *current* PR HEAD. After every push that updates HEAD, Copilot must
+re-review or A5+A16 stays red even when all substantive review feedback
+is addressed. A previously-stored memory implied Copilot review on this
+repo must be requested via the GitHub web UI because both
 `gh pr edit --add-reviewer Copilot` and the REST `requested_reviewers`
 endpoint return 422 ("Copilot is not a collaborator").
 
-**Finding:** PR #72 verified an alternative engagement path:
+**Finding:** Empirical evidence from PR #72 timeline:
 
-```powershell
-gh pr comment <pr-number> --body "@copilot review"
-```
+| time (UTC) | event | source |
+|---|---|---|
+| 03:03:39 | `review_requested` event for `Copilot` | issued by `harness copilot-engage 72` (GraphQL `requestCopilotReview` mutation against the PR node) |
+| 03:07:19 | `copilot-pull-request-reviewer[bot]` posted COMMENTED review on `40e81a8` | triggered by the 03:03:39 request |
+| 03:13:05 | `gh pr comment 72 --body "@copilot review"` posted (after a push to `c73ba62`) | did NOT trigger another review within 10+ min observation window |
 
-posted as a regular issue comment by a maintainer **does** trigger
-`copilot-pull-request-reviewer[bot]` to deliver a `COMMENTED` review
-(typically within 2-5 minutes; occasionally longer). The web UI is not
-required. The harness `copilot-engage <pr>` CLI from agent-harness v0.5.0+
-wraps the same `@copilot review` mention with a poll loop.
+**Confirmed engagement path:** `harness copilot-engage <pr>` from
+agent-harness v0.5.0+. Internally it issues a GraphQL
+`requestCopilotReview` mutation via `lib/github-graphql.mjs` against the
+PR node ID. This bypasses the REST 422 — REST `/requested_reviewers`
+expects a collaborator login string and Copilot is not a collaborator
+user, but the GraphQL mutation accepts the Copilot bot via its node ID
+resolved through the PR's `suggestedReviewers`/`reviewerNodeId` fields.
+
+**Refuted engagement paths:**
+
+- `gh pr edit --add-reviewer Copilot` → 422 "Could not resolve user with
+  login 'copilot'" (still verified on PR #72; old memory accurate on
+  this point).
+- `gh api -X POST /repos/{owner}/{repo}/pulls/{pr}/requested_reviewers
+  -f 'reviewers[]=copilot-pull-request-reviewer'` → 422 "not a
+  collaborator" (still verified on PR #72).
+- `gh pr comment <pr> --body "@copilot review"` → on PR #72, this comment
+  posted at 03:13:05 by the PR author (`henrik-me`, `OWNER` association)
+  did not trigger `copilot-pull-request-reviewer[bot]` to deliver a
+  follow-up review against the new HEAD (no further review submitted
+  within 10+ minutes despite the bot still being responsive elsewhere).
+  This contradicts a common cargo-culted assumption; `@copilot review`
+  comments may be intercepted by the cloud SWE agent or simply silently
+  ignored by the review bot.
 
 **Important caveats observed on PR #72:**
 
 - Copilot delivers `COMMENTED`, never `APPROVED` — A5+A16 accepts a
   COMMENTED review as satisfying the gate.
-- Copilot reviews stale by HEAD: a review attached to commit `X` does not
-  satisfy A5+A16 once the PR is updated to commit `Y`. Re-engaging via
-  another `@copilot review` comment is required.
-- Copilot may fail to re-engage within a reasonable window for trivial
-  doc-only deltas (CHANGELOG-only fix following a substantive review).
-  When all substantive feedback is addressed and the post-review delta is
-  verifiably trivial, admin-merge via `gh pr merge --squash --admin` is
-  the user-pre-authorized path (CS11 precedent).
+- Copilot reviews are HEAD-stale: a review attached to commit `X` does
+  not satisfy A5+A16 once the PR is updated to commit `Y`. Re-engagement
+  requires another `harness copilot-engage <pr>` invocation (which fires
+  a fresh GraphQL mutation), not a `@copilot review` comment.
+- Copilot may not re-engage within a reasonable window (>10 min)
+  for trivial doc-only deltas (CHANGELOG-only fix following a
+  substantive review). When all substantive feedback is addressed and
+  the post-review delta is verifiably trivial, admin-merge via
+  `gh pr merge --squash --admin` is the user-pre-authorized path
+  (CS11 precedent).
 - Inline review comments from Copilot may be **stale relative to the
-  committed code** — Copilot occasionally flags an issue that was already
-  fixed in the same commit it's reviewing. Always verify by reading the
-  current file before treating a Copilot comment as actionable.
+  committed code** — Copilot occasionally flags an issue that was
+  already fixed in the same commit it's reviewing (PR #72 had this
+  exact case: F-003 NIT was already addressed in `40e81a8`, but Copilot
+  reviewing `40e81a8` still flagged the pre-fix line). Always verify by
+  reading the current file before treating a Copilot comment as
+  actionable.
 
-**Disposition:** _(open. Until the read-only-gates A5+A16 check is taught
-to recognise a "previously-reviewed-and-substantively-unchanged" state,
-admin-merge is the documented escape hatch for trivial post-review
-deltas. The `@copilot review` comment path should be preferred over web-UI
-review requests for repeatability and tooling integration.)_
+**Disposition:** _(open. Until the read-only-gates A5+A16 check is
+taught to recognise a "previously-reviewed-and-substantively-unchanged"
+state, admin-merge is the documented escape hatch for trivial
+post-review deltas. `harness copilot-engage <pr>` is the
+documented-and-verified engagement path; do not rely on
+`gh pr comment "@copilot review"` or `gh pr edit --add-reviewer` paths,
+which were both refuted on PR #72.)_
 
 ---
 
