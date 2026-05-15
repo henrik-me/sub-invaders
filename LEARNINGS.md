@@ -784,6 +784,235 @@ in the plan deliverables list, not the Azure-reserved equivalent.)_
 
 ---
 
+### LRN-022
+
+```yaml
+id: LRN-022
+date: 2026-05-14
+category: architectural
+source_cs: CS03
+status: open
+tags: [azure, swa, oryx, dotnet, msbuild, sourcelink, build-time-injection, observability, issue-52]
+```
+
+**Problem:** Issue #52 needed `/api/health` to surface the deployed commit
+SHA. The original plan was a post-deploy `az staticwebapp appsettings set`
+mutation: create an Azure Service Principal scoped to the prod RG, store its
+JSON as `AZURE_CREDENTIALS` repo secret, add four workflow steps
+(creds-check → login → appsettings set → logout), accept a Function host
+cold restart on every `push:main`, and maintain a 70-line OPERATIONS.md
+runbook for one-time setup. Net cost: ongoing SP rotation, GH secret
+maintenance, and a non-atomic deploy (the artifact says "1.0.0" until the
+appsettings call lands and the host restarts).
+
+**Finding:** The same observability requirement is satisfiable with **zero
+secrets, zero post-deploy mutation, and atomicity with the deploy artifact**
+by baking the SHA into `AssemblyInformationalVersionAttribute` at build
+time. Three lines glue the chain end-to-end:
+
+1. `api/Sub-invaders.Api.csproj` PropertyGroup:
+
+   ```xml
+   <InformationalVersion Condition="'$(BUILD_COMMIT)' != ''">$(BUILD_COMMIT)</InformationalVersion>
+   ```
+
+2. `.github/workflows/swa-deploy.yml` job-level `env`:
+
+   ```yaml
+   env:
+     BUILD_COMMIT: ${{ github.sha }}
+   ```
+
+3. `BuildInfoProvider` reads the attribute via reflection at startup and
+   returns `info[..7]` after splitting on SourceLink's `+<sha>` suffix and
+   validating `^[0-9a-fA-F]{7,40}$` shape.
+
+The **load-bearing assumption** is that Oryx (SWA's build engine) forwards
+GitHub-Actions job-level `env:` to the `dotnet build` it invokes
+internally, AND that the .NET SDK auto-promotes env vars to MSBuild
+properties so `$(BUILD_COMMIT)` resolves. Both are documented behaviour but
+had not been observed end-to-end in this specific SWA-managed-Functions
+configuration before. **Verified empirically** on PR #72: staging preview
+returned `{"commit":"8b9b149"}` (a real 7-char hex prefix, not "unknown");
+prod after merge returned `{"commit":"a575829"}` matching the merge SHA
+exactly. The pattern is now production-proven.
+
+**Sub-finding (SourceLink suffix):** With the .NET 8 SDK used here, Source
+Link ships in-box and the SDK appends `+<SourceRevisionId>` (the source
+git SHA) to `AssemblyInformationalVersionAttribute` by default. Opt out by
+setting `<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>`
+in the csproj. Reflection-based parsers must split on `'+'` *before* doing
+shape validation; otherwise a BUILD_COMMIT of e.g.
+`abc1234567890fedcba0987654321abcdef01234` reads back at runtime as
+`abc1234567890fedcba0987654321abcdef01234+<sha>` and a naïve length/format
+check produces nonsense.
+
+**Reusability:** This pattern generalises to any string the build pipeline
+needs to surface at runtime (build number, branch name, release channel,
+deploy timestamp). The MSBuild auto-promotion contract is `env-var-name`
+→ `$(env-var-name)` in MSBuild — no `-p:` flag required, no Oryx-specific
+configuration. Use one MSBuild property per piece of metadata to keep the
+parsing trivial; avoid encoding multiple values into one
+`InformationalVersion` string.
+
+**Disposition:** _(open as the recommended pattern for build-metadata
+injection on SWA-managed Functions. Future tasks needing similar
+observability — release channel, build number, deploy timestamp — should
+follow this template instead of post-deploy app-setting mutation. The
+post-deploy mutation path is only justified when the value isn't known at
+build time, e.g. an external feature-flag toggled per environment.)_
+
+---
+
+### LRN-023
+
+```yaml
+id: LRN-023
+date: 2026-05-14
+category: process
+source_cs: CS03
+status: open
+tags: [agent-harness, sync, lock-file, parallel-sessions, drift, regression, issue-52]
+```
+
+**Problem:** During PR #72 implementation, `harness sync --mode=apply`
+absorbed ~175 lines of OPERATIONS.md prose and ~41 lines of REVIEWS.md
+prose from `docs/file-planned-cs47` (an unreleased feature branch in
+`agent-harness`) into the consumer repo, even though the consumer's
+declared pin was `v0.5.1`. The drift was committed as part of `41136e0`
+on the fix branch and only caught in PvI R2 by an outside-eye review that
+noticed `.harness-lock.json:2` recorded `harness_ref: "docs/file-planned-cs47"`
+instead of `v0.5.1`. Backing it out required a second commit (`40e81a8`)
+that re-pinned the local harness clone to v0.5.1 and re-ran sync, which
+correctly removed the future-branch content.
+
+**Finding:** Two compounding factors:
+
+1. **C:\src\agent-harness gets clobbered by parallel sessions.** Other
+   agents working in parallel sessions checkout different branches in the
+   shared harness clone for their own purposes. There is no per-session
+   isolation. By the time `harness sync` runs, the clone may be on any
+   branch.
+2. **`harness sync --mode=apply` writes file content based on the harness
+   clone's current HEAD, regardless of the consumer's declared pin.** The
+   consumer's `harness.config.json` `version` field is informational; the
+   sync engine reads from the local clone's working tree. There is no
+   safeguard that compares the lock-recorded ref to the clone's HEAD before
+   writing.
+
+**Mitigation:** Always re-pin the local clone *immediately* before any
+`sync --mode=apply` invocation:
+
+```powershell
+cd C:\src\agent-harness; git stash push -u; git checkout v0.5.1
+cd <consumer-worktree>; node C:\src\agent-harness\bin\harness.mjs sync --mode=apply
+```
+
+Re-pinning before only `lint` or `sync --mode=check` is *not* sufficient —
+those operations don't write file content, but a follow-up `apply` against
+a stale clone will. The trap is that `apply` may report "0 changes
+applied" on the first call (when the consumer happens to match whatever
+branch the clone is on) and then later report drift against the
+correctly-pinned ref, leading to revert-and-re-sync churn.
+
+**Detection:** Always verify post-sync that `.harness-lock.json:2`
+`harness_ref` equals the intended pin (e.g. `v0.5.1`), not a branch name
+or `unknown`. PvI reviewers should treat any `harness_ref` value that is
+not a tag as a F-001-class blocking finding.
+
+**Disposition:** _(open. Recommend filing this upstream as an
+agent-harness feature request: `harness sync` should refuse to run if the
+local clone HEAD doesn't match `harness.config.json:version`, with an
+opt-out flag for maintainers experimenting with unreleased templates.
+Until then, the re-pin-before-apply discipline is the only safeguard.)_
+
+---
+
+### LRN-024
+
+```yaml
+id: LRN-024
+date: 2026-05-14
+category: process
+source_cs: CS03
+status: open
+tags: [github, copilot, pr-review, engagement, status-checks, a5-a16, graphql, issue-52]
+```
+
+**Problem:** This repo's read-only-gates A5+A16 check requires
+`copilot-pull-request-reviewer[bot]` to have submitted a review against
+the *current* PR HEAD. After every push that updates HEAD, Copilot must
+re-review or A5+A16 stays red even when all substantive review feedback
+is addressed. A previously-stored memory implied Copilot review on this
+repo must be requested via the GitHub web UI because both
+`gh pr edit --add-reviewer Copilot` and the REST `requested_reviewers`
+endpoint return 422 ("Copilot is not a collaborator").
+
+**Finding:** Empirical evidence from PR #72 timeline:
+
+| time (UTC) | event | source |
+|---|---|---|
+| 03:03:39 | `review_requested` event for `Copilot` | issued by `harness copilot-engage 72` (GraphQL `requestCopilotReview` mutation against the PR node) |
+| 03:07:19 | `copilot-pull-request-reviewer[bot]` posted COMMENTED review on `40e81a8` | triggered by the 03:03:39 request |
+| 03:13:05 | `gh pr comment 72 --body "@copilot review"` posted (after a push to `c73ba62`) | did NOT trigger another review within 10+ min observation window |
+
+**Confirmed engagement path:** `harness copilot-engage <pr>` from
+agent-harness v0.5.0+. Internally it issues a GraphQL
+`requestCopilotReview` mutation via `lib/github-graphql.mjs` against the
+PR node ID. This bypasses the REST 422 — REST `/requested_reviewers`
+expects a collaborator login string and Copilot is not a collaborator
+user, but the GraphQL mutation accepts the Copilot bot via its node ID
+resolved through the PR's `suggestedReviewers`/`reviewerNodeId` fields.
+
+**Refuted engagement paths:**
+
+- `gh pr edit --add-reviewer Copilot` → 422 "Could not resolve user with
+  login 'copilot'" (still verified on PR #72; old memory accurate on
+  this point).
+- `gh api -X POST /repos/{owner}/{repo}/pulls/{pr}/requested_reviewers
+  -f 'reviewers[]=copilot-pull-request-reviewer'` → 422 "not a
+  collaborator" (still verified on PR #72).
+- `gh pr comment <pr> --body "@copilot review"` → on PR #72, this comment
+  posted at 03:13:05 by the PR author (`henrik-me`, `OWNER` association)
+  did not trigger `copilot-pull-request-reviewer[bot]` to deliver a
+  follow-up review against the new HEAD (no further review submitted
+  within 10+ minutes despite the bot still being responsive elsewhere).
+  This contradicts a common cargo-culted assumption; `@copilot review`
+  comments may be intercepted by the cloud SWE agent or simply silently
+  ignored by the review bot.
+
+**Important caveats observed on PR #72:**
+
+- Copilot delivers `COMMENTED`, never `APPROVED` — A5+A16 accepts a
+  COMMENTED review as satisfying the gate.
+- Copilot reviews are HEAD-stale: a review attached to commit `X` does
+  not satisfy A5+A16 once the PR is updated to commit `Y`. Re-engagement
+  requires another `harness copilot-engage <pr>` invocation (which fires
+  a fresh GraphQL mutation), not a `@copilot review` comment.
+- Copilot may not re-engage within a reasonable window (>10 min)
+  for trivial doc-only deltas (CHANGELOG-only fix following a
+  substantive review). When all substantive feedback is addressed and
+  the post-review delta is verifiably trivial, admin-merge via
+  `gh pr merge --squash --admin` is the user-pre-authorized path
+  (CS11 precedent).
+- Inline review comments from Copilot may be **stale relative to the
+  committed code** — Copilot occasionally flags an issue that was
+  already fixed in the same commit it's reviewing (PR #72 had this
+  exact case: F-003 NIT was already addressed in `40e81a8`, but Copilot
+  reviewing `40e81a8` still flagged the pre-fix line). Always verify by
+  reading the current file before treating a Copilot comment as
+  actionable.
+
+**Disposition:** _(open. Until the read-only-gates A5+A16 check is
+taught to recognise a "previously-reviewed-and-substantively-unchanged"
+state, admin-merge is the documented escape hatch for trivial
+post-review deltas. `harness copilot-engage <pr>` is the
+documented-and-verified engagement path; do not rely on
+`gh pr comment "@copilot review"` or `gh pr edit --add-reviewer` paths,
+which were both refuted on PR #72.)_
+
+---
+
 _(no entries yet)_
 
 ## Obsolete
