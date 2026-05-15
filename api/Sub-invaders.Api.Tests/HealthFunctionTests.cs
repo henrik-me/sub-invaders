@@ -63,8 +63,13 @@ public class HealthFunctionTests
     }
 
     [Fact]
-    public void BuildInfoProvider_falls_back_to_unknown_when_env_unset()
+    public void BuildInfoProvider_falls_back_to_unknown_when_assembly_informational_version_is_default()
     {
+        // When BUILD_COMMIT is not set at build time, MSBuild's default
+        // InformationalVersion ("1.0.0") is baked into the assembly. The provider
+        // must surface that as "unknown" so /api/health doesn't lie.
+        // Stale env vars from previous test runs must not bleed in: they were used
+        // by the prior implementation but are no longer consulted post-#52.
         System.Environment.SetEnvironmentVariable("SUB_INVADERS_COMMIT", null);
         System.Environment.SetEnvironmentVariable("GITHUB_SHA", null);
         var info = new BuildInfoProvider();

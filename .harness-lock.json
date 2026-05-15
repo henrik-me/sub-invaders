@@ -1,8 +1,8 @@
 {
-  "harness_ref": "unknown",
-  "resolved_sha": "0000000000000000000000000000000000000000",
+  "harness_ref": "v0.5.1",
+  "resolved_sha": "fe2c0b97cae661f9882979662f4d793330510c45",
   "config_schema_version": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
-  "synced_at": "2026-05-14T14:52:48.003Z",
+  "synced_at": "2026-05-15T02:53:51.803Z",
   "files": [
     {
       "target": ".github/workflows/pr-evidence-lint.yml",
@@ -75,23 +75,23 @@
   "scaffolds": [
     {
       "name": "feature-flags",
-      "version": "unknown"
+      "version": "v0.5.1"
     },
     {
       "name": "verify-deploy",
-      "version": "unknown"
+      "version": "v0.5.1"
     },
     {
       "name": "container-validate",
-      "version": "unknown"
+      "version": "v0.5.1"
     },
     {
       "name": "seed",
-      "version": "unknown"
+      "version": "v0.5.1"
     },
     {
       "name": "health-check",
-      "version": "unknown"
+      "version": "v0.5.1"
     }
   ],
   "excluded": []

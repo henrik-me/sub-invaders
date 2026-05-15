@@ -229,15 +229,22 @@ once a tagged release exists.
 
 ### Changed (post-CS03 — Issue #52) — Deploy-time commit injection
 
-- **`swa-deploy.yml`** now sets the `SUB_INVADERS_COMMIT` SWA app setting after every
-  successful `push:main` deploy via `az staticwebapp appsettings set`, so `/api/health`
-  reports the deployed commit instead of `"unknown"`. The new step is gracefully
-  skipped when the `AZURE_CREDENTIALS` repo secret is absent (emits a `::warning::`
-  but does not fail the deploy), so existing deploys keep working until an operator
-  follows the `OPERATIONS.md § Configuring deploy-time commit injection (Issue #52)`
-  one-time setup runbook (create a Service Principal scoped to `rg-sub-invaders-prod`
-  with the `Website Contributor` role, store the SP credentials JSON as the
-  `AZURE_CREDENTIALS` repo secret).
+- **Build-time assembly injection (resolved).** `/api/health` now surfaces the
+  deploy commit via `AssemblyInformationalVersionAttribute`, populated at build
+  time by `<InformationalVersion>$(BUILD_COMMIT)</InformationalVersion>` in
+  `api/Sub-invaders.Api.csproj`. `swa-deploy.yml` exposes
+  `BUILD_COMMIT=${{ github.sha }}` on the `build-and-deploy` job; Oryx forwards
+  it to `dotnet build` and the commit SHA is baked into the deployed assembly.
+  Atomic with the deploy artifact — no Service Principal, no `AZURE_CREDENTIALS`
+  secret, no post-deploy `az staticwebapp appsettings set` mutation, no Function
+  host cold restart. Local builds without `BUILD_COMMIT` inherit MSBuild's
+  default (`"1.0.0"`), which `BuildInfoProvider` maps to `"unknown"` for parity
+  with the previous behaviour.
+- **Removed:** `Check AZURE_CREDENTIALS secret presence` / `Azure login` /
+  `Set SUB_INVADERS_COMMIT app setting on prod SWA` / `Azure logout` workflow
+  steps; the `Configuring deploy-time commit injection` runbook in
+  `OPERATIONS.md` (replaced with the resolution note); `SUB_INVADERS_COMMIT` /
+  `GITHUB_SHA` env-var read in `BuildInfoProvider.ResolveCommit()`.
 
 
 ### Added (SI-CS07 — 2026-05-13) — End-to-end Playwright tests

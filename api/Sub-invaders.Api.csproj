@@ -7,6 +7,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>SubInvaders.Api</RootNamespace>
+    <!-- Issue #52: bake the deploy commit SHA into AssemblyInformationalVersionAttribute
+         at build time. swa-deploy.yml exposes BUILD_COMMIT=${{ github.sha }} on the
+         build job so Oryx forwards it to dotnet build. Local builds without
+         BUILD_COMMIT inherit the MSBuild default ("1.0.0"), which BuildInfoProvider
+         maps to the legacy "unknown" sentinel. -->
+    <InformationalVersion Condition="'$(BUILD_COMMIT)' != ''">$(BUILD_COMMIT)</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

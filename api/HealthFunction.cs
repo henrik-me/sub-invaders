@@ -2,6 +2,7 @@ namespace SubInvaders.Api;
 
 using System;
 using System.Net;
+using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
@@ -50,6 +51,12 @@ public interface IBuildInfoProvider
 
 public sealed class BuildInfoProvider : IBuildInfoProvider
 {
+    // MSBuild's default InformationalVersion when no <Version> or <InformationalVersion>
+    // is set. swa-deploy.yml overrides this at build time via -p:BUILD_COMMIT=<sha>;
+    // local dotnet build/test invocations leave it at the default and get "unknown"
+    // (matching prior env-var-fallback behaviour).
+    private const string DefaultInformationalVersion = "1.0.0";
+
     public BuildInfoProvider()
     {
         Version = typeof(BuildInfoProvider).Assembly.GetName().Version?.ToString() ?? "0.0.0.0";
@@ -61,14 +68,16 @@ public sealed class BuildInfoProvider : IBuildInfoProvider
 
     private static string ResolveCommit()
     {
-        var candidates = new[] { "SUB_INVADERS_COMMIT", "GITHUB_SHA" };
-        foreach (var key in candidates)
+        // Issue #52: the deploy commit is baked into the assembly at build time via
+        // <InformationalVersion>$(BUILD_COMMIT)</InformationalVersion> (see csproj).
+        // This is atomic with the deploy artifact (no post-deploy app-setting mutation,
+        // no Function host cold restart, no Service Principal needed).
+        var info = typeof(BuildInfoProvider).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        if (!string.IsNullOrWhiteSpace(info)
+            && !info.StartsWith(DefaultInformationalVersion, StringComparison.Ordinal))
         {
-            var value = Environment.GetEnvironmentVariable(key);
-            if (!string.IsNullOrWhiteSpace(value))
-            {
-                return value.Length >= 7 ? value[..7] : value;
-            }
+            return info.Length >= 7 ? info[..7] : info;
         }
         return "unknown";
     }
