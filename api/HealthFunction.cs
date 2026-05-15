@@ -3,6 +3,7 @@ namespace SubInvaders.Api;
 using System;
 using System.Net;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
@@ -51,34 +52,39 @@ public interface IBuildInfoProvider
 
 public sealed class BuildInfoProvider : IBuildInfoProvider
 {
-    // MSBuild's default InformationalVersion when no <Version> or <InformationalVersion>
-    // is set. swa-deploy.yml overrides this at build time via -p:BUILD_COMMIT=<sha>;
-    // local dotnet build/test invocations leave it at the default and get "unknown"
-    // (matching prior env-var-fallback behaviour).
-    private const string DefaultInformationalVersion = "1.0.0";
-
     public BuildInfoProvider()
     {
         Version = typeof(BuildInfoProvider).Assembly.GetName().Version?.ToString() ?? "0.0.0.0";
-        Commit = ResolveCommit();
+        var info = typeof(BuildInfoProvider).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        Commit = ParseCommitFromInformationalVersion(info);
     }
 
     public string Version { get; }
     public string Commit { get; }
 
-    private static string ResolveCommit()
+    // Pre-compiled hex regex: 7-40 hex chars, matches a git SHA prefix or full SHA.
+    private static readonly Regex CommitShape = new("^[0-9a-fA-F]{7,40}$", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Issue #52 parser. The deploy commit is baked into the assembly at build time via
+    /// <c>&lt;InformationalVersion&gt;$(BUILD_COMMIT)&lt;/InformationalVersion&gt;</c> in the csproj
+    /// (the workflow exports <c>BUILD_COMMIT=${{ github.sha }}</c> at job level; modern .NET SDK
+    /// auto-promotes env vars to MSBuild properties during <c>dotnet build</c>).
+    ///
+    /// SourceLink auto-appends a <c>+&lt;source-git-sha&gt;</c> suffix to InformationalVersion;
+    /// this method splits on '+' and validates the prefix is hex of length 7-40 before returning
+    /// the first 7 chars. Anything else (including MSBuild's default "1.0.0", a manually-set
+    /// semantic version, or garbage) is reported as "unknown" so /api/health doesn't lie.
+    /// </summary>
+    internal static string ParseCommitFromInformationalVersion(string? informationalVersion)
     {
-        // Issue #52: the deploy commit is baked into the assembly at build time via
-        // <InformationalVersion>$(BUILD_COMMIT)</InformationalVersion> (see csproj).
-        // This is atomic with the deploy artifact (no post-deploy app-setting mutation,
-        // no Function host cold restart, no Service Principal needed).
-        var info = typeof(BuildInfoProvider).Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-        if (!string.IsNullOrWhiteSpace(info)
-            && !info.StartsWith(DefaultInformationalVersion, StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(informationalVersion))
         {
-            return info.Length >= 7 ? info[..7] : info;
+            return "unknown";
         }
-        return "unknown";
+        var plusIndex = informationalVersion.IndexOf('+');
+        var candidate = plusIndex >= 0 ? informationalVersion[..plusIndex] : informationalVersion;
+        return CommitShape.IsMatch(candidate) ? candidate[..7] : "unknown";
     }
 }

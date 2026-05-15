@@ -54,9 +54,33 @@ const checks = [
     path: '/api/health',
     expect: {
       status: 200,
-      body: (text) => {
+      // Issue #52: the response body MUST report the deployed commit SHA in the
+      // `commit` field (baked into the assembly at build time via BUILD_COMMIT).
+      // When --expected-version is supplied, assert commit prefix matches; otherwise
+      // just confirm the field is populated and non-"unknown".
+      body: (text, ctx) => {
         if (typeof text !== 'string' || text.length === 0) {
           return 'health response body is empty';
+        }
+        let parsed;
+        try {
+          parsed = JSON.parse(text);
+        } catch (err) {
+          return `health response body is not valid JSON: ${err && err.message ? err.message : err}`;
+        }
+        const commit = parsed && typeof parsed.commit === 'string' ? parsed.commit : null;
+        if (!commit) {
+          return 'health response body is missing a string `commit` field';
+        }
+        if (commit === 'unknown') {
+          return 'health.commit is "unknown" — BUILD_COMMIT was not propagated through the build (Issue #52 regression)';
+        }
+        const expected = ctx && typeof ctx.expectedVersion === 'string' ? ctx.expectedVersion : '';
+        if (expected && /^[0-9a-fA-F]{7,40}$/.test(expected)) {
+          const expectedPrefix = expected.slice(0, 7).toLowerCase();
+          if (commit.toLowerCase() !== expectedPrefix) {
+            return `health.commit "${commit}" does not match expected ${expectedPrefix} (deployed assembly was built from a different SHA)`;
+          }
         }
         return null;
       },

@@ -123,6 +123,29 @@ Key observations from [LRN-024](LEARNINGS.md#lrn-024) and
 - Budget time and sub-agent slots accordingly when planning high-risk or
   user-facing CSs.
 
+### 2.4.1 Canonical orchestrator command (`harness review`)
+
+For content PR review rounds, the canonical orchestrator entry point is:
+
+```
+harness review <pr> [--repo owner/name] [--model gpt-5.5|sonnet-4.6] [--round R<n>] [--no-poll|--dry-run]
+```
+
+`harness.config.json` → `reviews.require_copilot_review` defaults to `true`;
+set it to `false` only for projects where Copilot review evidence is not
+required or unavailable.
+
+The command validates that the target is a content PR, enforces the reviewer
+independence invariant from the PR body's `## Model audit` / CS plan review
+evidence, emits the manual MVP rubber-duck prompt, optionally triggers and
+polls Copilot review, and appends the PR body's `## Review log` + `## Model
+audit` evidence when the round completes. Exit codes are: `0` = Go / dispatch
+accepted, `1` = No-Go or unresolved Blocking finding, `2` = usage, policy, or
+transport failure.
+
+Use `harness copilot-engage` only as a Copilot-only fallback when the combined
+review command is unavailable or unsuitable for a narrowly scoped retry.
+
 ### 2.5 What the reviewer examines
 
 The review scope depends on CS type:
@@ -307,6 +330,24 @@ on `harness pr-evidence` (per C35-19); valid reasons: `workboard-only`,
 `bot-author` (C35-8), `fork-source` (C35-9). The CI workflow computes the
 reasons from the GitHub event payload; `harness pr-evidence` itself MUST
 NOT call `gh pr view`.
+
+### Required PR-side gates
+
+The `review-gates.yml` workflow turns the review doctrine above into four
+required status checks for content PRs. PRs labeled `workboard-only` skip these
+checks because they are claim/close-out bookkeeping PRs, not implementation
+content.
+
+| Status check | How to satisfy it |
+|---|---|
+| `review-log-evidence` | Fill `## Review log` with at least one non-placeholder row whose verdict is `Go` or `Conditional Go` (the historical `Go-with-amendments` spelling is accepted) and whose reviewer model is GPT-5.5, or an approved fallback with `## Model audit` `Fallback rationale` populated. |
+| `copilot-review-attached` | Ensure the configured Copilot PR reviewer has submitted a review. If the gate fails because no review exists yet, it posts `@copilot review`; wait for Copilot to submit and rerun the check. If token permissions prevent the comment, the check remains failed and reports the posting error. Repos without Copilot reviews may set `reviews.require_copilot_review=false`. |
+| `independence-invariant` | Fill `## Model audit` with `Implementer models` and `Reviewer model`. The reviewer model must not appear in the implementer list unless the reviewer is GPT-5.5 on a non-HIGH-RISK CS; HIGH-RISK CSs forbid overlap regardless. |
+| `review-threads-resolved` | Resolve every GitHub PR review thread before merge. |
+
+`harness init --enable-review-gates` and `harness sync --mode=apply` install the
+workflow and add these four contexts to `infra/main-protection-ruleset.json`
+when `reviews.enforce_gates=true`.
 
 ---
 

@@ -57,13 +57,56 @@ describe('verify-deploy.checks — wired CS02 deliverable 9 probe', () => {
     assert.notEqual(root.expect.body('', { baseUrl: '', expectedVersion: 'x' }), null);
   });
 
-  it('health and sprites validators reject empty bodies', () => {
-    for (const name of ['health', 'sprites']) {
-      const c = checks.find((x) => x.name === name);
-      assert.ok(c.expect.body, `${name} must define a body validator`);
-      assert.notEqual(c.expect.body('', { baseUrl: '', expectedVersion: 'x' }), null);
-      assert.equal(c.expect.body('non-empty payload', { baseUrl: '', expectedVersion: 'x' }), null);
-    }
+  it('sprites validator rejects empty body and accepts non-empty payload', () => {
+    const c = checks.find((x) => x.name === 'sprites');
+    assert.ok(c.expect.body, 'sprites must define a body validator');
+    assert.notEqual(c.expect.body('', { baseUrl: '', expectedVersion: 'x' }), null);
+    assert.equal(c.expect.body('non-empty payload', { baseUrl: '', expectedVersion: 'x' }), null);
+  });
+
+  it('health validator (Issue #52) rejects empty, non-JSON, missing-commit, and "unknown" responses', () => {
+    const c = checks.find((x) => x.name === 'health');
+    assert.ok(c.expect.body, 'health must define a body validator');
+    const ctx = { baseUrl: '', expectedVersion: 'x' };
+    assert.notEqual(c.expect.body('', ctx), null, 'rejects empty body');
+    assert.notEqual(c.expect.body('non-empty payload', ctx), null, 'rejects non-JSON body');
+    assert.notEqual(c.expect.body('{"status":"ok"}', ctx), null, 'rejects body without commit field');
+    assert.notEqual(
+      c.expect.body('{"status":"ok","commit":"unknown"}', ctx),
+      null,
+      'rejects commit:"unknown" (BUILD_COMMIT was not propagated)'
+    );
+  });
+
+  it('health validator accepts a valid commit and (when --expected-version is hex) enforces prefix match', () => {
+    const c = checks.find((x) => x.name === 'health');
+    // No expected version → just confirms commit is populated and non-"unknown".
+    assert.equal(
+      c.expect.body('{"commit":"abc1234"}', { baseUrl: '', expectedVersion: '' }),
+      null
+    );
+    // Expected version is non-hex (e.g., a tag like "v1.0.0") → no prefix comparison.
+    assert.equal(
+      c.expect.body('{"commit":"abc1234"}', { baseUrl: '', expectedVersion: 'v1.0.0' }),
+      null
+    );
+    // Expected version matches commit prefix (case-insensitive).
+    assert.equal(
+      c.expect.body(
+        '{"commit":"abc1234"}',
+        { baseUrl: '', expectedVersion: 'ABC1234567890fedcba0987654321abcdef01234' }
+      ),
+      null
+    );
+    // Expected version mismatch fails.
+    assert.notEqual(
+      c.expect.body(
+        '{"commit":"abc1234"}',
+        { baseUrl: '', expectedVersion: 'def56780000000000000000000000000000000ab' }
+      ),
+      null,
+      'mismatch must fail'
+    );
   });
 });
 
