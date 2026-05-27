@@ -1,8 +1,8 @@
 {
-  "harness_ref": "v0.5.1",
-  "resolved_sha": "fe2c0b97cae661f9882979662f4d793330510c45",
+  "harness_ref": "v0.6.0",
+  "resolved_sha": "acdca894466410ec2744f39179e89a53bf467fb7",
   "config_schema_version": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
-  "synced_at": "2026-05-15T03:05:31.114Z",
+  "synced_at": "2026-05-27T08:01:43.348Z",
   "files": [
     {
       "target": ".github/workflows/pr-evidence-lint.yml",
@@ -35,63 +35,63 @@
       "target": "OPERATIONS.md",
       "source_template": "template/composed/OPERATIONS.md",
       "class": "composed",
-      "rendered_hash": "2c9a8af4dc80b5ccf37e291cd266395866cc0551f864d779615081fd71fea164",
+      "rendered_hash": "922b3bd61ee8a01f352a87e5389225c30c8a16e5eb0ed86ae5486de86fdae172",
       "action": "updated",
       "blocks": [
         {
           "id": "operations.project-deploy",
           "source_line_range": {
-            "start": 1565,
-            "end": 1786
+            "start": 1726,
+            "end": 1949
           },
-          "body_hash": "df53710f4a1473c4cd2883c9d3b82d460c9c3683aba8701fd12e657c6d1a24f1",
+          "body_hash": "0047b402ea4aa3a7607af2f3f2024ee98bb7f62dbf80f046547efddc68668755",
           "template_marker_hash": "c538812699662e1747082864f419826b433df6e5164cdd28e870df72fcc559e5",
           "provenance": "user-authored"
         }
       ],
-      "template_prose_hash": "8162c07725241d2eec1807f057318f2dd025ae558f5bd3ddeee5c7c1b57ba647"
+      "template_prose_hash": "d86482bb8a5102e8f222ac55b2a8c18d52490fe4754343686f976331e20b7b85"
     },
     {
       "target": "REVIEWS.md",
       "source_template": "template/composed/REVIEWS.md",
       "class": "composed",
-      "rendered_hash": "75cc46de64e70c83d7a212ac93660d2cf83cc59dab8e9e5030565ced7a173e87",
+      "rendered_hash": "d9b28d975225da7e730660fbcf92e8b2b92dffd9ccc656a7c919086ae07c34da",
       "action": "updated",
       "blocks": [
         {
           "id": "reviews.project-gates",
           "source_line_range": {
-            "start": 382,
-            "end": 424
+            "start": 423,
+            "end": 465
           },
           "body_hash": "464f711b20a4a7f037588e173d498c9c88f4943d1b09e62e607daf5d86636241",
           "template_marker_hash": "5e1b41d3287a93df32706fff5619c8aa4fd7cfacd0f601fd1d23489010a4319e",
           "provenance": "user-authored"
         }
       ],
-      "template_prose_hash": "2d6d46c6702b54529402f7cf754c2e6b87b570a79166b5da62c25a137b5e5379"
+      "template_prose_hash": "27c1d07119a1386cd43ad491587ce067037a8f4bb493c0557919058eabec566a"
     }
   ],
   "scaffolds": [
     {
       "name": "feature-flags",
-      "version": "v0.5.1"
+      "version": "v0.6.0"
     },
     {
       "name": "verify-deploy",
-      "version": "v0.5.1"
+      "version": "v0.6.0"
     },
     {
       "name": "container-validate",
-      "version": "v0.5.1"
+      "version": "v0.6.0"
     },
     {
       "name": "seed",
-      "version": "v0.5.1"
+      "version": "v0.6.0"
     },
     {
       "name": "health-check",
-      "version": "v0.5.1"
+      "version": "v0.6.0"
     }
   ],
   "excluded": []
