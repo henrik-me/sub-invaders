@@ -1,6 +1,6 @@
 {
   "$schema": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
-  "version": "v0.5.1",
+  "version": "v0.6.0",
   "project": {
     "name": "sub-invaders",
     "agent_suffix": "si",

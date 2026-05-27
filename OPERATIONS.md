@@ -132,6 +132,11 @@ rename. The section must contain:
 <prose summary — per-deliverable table + coverage assessment>
 ```
 
+> **Field labels are matched verbatim by `check-clickstop.mjs`** (case-sensitive,
+> bold-prefixed): `**Reviewer:**`, `**Date:**`, `**Outcome:**`. No aliases —
+> e.g. `**Verdict:**` instead of `**Outcome:**` will fail the linter. Copy the
+> code block above as-is when recording the review.
+
 **Blocking behaviour:**
 
 A `NEEDS-FIX` outcome blocks close-out. Fix the gap on the `cs<NN>/content`
@@ -233,6 +238,28 @@ requires GitHub Pro on private repos (see [LRN-001](LEARNINGS.md#lrn-001)).
 All PRs are opened, reviewed, and squash-merged through the normal review
 loop. The discipline replaces the missing mechanical enforcement.
 
+#### Required review status checks (review-gates)
+
+Content PRs MUST pass four PR-side status checks before merge:
+
+| Check | What it verifies |
+|---|---|
+| `review-log-evidence` | `## Review log` contains at least one real `Go` / `Conditional Go` row by GPT-5.5, or by an approved fallback with `## Model audit` fallback rationale populated; template placeholders fail the gate. |
+| `copilot-review-attached` | The configured Copilot PR reviewer (default `copilot-pull-request-reviewer[bot]`) has submitted a review; when missing, the workflow posts `@copilot review` as a best-effort trigger, and comment-permission failures leave the gate failed with an actionable error. |
+| `independence-invariant` | `## Model audit` has populated implementer/reviewer model rows and rejects implementer/reviewer model overlap except the GPT-5.5 allowance for non-HIGH-RISK CSs. |
+| `review-threads-resolved` | Every GitHub review thread on the PR is resolved. |
+
+The `review-gates.yml` workflow runs on every PR except PRs labeled
+`workboard-only`; workboard-only claim/close-out PRs are already constrained by
+the workboard-only validation path. Configure the gates under
+`harness.config.json → reviews`: `enforce_gates` controls workflow/ruleset
+installation, `require_copilot_review` lets consumers without Copilot reviews
+skip only the Copilot attachment gate, and `copilot_reviewer_slug` / `high_risk_clickstops`
+customize the reviewer login and risk list. `harness init --enable-review-gates`
+and `harness sync --mode=apply` inject the four contexts into
+`infra/main-protection-ruleset.json` `required_checks`; `sync --mode=check`
+fails when `reviews.enforce_gates=true` and the contexts are missing.
+
 **Public protected phase (CS15a+ in this repo):** The Ruleset authored and
 applied during CS15a enforces PR-required, ≥1 approving review, squash-only,
 linear history, deletion/non-fast-forward protection, required status checks,
@@ -242,6 +269,49 @@ for owner override (LRN-080). Decision #23 activates the
 `workboard-only` label + actor allowlist, submits the approval, and
 auto-merges. The global review-required rule stays in force; the bot's review
 satisfies it for eligible workboard-only PRs.
+
+### Workboard-first for out-of-CS work
+
+Rule: before starting any out-of-CS work (hotfix, single-file follow-up, doc
+edit, post-CS cleanup, or other user-visible one-off), the orchestrator must
+update `WORKBOARD.md` — or the consumer repo's equivalent live coordination file — so
+the user can see the work in progress before the first implementation step.
+This is in addition to any planned-CS-file flow.
+
+Use the existing `## Active Work` table shape: `CS-Task ID`, `Title`, `State`,
+`Owner`, `Branch`, `Last Updated`, and `Blocked Reason`. Record a short title,
+the branch, an in-progress state such as `🟢 Active`, the owner agent, the date,
+and the user-facing reason in `Title` (or `Blocked Reason` when blocked). Until
+the workboard schema grows a dedicated out-of-CS identifier, use the nearest
+CS-shaped tracking ID with a lowercase suffix (for example, `CS02h`) rather than
+inventing an arbitrary ID that `check-workboard.mjs` will reject.
+
+Example Active Work row for a downstream hotfix:
+
+```
+| CS02h | Hotfix torpedo-collision regression — restore user-visible gameplay correctness | 🟢 Active | yoga-si | hotfix/torpedo-collision | 2026-05-14 | — |
+```
+
+#### Workboard-only PR admin-bypass fallback
+
+Consumer repos that have not installed the G3 workboard GitHub App may instead
+configure a per-repo secret named `WORKBOARD_MERGE_TOKEN`. The token should be
+a fine-grained PAT with repository permissions `contents: write` and
+`pull-requests: write`; the token owner must also be allowed to bypass the
+`main-protection` ruleset (typically by being a `RepositoryAdmin` bypass actor,
+per [LRN-080](LEARNINGS.md#lrn-080)). If you manage ruleset bypass actors via
+`gh`/API, refresh your local auth first with `gh auth refresh -s admin:org`;
+otherwise create the fine-grained PAT in GitHub's developer settings UI and add
+it to the consumer repo as the `WORKBOARD_MERGE_TOKEN` Actions secret.
+
+The fallback degrades gracefully. When the secret is absent, the workflow keeps
+running the label/branch/actor/path validation and then either uses the existing
+GitHub App path (if `WORKBOARD_BOT_APP_ID` + `WORKBOARD_BOT_PRIVATE_KEY` are
+configured) or logs `validation-only` so the owner knows a manual admin merge is
+still required. The PAT cannot expand the workboard-only surface: the workflow
+uses it only after the same actor allowlist, same-repository, immutable-head,
+and path-allowlist gates pass, and the admin merge re-checks the PR head plus
+reported non-workboard status checks before invoking `gh pr merge --admin`.
 
 ---
 
@@ -575,6 +645,18 @@ Run all of the following and include each result in SELF-CHECKS RUN:
    must exit 0 (LRN-049/050/051: no dot-notation placeholders, no relative-up
    paths, no self-referencing TODO/FIXME tokens in PR-template files).
 
+## Reporting independence (CS48 / issue #142)
+
+**Self-review carries zero review weight.** Any implementer self-review of
+the diff is a debugging aid, not a review-of-record. The orchestrator MUST
+dispatch a separate reviewer sub-agent (per REVIEWS.md § Phase 2) whose model
+differs from every implementer model used in the CS. The `harness review <pr>` CLI obtains the rubber-duck review; do not
+pre-empt that step or present implementer self-review as review evidence.
+
+Required final report field: `Implementer model used` (the model-id(s)
+materially used for the sub-agent's work), so the orchestrator can update the
+CS sub-agent ledger and the PR-body `## Model audit` table.
+
 ## Mandatory report shape
 
 Reports missing any field are rejected; orchestrator re-dispatches with
@@ -584,6 +666,7 @@ missing fields explicitly listed.
     PREFLIGHT SHA: <sha>
     FINAL SHA: <sha>
     SUMMARY: <one paragraph>
+    IMPLEMENTER MODEL USED: <model-id(s) materially used for this work; used by the CS sub-agent ledger and PR-body ## Model audit>
     FILES CHANGED:
       - <path> (created | edited | deleted) — <one-line why> — <line count>
     SELF-CHECKS RUN:
@@ -598,11 +681,13 @@ missing fields explicitly listed.
 
 ### Canonical reviewer preamble (CS35 C35-1)
 
-When dispatching a rubber-duck reviewer (per [REVIEWS.md § 2.1](REVIEWS.md#21-review-model)),
+When dispatching a rubber-duck reviewer manually (per [REVIEWS.md § 2.1](REVIEWS.md#21-review-model)),
 the orchestrator MUST paste the block below verbatim into the dispatch.
-Reviewer dispatch ownership lives with the orchestrator — the harness CLI
-never emits prompts, never paste-protocols, never calls an LLM API
-(per Decision C35-1).
+For content PRs on CS52+, prefer `harness review <pr>` (see
+[§ Reviewer dispatch via `harness review`](#reviewer-dispatch-via-harness-review-cs52));
+it composes the same guardrailed prompt for the manual MVP. The harness CLI
+still does not call an LLM API; the orchestrator dispatches the emitted prompt
+and paste-protocols the structured reviewer output.
 
 The block is delimited by sentinel markers so `tests/operations-reviewer-preamble.test.mjs`
 can assert presence and required-field coverage:
@@ -689,9 +774,22 @@ Every sub-agent reports back with **exactly** this structure. A report
 missing any field is rejected; the orchestrator re-dispatches with the missing
 fields explicitly listed.
 
+#### Reporting independence (CS48 / issue #142)
+
+**Self-review carries zero review weight.** Any implementer self-review of
+the diff is a debugging aid, not a review-of-record. The orchestrator MUST
+dispatch a separate reviewer sub-agent (per REVIEWS.md § Phase 2) whose model
+differs from every implementer model used in the CS. The `harness review <pr>` CLI obtains the rubber-duck review; do not
+pre-empt that step or present implementer self-review as review evidence.
+
+Required final report field: `Implementer model used` (the model-id(s)
+materially used for the sub-agent's work), so the orchestrator can update the
+CS sub-agent ledger and the PR-body `## Model audit` table.
+
 ```
 STATUS: complete | partial | blocked
 SUMMARY: <one paragraph>
+IMPLEMENTER MODEL USED: <model-id(s) materially used for this work; used by the CS sub-agent ledger and PR-body ## Model audit>
 FILES CHANGED:
   - <path> (created | edited | deleted) — <one-line why>
 SELF-CHECKS RUN:
@@ -773,6 +871,57 @@ invariants may require 5–8 rounds ([LRN-024](LEARNINGS.md#lrn-024)).
 - The orchestrator does **not** dispatch sub-agents speculatively — every
   dispatch maps to a parallelisation-table entry in the active CS plan.
 
+### Orchestrator availability invariant
+
+The orchestrator must remain available to receive and act on user instructions
+at all times. Treat delegation as the default: any task the orchestrator could
+plausibly delegate to a sub-agent — including out-of-CS hotfixes, one-off doc
+edits, single-file follow-ups, and post-CS cleanups — means the orchestrator
+should delegate unless (a) the work is so small that dispatch overhead exceeds
+the work, (b) the orchestrator must serialize the change with imminent
+sub-agent dispatch, or (c) the user explicitly asked the orchestrator to do it
+directly.
+
+When in doubt, dispatch. The orchestrator's primary job is coordination,
+triage, user responsiveness, and review-loop steering; implementation work is
+secondary when it would block those responsibilities.
+
+### Sub-agent progress reporting
+
+**Progress reporting (required):** every dispatch must require the sub-agent to
+emit a one-line update after each owned-file commit, or after each owned-file
+edit batch when the briefing prohibits commits, and after any tool invocation
+that takes more than 5 minutes. Each update states the current subtask,
+approximate completion percentage, and blockers if any.
+
+Silence longer than 15 wall-minutes without an update is a stall signal. The
+orchestrator should check the agent, re-brief, re-dispatch, or escalate rather
+than letting a silent background task consume the coordination slot invisibly.
+
+### Reviewer dispatch via `harness review` (CS52)
+
+For content PR review rounds, run the combined review orchestrator instead of
+hand-stitching the rubber-duck prompt, Copilot engagement, polling, and PR-body
+evidence updates:
+
+```
+harness review <pr> [--repo owner/name] [--model gpt-5.5|sonnet-4.6] [--round R<n>]
+```
+
+The command validates the target PR, refuses workboard-only or fork PRs,
+enforces the reviewer-model independence invariant, emits the manual MVP
+rubber-duck prompt, optionally triggers/polls Copilot, and idempotently updates
+`## Review log` plus `## Model audit`. Use `--dry-run` to preview the planned
+round, `--no-poll` to dispatch only, `--rubber-duck-only` for local review
+without Copilot, and `--copilot-only` for a Copilot retry after a valid local
+Go row is already recorded.
+
+Exit codes are operationally meaningful: `0` means Go / dispatch accepted,
+`1` means No-Go or unresolved Blocking finding, and `2` means usage, policy, or
+transport failure. Do not merge a content PR until the latest row for the
+current HEAD has a Go verdict and Copilot review evidence satisfying the A5/A16
+ordering gates in REVIEWS.md.
+
 ---
 
 ## Copilot engagement procedure (CS35 C35-10, updated CS37 + CS41)
@@ -802,9 +951,13 @@ The CLI:
 
 1. Auto-detects `--repo` from the current working directory's `git remote origin url`
    when omitted. Errors with a clear message on detached/missing remotes.
-2. Resolves the Copilot reviewer's Bot node ID via `node(login:)` / `... on Bot`
-   GraphQL fragment (cached for 7 days under `~/.cache/harness/copilot-id.json`
-   per C41-2).
+2. Resolves the Copilot reviewer's Bot node ID via the
+   `node(id: $id) { ... on Bot { databaseId login } }` GraphQL fragment with
+   the hardcoded Copilot Bot node ID `BOT_kgDOCnlnWA` (cached for 7 days
+   under `~/.cache/harness/copilot-id.json` per C41-2). The hardcoded ID is
+   required because `user(login: 'copilot-pull-request-reviewer')` returns
+   `null` per the CS37 GraphQL spike — see [LRN-009](LEARNINGS.md#lrn-009)
+   and [ADR-0004 § ADR4-2](docs/adr/0004-copilot-graphql-spike.md#adr4-2).
 3. Shells out to `gh pr edit <pr> --add-reviewer copilot-pull-request-reviewer` to
    request the review (per ADR-0004 § ADR4-2 — `requestReviews` GraphQL rejects
    Bot IDs).
@@ -880,6 +1033,14 @@ Fork PR caveat (ADR4-6): on `pullRequest.isCrossRepository == true`, the
 `check-copilot-review` gate exits 2 with a maintainer-rerun hint —
 forks cannot self-engage Copilot under their own token. `harness copilot-engage`
 mirrors this exit-2 behavior on fork PRs.
+
+### Troubleshooting (CS45):
+
+If `harness copilot-engage` exits with `cache-write-failed` (exit code 5),
+the most common cause is a read-only `$HOME/.cache/` (e.g. hardened CI
+runner, sandboxed home directory). Override the cache directory with
+`--cache-dir <writable-path>` to redirect identity-cache writes to a
+location the process can write to.
 
 ---
 
