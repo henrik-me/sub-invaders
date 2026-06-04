@@ -58,7 +58,7 @@ The originally-planned harness pin-bump task (CS04-1 / CS04-2 / deliverable 0) w
    - `HealthFunction.cs`: include the resolved `dailyChallenge` flag state in the response body (e.g. `flags: { dailyChallenge: "on"|"off" }`) so the frontend (deliverable 5) and the `health-check` scaffold (deliverable 12) can both consume it.
 7. **Whale-shark mystery enemy** — implement `src/game/whaleshark.mjs`. The whale shark traverses the top of the screen at constant speed, renders above the formation but below player torpedoes, spawns at `random(15-30s)` in normal mode or the deterministic daily interval in daily mode, and awards uniformly random `[50, 100, 200]` points on hit.
 8. **Frontend API client extension** — extend `src/game/api.mjs` (and its `api.test.mjs`) to forward optional `period` / `utcDate` to `submitScore` and optional `period` / `date` to `getLeaderboard`. All-time defaults must remain unchanged so CS03 call sites keep working without edits. Daily-aware call sites are wired up by integration row 10 in `play.mjs` and `leaderboard.mjs`. Validates round-trip against the CS04-14 payload contract.
-9. **`staticwebapp.config.json`** — add or update env/header/app-settings mapping needed for `FEATURE_FLAGS_DAILY_CHALLENGE` exposure to the Function host. Keep paths consumer-root-relative; do not use relative-up paths.
+9. **`src/staticwebapp.config.json`** — document that SWA config cannot provision Function host app settings; set `FEATURE_FLAGS_DAILY_CHALLENGE` as an SWA application setting instead.
 10. **`CHANGELOG.md` CS04 entry** — describe daily challenge, whale shark, and declare **v1 shipped**.
 11. **Final `ARCHITECTURE.md` update** — declare v1 shipped, document the five-modifier extensibility pattern, document UTC date-seed reproducibility, and describe daily leaderboard partitioning.
 12. **`feature-flags` scaffold exercise** — read the scaffold README/contract, apply its recommended policy to this no-build frontend, and record any mismatch between scaffold assumptions and static ES module usage.
@@ -75,7 +75,7 @@ Each row's owned files must remain disjoint; if an implementation needs a cross-
 | 2 | `cs04-modifiers-2` | `src/game/modifiers/boss-rush.mjs`, `boss-rush.test.mjs`, `inverted-controls.mjs`, `inverted-controls.test.mjs` | Read `invaders.mjs` only unless reassigned. |
 | 3 | `cs04-daily-scene-and-hud` | `src/game/scenes/daily.mjs`, `daily.test.mjs`, `src/game/hud-daily.mjs`, `hud-daily.test.mjs` | Prefer overlay; escalate before editing `hud.mjs`. |
 | 4 | `cs04-feature-flags-frontend` | `src/game/flags.mjs`, `flags.test.mjs`, `src/game/scenes/menu-daily-option.mjs`, `menu-daily-option.test.mjs`, **`src/index.html`** (meta-tag default only) | Owns the meta-default edit. Coordinates with row 5 (backend) on the `/api/health` flag field shape. |
-| 5 | `cs04-feature-flags-backend` | `api/LeaderboardFunction.cs`, `api/ScoreFunction.cs`, `api/HealthFunction.cs`, `api/Storage/ILeaderboardRepository.cs`, `api/Storage/LeaderboardRepository.cs`, daily/leaderboard/health/score xUnit tests, `staticwebapp.config.json` | CS03-file risk; stop on conflicts. Owns the `period`/`utcDate` payload contract (CS04-14). |
+| 5 | `cs04-feature-flags-backend` | `api/LeaderboardFunction.cs`, `api/ScoreFunction.cs`, `api/HealthFunction.cs`, `api/Storage/ILeaderboardRepository.cs`, `api/Storage/LeaderboardRepository.cs`, daily/leaderboard/health/score xUnit tests, `src/staticwebapp.config.json` | CS03-file risk; stop on conflicts. Owns the `period`/`utcDate` payload contract (CS04-14). |
 | 6 | `cs04-whaleshark` | `src/game/whaleshark.mjs`, `whaleshark.test.mjs`, `whaleshark-render-contract.test.mjs` | Implementation only. Render-order integration is in row 10 (integration). |
 | 7 | `cs04-engine-seed-tests-and-docs` | `src/engine/seed.test.mjs`, `src/engine/README.md` | Date-seed tests/docs only. |
 | 8 | `cs04-v1-docs-and-validation` | `CHANGELOG.md`, `ARCHITECTURE.md`, active CS04 task/report sections | Orchestrator may retain; owns final docs. |
@@ -97,7 +97,7 @@ _(none — pin-bump gate G-bump retired with CS04-13)_
 4. Whale shark spawns in normal/daily modes, respects render order, traverses top screen, and awards uniform `[50,100,200]`.
 5. Frontend flag defaults off; `dailyChallenge=on` exposes menu option while off leaves normal play unchanged.
 6. Backend daily partition routing uses `daily-YYYY-MM-DD`, keeps `all`, and tests disabled-flag behavior.
-7. `/api/health` returns dailyChallenge flag state; `staticwebapp.config.json`/SWA settings support toggling without secrets.
+7. `/api/health` returns dailyChallenge flag state; SWA application settings support toggling without secrets, and `src/staticwebapp.config.json` documents the limitation.
 8. `feature-flags` and `health-check` scaffold exercises are completed and findings recorded.
 9. Two-state validation passes for off and on: `npm run test:unit`, `npm run test:e2e`, `dotnet test api/`, and `node scripts/verify-deploy.mjs`.
 10. `ARCHITECTURE.md` documents v1 shipped, modifier pattern, UTC date seeds, whale shark, and daily partitions.
