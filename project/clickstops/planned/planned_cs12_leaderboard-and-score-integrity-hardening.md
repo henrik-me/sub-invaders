@@ -54,7 +54,7 @@ as non-v1-blocking.
 | Daily branch | `period=="daily"` writes `partitionKey = LeaderboardPartitions.DailyPartition(utcDate)` | `api/ScoreFunction.cs:71-93`, `api/Storage/ILeaderboardRepository.cs:24-31` |
 | `IsUtcDate` | regex `^\d{4}-\d{2}-\d{2}$` only (no calendar check) | `api/Storage/ILeaderboardRepository.cs:24-29` |
 | Trim | all-time partition only, `LeaderboardCap=10_000`; no daily retention | `api/SessionsCleanupFunction.cs:14-15,45-47`, `api/Storage/LeaderboardRepository.cs:52-78` |
-| Cleanup endpoint | `POST admin/sessions-cleanup`, `AuthorizationLevel.Function`; `SessionTtl = 24h` (HTTP trigger per LRN-020) | `api/SessionsCleanupFunction.cs:14-15,31-40` |
+| Cleanup endpoint | `POST /api/admin/sessions-cleanup` (route attribute `admin/sessions-cleanup`), `AuthorizationLevel.Function`; `SessionTtl = 24h` (HTTP trigger per LRN-020) | `api/SessionsCleanupFunction.cs:14-15,31-40` |
 | Client date check | regex-only in `submitScore` and `getLeaderboard` | `src/game/api.mjs:104-108,123-128` |
 | Producer date check | already calendar-validates via `Date.UTC` round-trip | `src/game/scenes/daily.mjs:25-34,45-60` |
 
@@ -127,9 +127,8 @@ agents never write the same file.
 4. **R4 — Scheduler secret + fork safety.** The workflow must not fail on PRs from forks/dependabot (no secret access). Guard the POST step behind a secret-presence check and exit 0 with a skip log when absent (mirror `skip_deploy_on_missing_secrets` precedent).
 5. **R5 — Seed/probe slowdown.** Adding a `≥10s` wait lengthens `verify-deploy` and the smoke seed. Acceptable; keep it a single explicit wait, not a poll loop, and note it in the probe output.
 6. **R6 — Feature-flag interaction.** Daily challenge is off by default in prod, so daily-path changes (#67 daily route, #70 daily cap, #69 retention) have zero production traffic today. **All** daily-path backend tests (date validation, daily cap, retention) MUST set `FEATURE_FLAGS_DAILY_CHALLENGE=on` via `EnvironmentVariableScope` and exercise the daily path directly rather than relying on prod behavior.
-
-8. **R8 — New env-var defaults/fallbacks.** Add coverage that `DAILY_SCORE_MULTIPLIER_CAP` defaults to `4` and `DAILY_LEADERBOARD_RETENTION_DAYS` to `30`, and that invalid/non-positive values fall back via `ParsePositiveInt` (mirror existing `MAX_SCORE_PER_SECOND` parsing tests if present).
 7. **R7 — `ILeaderboardRepository.cs` write overlap.** Lanes #1 (`IsUtcDate`) and #3 (retention method) both edit this file. Orchestrator must serialize or assign the whole file to one lane to avoid a merge clobber (see fan-out table).
+8. **R8 — New env-var defaults/fallbacks.** Add coverage that `DAILY_SCORE_MULTIPLIER_CAP` defaults to `4` and `DAILY_LEADERBOARD_RETENTION_DAYS` to `30`, and that invalid/non-positive values fall back via `ParsePositiveInt` (mirror existing `MAX_SCORE_PER_SECOND` parsing tests if present).
 
 ## Tasks
 
