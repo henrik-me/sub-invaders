@@ -26,8 +26,8 @@ review surfaced against the CS03/CS04 backend (open issues
   `implausible_score`.
 - `/api/score` enforces a **server wall-clock** bound against the stored session
   `StartedAt`, and the per-second cap is applied to an **effective scoring duration
-  that can never exceed real server-elapsed time** (`min(finishedAt − startedAt,
-  serverNow − startedAt)`), closing the bypass where a client synthesises
+  that can never exceed real server-elapsed time** (`min(finishedAt - startedAt,
+  serverNow - startedAt)`), closing the bypass where a client synthesises
   `finishedAt = startedAt + 600s` after only a ~10s real wait.
 - Daily leaderboard partitions have an **enforced retention window** so they do not
   accumulate indefinitely.
@@ -80,9 +80,9 @@ as non-v1-blocking.
 2. **`src/game/api.test.mjs`** — cases rejecting `2026-02-30`, `2026-99-99`, `0000-00-00`, `2026-13-01`, `2026-00-10`; accept a real leap day (`2024-02-29`) and a normal date; assert no `fetch` happens on rejection.
 3. **`api/Storage/ILeaderboardRepository.cs`** — strengthen `IsUtcDate` to require a real calendar date (shape regex → `DateOnly.TryParseExact`). Keep the method name/signature.
 4. **`api/Sub-invaders.Api.Tests/`** — extend `LeaderboardFunctionTests.cs` (and/or `EntitiesTests.cs`) with `IsUtcDate`/route cases rejecting impossible dates and accepting `2024-02-29`.
-5. **`api/ScoreFunction.cs`** — (a) daily-aware cap per CS12-2; (b) server-clock bound per CS12-3: `serverNow` capture, the `[MinGameSeconds, MaxSubmitSeconds]` submit-age rejection, **and** computing `effectiveElapsed = min(finishedAt − StartedAt, serverNow − StartedAt)` as the cap input (the cap is applied to `effectiveElapsed`, never to the raw payload duration). Preserve existing `invalid_duration` (payload `[10s,600s]` shape) / `implausible_score` / replay behavior.
+5. **`api/ScoreFunction.cs`** — (a) daily-aware cap per CS12-2; (b) server-clock bound per CS12-3: `serverNow` capture, the `[MinGameSeconds, MaxSubmitSeconds]` submit-age rejection, **and** computing `effectiveElapsed = min(finishedAt - StartedAt, serverNow - StartedAt)` as the cap input (the cap is applied to `effectiveElapsed`, never to the raw payload duration). Preserve existing `invalid_duration` (payload `[10s,600s]` shape) / `implausible_score` / replay behavior.
 6. **`api/Program.cs`** — read `DAILY_SCORE_MULTIPLIER_CAP` (default 4) and `DAILY_LEADERBOARD_RETENTION_DAYS` (default 30) via the existing `ParsePositiveInt(Environment.GetEnvironmentVariable(...))` convention; thread into options.
-7. **`api/Sub-invaders.Api.Tests/ScoreFunctionTests.cs`** — regression tests (injectable clock, see CS12-Risk R1): (a) boss-rush daily run that exceeds the all-time cap but passes the daily cap is **accepted**; (b) a daily score above the daily cap is **rejected**; (c) server-clock early-submit (`serverNow − StartedAt < 10s`) rejected; (d) abandoned-session submit (`serverNow − StartedAt > 900s`) rejected; (e) **forged-duration**: session started ~10s ago (server clock), payload `finishedAt = StartedAt + 600s` with a score that only passes under a 600s allowance — must be **rejected** as `implausible_score` because `effectiveElapsed` is clamped to ~10s; (f) daily-cap boundary triple: exactly `floor(effectiveElapsed × cap × multiplier)` accepted, one above rejected, `effectiveElapsed < MinGameSeconds` rejected before cap logic; (g) boundary at `MinGameSeconds`.
+7. **`api/Sub-invaders.Api.Tests/ScoreFunctionTests.cs`** — regression tests (injectable clock, see CS12-Risk R1): (a) boss-rush daily run that exceeds the all-time cap but passes the daily cap is **accepted**; (b) a daily score above the daily cap is **rejected**; (c) server-clock early-submit (`serverNow - StartedAt < 10s`) rejected; (d) abandoned-session submit (`serverNow - StartedAt > 900s`) rejected; (e) **forged-duration**: session started ~10s ago (server clock), payload `finishedAt = StartedAt + 600s` with a score that only passes under a 600s allowance — must be **rejected** as `implausible_score` because `effectiveElapsed` is clamped to ~10s; (f) daily-cap boundary triple: exactly `floor(effectiveElapsed × cap × multiplier)` accepted, one above rejected, `effectiveElapsed < MinGameSeconds` rejected before cap logic; (g) boundary at `MinGameSeconds`.
 8. **`api/SessionsCleanupFunction.cs`** + **`api/Storage/LeaderboardRepository.cs`** + **`api/Storage/ILeaderboardRepository.cs`** — add a daily-retention pass (`DeleteDailyPartitionsOlderThanAsync(retentionDays, utcNow)` or equivalent) invoked alongside the existing TTL + all-time trim; surface a count in the cleanup response.
 9. **`api/Sub-invaders.Api.Tests/SessionsCleanupFunctionTests.cs`** + **`LeaderboardRepositoryPartitionTests.cs`** — retention tests: a `daily-<old>` partition row is deleted, a `daily-<recent>` row and the all-time partition are untouched; boundary at exactly `retentionDays`.
 10. **`seeds/002_cs03-leaderboard-smoke.seed.mjs`** + **`scripts/verify-deploy.checks.mjs`** — insert a `≥ MinGameSeconds` wait between the `POST /api/session` and `POST /api/score` steps so the new server-clock lower bound is satisfied. Keep the probe deterministic.
@@ -112,7 +112,7 @@ agents never write the same file.
 
 1. `submitScore` / `getLeaderboard` and backend `IsUtcDate` reject impossible calendar dates (`2026-02-30`, `2026-99-99`, `0000-00-00`) and accept real ones (incl. `2024-02-29`). Client rejects before issuing `fetch`.
 2. A boss-rush daily run that exceeds the all-time per-second cap but is within `cap × DAILY_SCORE_MULTIPLIER_CAP` is **accepted**; a daily score above the daily cap is **rejected** with `implausible_score`. Regression test reproduces the pre-fix rejection.
-3. `/api/score` rejects an early submit (`serverNow − StartedAt < 10s`) and an abandoned submit (`serverNow − StartedAt > 900s`) with a clear error. A forged `finishedAt = StartedAt + 600s` submitted after only ~10s of real server time is rejected as `implausible_score` (scoring allowance is clamped to `effectiveElapsed`), independent of the client-supplied `finishedAt`.
+3. `/api/score` rejects an early submit (`serverNow - StartedAt < 10s`) and an abandoned submit (`serverNow - StartedAt > 900s`) with a clear error. A forged `finishedAt = StartedAt + 600s` submitted after only ~10s of real server time is rejected as `implausible_score` (scoring allowance is clamped to `effectiveElapsed`), independent of the client-supplied `finishedAt`.
 4. Daily partitions older than `DAILY_LEADERBOARD_RETENTION_DAYS` are deleted by the cleanup pass; recent daily rows and the all-time partition are untouched.
 5. `.github/workflows/sessions-cleanup.yml` exists, runs on cron + dispatch, and no-ops cleanly when `SUB_INVADERS_FUNCTION_KEY` is absent. The required-secret manual step is documented.
 6. Seed + verify-deploy probe wait `≥ MinGameSeconds` and still pass against a live deploy.
@@ -154,7 +154,7 @@ and confirmation that `sessions-cleanup.yml` no-ops safely without the secret.
 
 | Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
 |---|---|---|---|---|---|---|---|
-| R1 | gpt-5.5 | claude-opus-4.8 | rubber-duck (orchestrator: yoga-si) | 8f7bca3f39e8 | 2026-06-04T02:34:10Z | Go-with-amendments | Blocking fix: CS12-3 cap now on effectiveElapsed=min(finishedAt,serverNow) minus start, closing forged-duration bypass; two windows made explicit; daily-cap + retention-clock + flag-on tests added. |
+| R1 | gpt-5.5 | claude-opus-4.8 | rubber-duck (orchestrator: yoga-si) | 7361af98e9a0 | 2026-06-04T02:34:10Z | Go-with-amendments | Blocking fix: CS12-3 cap now on effectiveElapsed=min(finishedAt,serverNow) minus start, closing forged-duration bypass; two windows made explicit; daily-cap + retention-clock + flag-on tests added. |
 
 ## Plan-vs-implementation review
 
