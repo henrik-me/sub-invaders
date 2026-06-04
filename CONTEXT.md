@@ -1,8 +1,10 @@
 # Project Context
 
-> **Last updated:** 2026-05-13 (post-CS02 close-out: engine + minimal playable game)
+> **Last updated:** 2026-06-04 (post-CS12 close-out: leaderboard hardening)
 
 ## Codebase state
+
+**CS12 complete** (merged 2026-06-04) — leaderboard and score-integrity hardening shipped via PR #88 (squash-merged as `9740694`). Daily date inputs are real-calendar validated client/server; `/api/score` uses an injectable server clock, 10–900s submit-age bound, effective elapsed score-cap clamp, and daily multiplier cap; cleanup now prunes old daily partitions and runs from an hourly GitHub Actions scheduler once `SUB_INVADERS_FUNCTION_KEY` is configured.
 
 **CS02 complete** (merged 2026-05-13) — engine slice + game skeleton + minimal
 playable Sub Invaders. Content shipped via PR #19 (squash-merged as `263aec0`)
@@ -108,6 +110,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md).
 The CS plan files live under `project/clickstops/`:
 - `done/done_cs01_repo-hardening-and-first-deploy.md` — completed.
 - `done/done_cs02_engine-and-minimal-game.md` — completed.
+- done/done_cs12_leaderboard-and-score-integrity-hardening.md — completed.
 - `planned/planned_cs03_backend-and-leaderboard.md` — next.
 - `planned/planned_cs04_daily-challenge-and-pin-bump.md`
 - `planned/planned_cs05_re-evaluate-persistence.md`

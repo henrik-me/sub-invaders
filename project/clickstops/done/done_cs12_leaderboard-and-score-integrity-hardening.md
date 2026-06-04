@@ -1,10 +1,10 @@
 # CS12 — Leaderboard & score-integrity hardening
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-si
 **Branch:** cs12/content
 **Started:** 2026-06-04T03:02Z
-**Closed:** —
+**Closed:** 2026-06-04T03:54Z
 **Depends on:** CS03 (Backend Function project + persistent leaderboard), CS04 (Daily challenge + v1 ship)
 
 ## Goal
@@ -161,4 +161,28 @@ agents never write the same file.
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** gpt-5.5 rubber-duck
+**Date:** 2026-06-04T03:52:06Z
+**Outcome:** GO
+
+Reviewed merge SHA: `97406945caabafadf5e831f0208fc77cbc114ef7`.
+
+| # | Outcome | Rationale |
+|---|---|---|
+| 1 | match | `src/game/api.mjs` adds real UTC date validation and rejects before fetch. |
+| 2 | match | JS tests cover impossible dates, leap/normal dates, and no-fetch rejection. |
+| 3 | match | `IsUtcDate` now uses regex + `DateOnly.TryParseExact`. |
+| 4 | match | Backend leaderboard/`IsUtcDate` tests cover impossible dates and leap day. |
+| 5 | match | Score function implements daily cap, server-clock submit-age bound, and effective elapsed clamp. |
+| 6 | diverged | Env parsing moved to `ApiConfig` instead of inline `Program.cs`; behavior matches plan and is tested. |
+| 7 | match | Score regression tests cover daily cap, early/stale submit, forged duration, and boundaries. |
+| 8 | match | Cleanup invokes daily retention and returns deleted count. |
+| 9 | match | Retention tests cover old deletion, recent/all-time preservation, and boundary. |
+| 10 | match | Seed and verify-deploy wait ≥10s before score submit. |
+| 11 | match | Cleanup workflow has cron, dispatch, pinned runner, `curl --fail-with-body`, secret skip. |
+| 12 | match | Changelog adds CS12 and moves #49 to fixed. |
+| 13 | match | Architecture/Operations document retention, scheduler, and secret rotation. |
+
+**Exit criteria:** Met by diff/PR evidence. PR #88 checks showed `dotnet-tests`, `js-tests`, `coverage`, `harness-lint`, and `harness-sync-check` passing before merge.
+
+**Test coverage assessment:** sufficient. Local validation: `dotnet test api/` passed 95 tests; `npm run test:unit` passed 413 tests. No material coverage gaps found.
