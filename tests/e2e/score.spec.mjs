@@ -25,6 +25,36 @@ async function settleTorpedoes(gamePage, timeoutMs = 2_500) {
     .toBe(0);
 }
 
+async function pressViaHook(page, code) {
+  await page.evaluate((c) => {
+    window.__subInvaders.pressKey(c);
+    setTimeout(() => window.__subInvaders.releaseKey(c), 50);
+  }, code);
+}
+
+// Like pause.spec.mjs, re-arm edge-triggered input across the full assertion
+// budget: render-only rAF ticks can call input.endFrame() before any update()
+// observes a single key edge.
+async function pressKeyUntil(gamePage, code, conditionFn, timeoutMs = 3_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await conditionFn()) return true;
+    await pressViaHook(gamePage.page, code);
+    await gamePage.page.waitForTimeout(120);
+  }
+
+  return conditionFn();
+}
+
+async function expectKilledByFire(gamePage, target, timeoutMs = 3_000) {
+  const killed = await pressKeyUntil(gamePage, 'Space', async () => {
+    const enemies = await gamePage.formation();
+    return enemies.find((enemy) => enemy.index === target.index)?.alive === false;
+  }, timeoutMs);
+
+  expect(killed).toBe(true);
+}
+
 function aliveByIndex(formation) {
   return new Map(formation.filter((enemy) => enemy.alive).map((enemy) => [enemy.index, enemy]));
 }
@@ -53,12 +83,7 @@ async function killByType(gamePage, type, expectedPoints) {
 
   await movePlayerCenterTo(gamePage, target.x + (target.w / 2));
   await settleTorpedoes(gamePage);
-  await gamePage.pressKey('Space', 80);
-
-  await expect.poll(async () => {
-    const enemies = await gamePage.formation();
-    return enemies.find((enemy) => enemy.index === target.index)?.alive;
-  }, { timeout: 3_000 }).toBe(false);
+  await expectKilledByFire(gamePage, target);
 
   await settleTorpedoes(gamePage);
 
@@ -106,12 +131,7 @@ test('killing an anglerfish (row 1-2) awards 20 points', async ({ gamePage }) =>
 
     await movePlayerCenterTo(gamePage, target.x + (target.w / 2));
     await settleTorpedoes(gamePage);
-    await gamePage.pressKey('Space', 80);
-
-    await expect.poll(async () => {
-      const e = await gamePage.formation();
-      return e.find((x) => x.index === target.index)?.alive;
-    }, { timeout: 3_000 }).toBe(false);
+    await expectKilledByFire(gamePage, target);
 
     await settleTorpedoes(gamePage);
 
@@ -151,12 +171,7 @@ test('killing a squid (row 0) awards 40 points', async ({ gamePage }) => {
 
     await movePlayerCenterTo(gamePage, target.x + (target.w / 2));
     await settleTorpedoes(gamePage);
-    await gamePage.pressKey('Space', 80);
-
-    await expect.poll(async () => {
-      const e = await gamePage.formation();
-      return e.find((x) => x.index === target.index)?.alive;
-    }, { timeout: 3_000 }).toBe(false);
+    await expectKilledByFire(gamePage, target);
 
     await settleTorpedoes(gamePage);
 
