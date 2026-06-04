@@ -103,7 +103,7 @@ public sealed class LeaderboardRepository : ILeaderboardRepository
                 await _table.DeleteEntityAsync(entity.PartitionKey, entity.RowKey, entity.ETag, ct).ConfigureAwait(false);
                 deleted++;
             }
-            catch (Azure.RequestFailedException)
+            catch (Azure.RequestFailedException ex) when (ex.Status is 404 or 412)
             {
             }
         }
