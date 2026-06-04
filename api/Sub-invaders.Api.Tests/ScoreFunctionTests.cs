@@ -251,7 +251,7 @@ public class ScoreFunctionTests
 
         var resp = (FakeHttpResponseData)await fn.Run(PostScore(body));
 
-        AssertError(resp, HttpStatusCode.BadRequest, "implausible_score", "score exceeds 50 per second cap");
+        AssertError(resp, HttpStatusCode.BadRequest, "implausible_score", "score exceeds 200 per second cap");
         Assert.Equal(0, leaderboard.Count);
     }
 
@@ -315,7 +315,7 @@ public class ScoreFunctionTests
 
         var resp = (FakeHttpResponseData)await fn.Run(PostScore(body));
 
-        AssertError(resp, HttpStatusCode.BadRequest, "implausible_score", "score exceeds 50 per second cap");
+        AssertError(resp, HttpStatusCode.BadRequest, "implausible_score", "score exceeds 200 per second cap");
     }
 
     [Fact]

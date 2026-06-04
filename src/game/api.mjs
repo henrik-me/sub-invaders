@@ -31,6 +31,7 @@ function isValidUtcDate(date) {
     return false;
   }
   const roundTrip = new Date(Date.UTC(year, month - 1, day));
+  roundTrip.setUTCFullYear(year);
   return roundTrip.getUTCFullYear() === year
     && roundTrip.getUTCMonth() === month - 1
     && roundTrip.getUTCDate() === day;

@@ -2,6 +2,7 @@ namespace SubInvaders.Api.Storage;
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Data.Tables;
@@ -89,7 +90,8 @@ public sealed class LeaderboardRepository : ILeaderboardRepository
         }
 
         var cutoffDate = DateOnly.FromDateTime(utcNow.UtcDateTime).AddDays(-retentionDays);
-        var filter = "PartitionKey ge 'daily-' and PartitionKey lt 'daily.'";
+        var cutoffPartition = LeaderboardPartitions.DailyPartition(cutoffDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        var filter = TableClient.CreateQueryFilter($"PartitionKey ge {LeaderboardPartitions.DailyPrefix} and PartitionKey lt {cutoffPartition}");
         int deleted = 0;
         await foreach (var entity in _table.QueryAsync<LeaderboardEntity>(filter, cancellationToken: ct).ConfigureAwait(false))
         {

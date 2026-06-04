@@ -124,11 +124,12 @@ public class ScoreFunction
 
         var effectiveElapsedSeconds = Math.Min(elapsed.TotalSeconds, serverElapsed.TotalSeconds);
         var multiplier = period == "daily" ? _dailyScoreMultiplierCap : 1;
-        var maxAllowed = (long)Math.Floor(effectiveElapsedSeconds * _maxScorePerSecond * multiplier);
+        var effectiveScorePerSecondCap = _maxScorePerSecond * multiplier;
+        var maxAllowed = (long)Math.Floor(effectiveElapsedSeconds * effectiveScorePerSecondCap);
         if (payload.Score > maxAllowed)
         {
             return await JsonResponse.Error(req, HttpStatusCode.BadRequest, "implausible_score",
-                $"score exceeds {_maxScorePerSecond} per second cap").ConfigureAwait(false);
+                $"score exceeds {effectiveScorePerSecondCap} per second cap").ConfigureAwait(false);
         }
 
         var consumed = await _sessions.TryConsumeAsync(session).ConfigureAwait(false);

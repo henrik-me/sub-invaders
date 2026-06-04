@@ -19,7 +19,7 @@ jobs:
         shell: bash
         run: |
           if [ -z "$FUNCTION_KEY" ]; then
-            echo "SUB_INVADERS_FUNCTION_KEY is not set; skipping sessions cleanup invocation."
+            echo "SUB_INVADERS_FUNCTION_KEY secret is not set (FUNCTION_KEY is empty); skipping sessions cleanup invocation."
             exit 0
           fi
           curl -sS --fail-with-body --max-time 30 \

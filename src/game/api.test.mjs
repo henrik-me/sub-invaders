@@ -40,6 +40,7 @@ test('CS12: isValidUtcDate rejects impossible calendar dates and accepts real da
   for (const date of ['2026-02-30', '2026-99-99', '0000-00-00', '2026-13-01', '2026-00-10']) {
     assert.equal(__forTesting.isValidUtcDate(date), false, `${date} should be rejected`);
   }
+  assert.equal(__forTesting.isValidUtcDate('0001-01-01'), true);
   assert.equal(__forTesting.isValidUtcDate('2024-02-29'), true);
   assert.equal(__forTesting.isValidUtcDate('2026-05-14'), true);
 });
