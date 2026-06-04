@@ -3,10 +3,12 @@ namespace SubInvaders.Api.Tests;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using SubInvaders.Api.Common;
 using SubInvaders.Api.Models;
 using SubInvaders.Api.Storage;
 using Xunit;
 
+[Collection(FeatureFlagTestCollection.Name)]
 public class LeaderboardRepositoryPartitionTests
 {
     private static LeaderboardEntity Row(int score, string partitionKey = LeaderboardEntity.PartitionAll)
@@ -66,4 +68,40 @@ public class LeaderboardRepositoryPartitionTests
         Assert.Equal(100, allRow.Score);
         Assert.Equal(900, dailyRow.Score);
     }
+
+    [Fact]
+    public async Task CS12_DeleteDailyPartitionsOlderThanAsync_deletes_old_daily_only()
+    {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, "on");
+        var leaderboard = new FakeLeaderboardRepository();
+        var utcNow = DateTimeOffset.Parse("2026-06-04T12:00:00Z");
+        var oldDaily = LeaderboardPartitions.DailyPartition("2026-05-04");
+        var recentDaily = LeaderboardPartitions.DailyPartition("2026-05-06");
+        await leaderboard.AddAsync(Row(1000, oldDaily), oldDaily);
+        await leaderboard.AddAsync(Row(900, recentDaily), recentDaily);
+        await leaderboard.AddAsync(Row(800), LeaderboardEntity.PartitionAll);
+
+        var deleted = await leaderboard.DeleteDailyPartitionsOlderThanAsync(30, utcNow);
+
+        Assert.Equal(1, deleted);
+        Assert.Empty(await leaderboard.GetTopAsync(10, oldDaily));
+        Assert.Single(await leaderboard.GetTopAsync(10, recentDaily));
+        Assert.Single(await leaderboard.GetTopAsync(10, LeaderboardEntity.PartitionAll));
+    }
+
+    [Fact]
+    public async Task CS12_DeleteDailyPartitionsOlderThanAsync_keeps_exact_retention_boundary()
+    {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, "on");
+        var leaderboard = new FakeLeaderboardRepository();
+        var utcNow = DateTimeOffset.Parse("2026-06-04T12:00:00Z");
+        var boundaryDaily = LeaderboardPartitions.DailyPartition("2026-05-05");
+        await leaderboard.AddAsync(Row(1000, boundaryDaily), boundaryDaily);
+
+        var deleted = await leaderboard.DeleteDailyPartitionsOlderThanAsync(30, utcNow);
+
+        Assert.Equal(0, deleted);
+        Assert.Single(await leaderboard.GetTopAsync(10, boundaryDaily));
+    }
+
 }

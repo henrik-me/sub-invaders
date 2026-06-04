@@ -22,6 +22,21 @@ function isPositiveInt(value) {
   return Number.isInteger(value) && value >= 0;
 }
 
+function isValidUtcDate(date) {
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return false;
+  }
+  const [year, month, day] = date.split('-').map(Number);
+  if (year <= 0 || month <= 0 || day <= 0) {
+    return false;
+  }
+  const roundTrip = new Date(Date.UTC(year, month - 1, day));
+  roundTrip.setUTCFullYear(year);
+  return roundTrip.getUTCFullYear() === year
+    && roundTrip.getUTCMonth() === month - 1
+    && roundTrip.getUTCDate() === day;
+}
+
 function normalizeBase(base) {
   const value = typeof base === 'string' && base.length > 0 ? base : DEFAULT_BASE;
   return value.replace(/\/+$/, '');
@@ -102,8 +117,8 @@ export function createApiClient(opts = {}) {
       }
       payload.period = period;
       if (period === 'daily') {
-        if (typeof utcDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(utcDate)) {
-          throw new ApiError('submitScore: utcDate must be YYYY-MM-DD when period is "daily"', { code: 'invalid_argument' });
+        if (!isValidUtcDate(utcDate)) {
+          throw new ApiError('submitScore: utcDate must be YYYY-MM-DD and a real UTC date when period is "daily"', { code: 'invalid_argument' });
         }
         payload.utcDate = utcDate;
       }
@@ -121,8 +136,8 @@ export function createApiClient(opts = {}) {
     }
     const params = new URLSearchParams({ period });
     if (period === 'daily') {
-      if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-        throw new ApiError('getLeaderboard: date must be YYYY-MM-DD when period is "daily"', { code: 'invalid_argument' });
+      if (!isValidUtcDate(date)) {
+        throw new ApiError('getLeaderboard: date must be YYYY-MM-DD and a real UTC date when period is "daily"', { code: 'invalid_argument' });
       }
       params.set('date', date);
     }
@@ -145,4 +160,4 @@ export function createApiClient(opts = {}) {
   return { startSession, submitScore, getLeaderboard };
 }
 
-export const __forTesting = { normalizeBase, isPositiveInt };
+export const __forTesting = { normalizeBase, isPositiveInt, isValidUtcDate };

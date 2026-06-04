@@ -147,6 +147,7 @@ describe('verify-deploy.checks — CS03/D13 leaderboard-sequence probe', () => {
     const ctx = {
       baseUrl: 'https://example.test',
       expectedVersion: 'sha-1',
+      sleep: async () => {},
       async httpRequest({ path, method, body }) {
         calls.push({ path, method, body });
         if (path === '/api/session' && method === 'POST') {
@@ -191,6 +192,7 @@ describe('verify-deploy.checks — CS03/D13 leaderboard-sequence probe', () => {
     const result = await c.run({
       baseUrl: 'https://example.test',
       expectedVersion: 'sha-1',
+      sleep: async () => {},
       httpRequest: async () => ({ status: 503, body: '', json: null }),
     });
     assert.match(result ?? '', /step 1.*HTTP 503/);
@@ -201,6 +203,7 @@ describe('verify-deploy.checks — CS03/D13 leaderboard-sequence probe', () => {
     const result = await c.run({
       baseUrl: 'https://example.test',
       expectedVersion: 'sha-1',
+      sleep: async () => {},
       httpRequest: async () => ({ status: 200, body: '{}', json: { startedAt: '2026-05-13T00:00:00.000Z' } }),
     });
     assert.match(result ?? '', /step 1.*sessionId/);
@@ -211,6 +214,7 @@ describe('verify-deploy.checks — CS03/D13 leaderboard-sequence probe', () => {
     const result = await c.run({
       baseUrl: 'https://example.test',
       expectedVersion: 'sha-1',
+      sleep: async () => {},
       async httpRequest({ path }) {
         if (path === '/api/session') {
           return { status: 200, body: '', json: { sessionId: 's', startedAt: '2026-05-13T00:00:00.000Z' } };
@@ -226,6 +230,7 @@ describe('verify-deploy.checks — CS03/D13 leaderboard-sequence probe', () => {
     const result = await c.run({
       baseUrl: 'https://example.test',
       expectedVersion: 'sha-1',
+      sleep: async () => {},
       async httpRequest({ path }) {
         if (path === '/api/session') {
           return { status: 200, body: '', json: { sessionId: 's', startedAt: '2026-05-13T00:00:00.000Z' } };
@@ -244,6 +249,7 @@ describe('verify-deploy.checks — CS03/D13 leaderboard-sequence probe', () => {
     const result = await c.run({
       baseUrl: 'https://example.test',
       expectedVersion: 'sha-1',
+      sleep: async () => {},
       async httpRequest({ path }) {
         if (path === '/api/session') {
           return { status: 200, body: '', json: { sessionId: 's', startedAt: '2026-05-13T00:00:00.000Z' } };
@@ -267,6 +273,7 @@ describe('verify-deploy.checks — CS03/D13 leaderboard-sequence probe', () => {
     const result = await c.run({
       baseUrl: 'https://example.test',
       expectedVersion: 'sha-1',
+      sleep: async () => {},
       async httpRequest({ path }) {
         if (path === '/api/session') {
           return { status: 200, body: '', json: { sessionId: 's', startedAt: '2026-05-13T00:00:00.000Z' } };
@@ -299,6 +306,7 @@ describe('verify-deploy.checks — CS03/D13 leaderboard-sequence probe', () => {
     const result = await c.run({
       baseUrl: 'https://example.test',
       expectedVersion: 'sha-1',
+      sleep: async () => {},
       async httpRequest({ path }) {
         if (path === '/api/session') {
           return { status: 200, body: '', json: { sessionId: 's', startedAt: '2026-05-13T00:00:00.000Z' } };

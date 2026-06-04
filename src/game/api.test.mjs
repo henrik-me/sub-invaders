@@ -35,6 +35,16 @@ test('normalizeBase strips trailing slash and falls back to /api', () => {
   assert.equal(__forTesting.normalizeBase(''), '/api');
 });
 
+
+test('CS12: isValidUtcDate rejects impossible calendar dates and accepts real dates', () => {
+  for (const date of ['2026-02-30', '2026-99-99', '0000-00-00', '2026-13-01', '2026-00-10']) {
+    assert.equal(__forTesting.isValidUtcDate(date), false, `${date} should be rejected`);
+  }
+  assert.equal(__forTesting.isValidUtcDate('0001-01-01'), true);
+  assert.equal(__forTesting.isValidUtcDate('2024-02-29'), true);
+  assert.equal(__forTesting.isValidUtcDate('2026-05-14'), true);
+});
+
 test('startSession returns sessionId/nonce/startedAt', async () => {
   const fetch = fakeFetch(() => jsonResponse(200, {
     sessionId: 'abc-123',
@@ -229,4 +239,43 @@ test('CS04: getLeaderboard rejects invalid period', async () => {
     client.getLeaderboard({ period: 'weekly' }),
     /period must be "all" or "daily"/,
   );
+});
+
+test('CS12: submitScore rejects impossible daily utcDate before fetch', async () => {
+  for (const utcDate of ['2026-02-30', '2026-99-99', '0000-00-00', '2026-13-01', '2026-00-10']) {
+    const fetch = fakeFetch(() => jsonResponse(200, { status: 'accepted' }));
+    const client = createApiClient({ fetch });
+    await assert.rejects(
+      client.submitScore({ sessionId: 'a', score: 1, finishedAt: '2026-05-14T00:00:00Z', period: 'daily', utcDate }),
+      /utcDate must be YYYY-MM-DD/,
+    );
+    assert.equal(fetch.calls.length, 0, `${utcDate} should not fetch`);
+  }
+});
+
+test('CS12: submitScore accepts real daily utcDate values', async () => {
+  for (const utcDate of ['2024-02-29', '2026-05-14']) {
+    const fetch = fakeFetch(() => jsonResponse(200, { status: 'accepted' }));
+    const client = createApiClient({ fetch });
+    await client.submitScore({ sessionId: 'a', score: 1, finishedAt: '2026-05-14T00:00:00Z', period: 'daily', utcDate });
+    assert.equal(fetch.calls.length, 1);
+  }
+});
+
+test('CS12: getLeaderboard rejects impossible daily date before fetch', async () => {
+  for (const date of ['2026-02-30', '2026-99-99', '0000-00-00', '2026-13-01', '2026-00-10']) {
+    const fetch = fakeFetch(() => jsonResponse(200, { period: 'daily', entries: [] }));
+    const client = createApiClient({ fetch });
+    await assert.rejects(client.getLeaderboard({ period: 'daily', date }), /date must be YYYY-MM-DD/);
+    assert.equal(fetch.calls.length, 0, `${date} should not fetch`);
+  }
+});
+
+test('CS12: getLeaderboard accepts real daily date values', async () => {
+  for (const date of ['2024-02-29', '2026-05-14']) {
+    const fetch = fakeFetch(() => jsonResponse(200, { period: 'daily', entries: [] }));
+    const client = createApiClient({ fetch });
+    await client.getLeaderboard({ period: 'daily', date });
+    assert.equal(fetch.calls.length, 1);
+  }
 });

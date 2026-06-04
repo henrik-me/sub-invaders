@@ -1,6 +1,6 @@
 # Sub Invaders — Architecture
 
-> **Last updated:** 2026-05-14 (cs04-content-author / CS04 — v1 shipped)
+> **Last updated:** 2026-06-04 (yoga-si / CS12 — leaderboard hardening)
 >
 > **Purpose:** This file is created once by `harness init` and is never overwritten on subsequent
 > syncs. It is the authoritative architecture reference for `henrik-me/sub-invaders`.
@@ -107,11 +107,15 @@ Azure Storage Tables inside `rg-sub-invaders-prod`. Tables are created idempoten
   deletes rows older than 24 h. SWA managed Functions does not support `timerTrigger`
   ('Currently, only httpTriggers are supported.'), so the cron schedule is driven externally
   (Azure Logic App / GitHub Actions cron) invoking the admin endpoint with the function key.
-- **`Leaderboard`** — top scores. `PartitionKey = "all"` (single hot partition acceptable up
-  to ~10k rows per the Azure Tables guidance); `RowKey = <invertedScore D8>_<submissionUuid>`
-  where `invertedScore = 99_999_999 - score` zero-padded to 8 digits, so Table Storage's
+- **`Leaderboard`** — top scores. `PartitionKey = "all"` for all-time scores (single hot
+  partition acceptable up to ~10k rows per the Azure Tables guidance) and
+  `daily-YYYY-MM-DD` for daily scores. The date suffix is validated as a real UTC
+  calendar date before routing. `RowKey = <invertedScore D8>_<submissionUuid>` where
+  `invertedScore = 99_999_999 - score` zero-padded to 8 digits, so Table Storage's
   natural ascending row-key order returns top scores first. Columns: `Score` (int),
-  `FinishedAt` (ISO-8601). `period=daily` (CS04) will partition by `daily-YYYY-MM-DD`.
+  `FinishedAt` (ISO-8601). Daily partitions are pruned by the cleanup Function after
+  `DAILY_LEADERBOARD_RETENTION_DAYS` days (default 30); the all-time partition is never
+  touched by the daily-retention pass.
 
 SI-CS05 is a deferred tripwire to re-evaluate whether Storage Tables remains the right choice
 once leaderboard load patterns are observable in staging.
@@ -211,8 +215,12 @@ Triple guard against adversarial score submission:
 
 1. **Session token:** `POST /api/session` generates a UUID + nonce + `startedAt` timestamp,
    persisted to the `Sessions` table. Client must present the token on score submission.
-2. **Plausibility window:** server validates `finishedAt - startedAt` is between 10 s and 600 s,
-   and `score <= elapsedSeconds × MAX_SCORE_PER_SECOND` (default 50).
+2. **Plausibility windows:** server validates the payload shape (`finishedAt - startedAt`
+   between 10 s and 600 s) and the submit wall-clock age (`serverNow - startedAt` between
+   10 s and 900 s). The score cap is applied to `min(finishedAt-startedAt, serverNow-startedAt)`,
+   so forged future `finishedAt` values cannot inflate the allowance. All-time scores use
+   `MAX_SCORE_PER_SECOND` (default 50); daily scores use that cap multiplied by
+   `DAILY_SCORE_MULTIPLIER_CAP` (default 4).
 3. **Per-IP rate limit:** sliding-window, 30 req/min, applied to both `/api/session` and
    `/api/score` before any Storage call.
 
@@ -285,7 +293,7 @@ Phase 3.5 sets `SUB_INVADERS_STORAGE` idempotently.
 | Table | Partition key | Row key | Purpose | Cleanup |
 |---|---|---|---|---|
 | `Sessions` | `yyyyMMdd` (UTC day) | `sessionId` (GUID) | Replay-protection token + nonce (C16-12). Columns: `Nonce`, `StartedAt`, `Consumed`, `ConsumedAt`. Single-use via ETag-conditional update. `Nonce` is currently reserved metadata; replay protection itself is keyed off `sessionId` consumption. | Admin Function `POST /api/admin/sessions-cleanup` (`AuthorizationLevel.Function`) deletes rows older than 24 h. Triggered by an external scheduler (SWA managed Functions does not support `timerTrigger`). Azure Tables has no native TTL. |
-| `Leaderboard` | `"all"` (single hot partition) | `<invertedScore D8>_<submissionUuid>` | Top-100 all-time scores. `invertedScore = 99_999_999 - score` so ascending RowKey sort returns top scores first. Columns: `Score` (int), `FinishedAt` (ISO-8601), `SessionId` (string, audit trail). | Same admin cleanup Function trims to `LeaderboardCap = 10 000` rows per invocation. CS04 introduces `daily-YYYY-MM-DD` partitions. |
+| `Leaderboard` | `"all"` or `daily-YYYY-MM-DD` | `<invertedScore D8>_<submissionUuid>` | Top scores. `invertedScore = 99_999_999 - score` so ascending RowKey sort returns top scores first. Columns: `Score` (int), `FinishedAt` (ISO-8601), `SessionId` (string, audit trail). Daily partition dates must be real UTC calendar dates. | Same admin cleanup Function trims all-time to `LeaderboardCap = 10 000` and deletes daily rows older than `DAILY_LEADERBOARD_RETENTION_DAYS` (default 30). |
 
 Both tables are created idempotently by `infra/provision.sh` Phase 2.5 so a fresh deploy
 into an empty RG produces a working backend without manual setup.
@@ -300,8 +308,15 @@ separate Function App resource; the SWA pipeline handles both layers.
 - **Trigger:** `.github/workflows/swa-deploy.yml` — push to `main` and PR preview.
 - **Secret:** `AZURE_STATIC_WEB_APPS_API_TOKEN` (gate G5; stored in GitHub Actions secrets;
   never committed or logged).
-- **Smoke probe:** verify-deploy scaffold checks `GET /` (HTTP 200) and
-  `GET /api/health` (HTTP 200, body `{"status":"ok"}`).
+- **Smoke probe:** verify-deploy scaffold checks `GET /` (HTTP 200),
+  `GET /api/health` (HTTP 200, body `{"status":"ok"}`), and a session → score →
+  leaderboard sequence that waits at least 10 seconds before submitting to satisfy the
+  server-clock lower bound.
+- **Cleanup scheduler:** `.github/workflows/sessions-cleanup.yml` runs hourly (`5 * * * *`)
+  and posts to `https://happy-coast-04ffcaa1e.7.azurestaticapps.net/api/admin/sessions-cleanup`
+  with the `x-functions-key` header. Manual step: create the repository Actions secret
+  `SUB_INVADERS_FUNCTION_KEY` with the production Function key and rotate it periodically.
+  The workflow logs a skip and exits 0 when the secret is absent.
 
 ---
 

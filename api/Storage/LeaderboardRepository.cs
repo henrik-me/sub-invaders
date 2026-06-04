@@ -1,6 +1,8 @@
 namespace SubInvaders.Api.Storage;
 
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.Data.Tables;
@@ -71,6 +73,39 @@ public sealed class LeaderboardRepository : ILeaderboardRepository
                 deleted++;
             }
             catch (Azure.RequestFailedException)
+            {
+            }
+        }
+        return deleted;
+    }
+
+    public async Task<int> DeleteDailyPartitionsOlderThanAsync(
+        int retentionDays,
+        DateTimeOffset utcNow,
+        CancellationToken ct = default)
+    {
+        if (retentionDays <= 0)
+        {
+            return 0;
+        }
+
+        var cutoffDate = DateOnly.FromDateTime(utcNow.UtcDateTime).AddDays(-retentionDays);
+        var cutoffPartition = LeaderboardPartitions.DailyPartition(cutoffDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        var filter = TableClient.CreateQueryFilter($"PartitionKey ge {LeaderboardPartitions.DailyPrefix} and PartitionKey lt {cutoffPartition}");
+        int deleted = 0;
+        await foreach (var entity in _table.QueryAsync<LeaderboardEntity>(filter, cancellationToken: ct).ConfigureAwait(false))
+        {
+            if (!LeaderboardPartitions.TryParseDailyPartitionDate(entity.PartitionKey, out var date) || date >= cutoffDate)
+            {
+                continue;
+            }
+
+            try
+            {
+                await _table.DeleteEntityAsync(entity.PartitionKey, entity.RowKey, entity.ETag, ct).ConfigureAwait(false);
+                deleted++;
+            }
+            catch (Azure.RequestFailedException ex) when (ex.Status is 404 or 412)
             {
             }
         }

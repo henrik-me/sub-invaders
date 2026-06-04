@@ -17,15 +17,18 @@ public class SessionsCleanupFunction
     private readonly ISessionsRepository _sessions;
     private readonly ILeaderboardRepository _leaderboard;
     private readonly ILogger<SessionsCleanupFunction> _logger;
+    private readonly int _dailyLeaderboardRetentionDays;
 
     public SessionsCleanupFunction(
         ISessionsRepository sessions,
         ILeaderboardRepository leaderboard,
-        ILogger<SessionsCleanupFunction> logger)
+        ILogger<SessionsCleanupFunction> logger,
+        CleanupOptions? options = null)
     {
         _sessions = sessions;
         _leaderboard = leaderboard;
         _logger = logger;
+        _dailyLeaderboardRetentionDays = options?.DailyLeaderboardRetentionDays ?? 30;
     }
 
     // SWA managed Functions does not support timerTrigger ('Currently, only
@@ -38,7 +41,8 @@ public class SessionsCleanupFunction
     public async Task<HttpResponseData> Run(
         [HttpTrigger(AuthorizationLevel.Function, "post", Route = "admin/sessions-cleanup")] HttpRequestData req)
     {
-        var cutoff = DateTimeOffset.UtcNow - SessionTtl;
+        var utcNow = DateTimeOffset.UtcNow;
+        var cutoff = utcNow - SessionTtl;
         _logger.LogInformation("SessionsCleanup: pass 1 — deleting Sessions older than {Cutoff:o}", cutoff);
         await _sessions.DeleteOlderThanAsync(cutoff).ConfigureAwait(false);
 
@@ -46,11 +50,21 @@ public class SessionsCleanupFunction
         var trimmed = await _leaderboard.TrimAsync(LeaderboardCap).ConfigureAwait(false);
         _logger.LogInformation("SessionsCleanup: deleted {Trimmed} leaderboard rows beyond cap", trimmed);
 
+        _logger.LogInformation("SessionsCleanup: pass 3 — deleting daily Leaderboard partitions older than {RetentionDays} days", _dailyLeaderboardRetentionDays);
+        var dailyDeleted = await _leaderboard.DeleteDailyPartitionsOlderThanAsync(_dailyLeaderboardRetentionDays, utcNow).ConfigureAwait(false);
+        _logger.LogInformation("SessionsCleanup: deleted {DailyDeleted} stale daily leaderboard rows", dailyDeleted);
+
         return await JsonResponse.Write(req, HttpStatusCode.OK, new CleanupResult(
             "ok",
             cutoff.ToString("o"),
-            trimmed)).ConfigureAwait(false);
+            trimmed,
+            dailyDeleted)).ConfigureAwait(false);
     }
 
-    public sealed record CleanupResult(string Status, string SessionsCutoff, int LeaderboardRowsTrimmed);
+    public sealed record CleanupResult(string Status, string SessionsCutoff, int LeaderboardRowsTrimmed, int DailyLeaderboardRowsDeleted);
+}
+
+public sealed class CleanupOptions
+{
+    public int DailyLeaderboardRetentionDays { get; init; } = 30;
 }

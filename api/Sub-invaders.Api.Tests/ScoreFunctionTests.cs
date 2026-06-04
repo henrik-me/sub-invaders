@@ -14,11 +14,12 @@ using Xunit;
 public class ScoreFunctionTests
 {
     private static (ScoreFunction Fn, FakeSessionsRepository Sessions, FakeLeaderboardRepository Leaderboard, SessionEntity Session)
-        Setup(int score = 500, double elapsedSeconds = 60)
+        Setup(int score = 500, double elapsedSeconds = 60, DateTimeOffset? serverNow = null, int maxScorePerSecond = 50, int dailyMultiplierCap = 4)
     {
         var sessions = new FakeSessionsRepository();
         var leaderboard = new FakeLeaderboardRepository();
-        var startedAt = DateTimeOffset.UtcNow - TimeSpan.FromSeconds(elapsedSeconds);
+        var now = serverNow ?? DateTimeOffset.Parse("2026-05-14T12:00:00Z");
+        var startedAt = now - TimeSpan.FromSeconds(elapsedSeconds);
         var sessionId = Guid.NewGuid().ToString("D");
         var session = new SessionEntity
         {
@@ -28,7 +29,12 @@ public class ScoreFunctionTests
             StartedAt = startedAt,
         };
         sessions.Seed(session);
-        var fn = new ScoreFunction(sessions, leaderboard, new ScoreOptions { MaxScorePerSecond = 50 });
+        var fn = new ScoreFunction(sessions, leaderboard, new ScoreOptions
+        {
+            MaxScorePerSecond = maxScorePerSecond,
+            DailyScoreMultiplierCap = dailyMultiplierCap,
+            UtcNow = () => now,
+        });
         return (fn, sessions, leaderboard, session);
     }
 
@@ -218,6 +224,112 @@ public class ScoreFunctionTests
         Assert.Equal(1, ok);
         Assert.Equal(1, conflict);
         Assert.Equal(1, leaderboard.Count);
+    }
+
+
+    [Fact]
+    public async Task CS12_Daily_boss_rush_score_over_all_time_cap_is_accepted_under_daily_cap()
+    {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, "on");
+        var (fn, _, leaderboard, session) = Setup(elapsedSeconds: 60, maxScorePerSecond: 50, dailyMultiplierCap: 4);
+        var finishedAt = session.StartedAt + TimeSpan.FromSeconds(60);
+        var body = $"{{\"sessionId\":\"{session.RowKey}\",\"score\":6000,\"finishedAt\":\"{finishedAt:o}\",\"period\":\"daily\",\"utcDate\":\"2026-05-14\"}}";
+
+        var resp = (FakeHttpResponseData)await fn.Run(PostScore(body));
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        Assert.Single(await leaderboard.GetTopAsync(10, LeaderboardPartitions.DailyPartition("2026-05-14")));
+    }
+
+    [Fact]
+    public async Task CS12_Daily_score_above_daily_cap_returns_400()
+    {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, "on");
+        var (fn, _, leaderboard, session) = Setup(elapsedSeconds: 60, maxScorePerSecond: 50, dailyMultiplierCap: 4);
+        var finishedAt = session.StartedAt + TimeSpan.FromSeconds(60);
+        var body = $"{{\"sessionId\":\"{session.RowKey}\",\"score\":12001,\"finishedAt\":\"{finishedAt:o}\",\"period\":\"daily\",\"utcDate\":\"2026-05-14\"}}";
+
+        var resp = (FakeHttpResponseData)await fn.Run(PostScore(body));
+
+        AssertError(resp, HttpStatusCode.BadRequest, "implausible_score", "score exceeds 200 per second cap");
+        Assert.Equal(0, leaderboard.Count);
+    }
+
+    [Fact]
+    public async Task CS12_Early_server_clock_submit_returns_stale_or_early()
+    {
+        var (fn, _, _, session) = Setup(elapsedSeconds: 9.5);
+        var finishedAt = session.StartedAt + TimeSpan.FromSeconds(10);
+        var body = $"{{\"sessionId\":\"{session.RowKey}\",\"score\":100,\"finishedAt\":\"{finishedAt:o}\"}}";
+
+        var resp = (FakeHttpResponseData)await fn.Run(PostScore(body));
+
+        AssertError(resp, HttpStatusCode.BadRequest, "stale_or_early_submission", "submission must arrive between 10s and 900s after session start");
+    }
+
+    [Fact]
+    public async Task CS12_Abandoned_server_clock_submit_returns_stale_or_early()
+    {
+        var (fn, _, _, session) = Setup(elapsedSeconds: 901);
+        var finishedAt = session.StartedAt + TimeSpan.FromSeconds(600);
+        var body = $"{{\"sessionId\":\"{session.RowKey}\",\"score\":100,\"finishedAt\":\"{finishedAt:o}\"}}";
+
+        var resp = (FakeHttpResponseData)await fn.Run(PostScore(body));
+
+        AssertError(resp, HttpStatusCode.BadRequest, "stale_or_early_submission", "submission must arrive between 10s and 900s after session start");
+    }
+
+    [Fact]
+    public async Task CS12_Forged_finishedAt_duration_clamps_cap_to_server_elapsed()
+    {
+        var (fn, _, leaderboard, session) = Setup(elapsedSeconds: 10);
+        var finishedAt = session.StartedAt + TimeSpan.FromSeconds(600);
+        var body = $"{{\"sessionId\":\"{session.RowKey}\",\"score\":30000,\"finishedAt\":\"{finishedAt:o}\"}}";
+
+        var resp = (FakeHttpResponseData)await fn.Run(PostScore(body));
+
+        AssertError(resp, HttpStatusCode.BadRequest, "implausible_score", "score exceeds 50 per second cap");
+        Assert.Equal(0, leaderboard.Count);
+    }
+
+    [Fact]
+    public async Task CS12_Daily_cap_exact_boundary_is_accepted()
+    {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, "on");
+        var (fn, _, _, session) = Setup(elapsedSeconds: 10, maxScorePerSecond: 50, dailyMultiplierCap: 4);
+        var finishedAt = session.StartedAt + TimeSpan.FromSeconds(10);
+        var body = $"{{\"sessionId\":\"{session.RowKey}\",\"score\":2000,\"finishedAt\":\"{finishedAt:o}\",\"period\":\"daily\",\"utcDate\":\"2026-05-14\"}}";
+
+        var resp = (FakeHttpResponseData)await fn.Run(PostScore(body));
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task CS12_Daily_cap_one_above_boundary_is_rejected()
+    {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, "on");
+        var (fn, _, _, session) = Setup(elapsedSeconds: 10, maxScorePerSecond: 50, dailyMultiplierCap: 4);
+        var finishedAt = session.StartedAt + TimeSpan.FromSeconds(10);
+        var body = $"{{\"sessionId\":\"{session.RowKey}\",\"score\":2001,\"finishedAt\":\"{finishedAt:o}\",\"period\":\"daily\",\"utcDate\":\"2026-05-14\"}}";
+
+        var resp = (FakeHttpResponseData)await fn.Run(PostScore(body));
+
+        AssertError(resp, HttpStatusCode.BadRequest, "implausible_score", "score exceeds 200 per second cap");
+    }
+
+    [Fact]
+    public async Task CS12_Daily_cap_under_min_game_seconds_rejects_before_cap_logic()
+    {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, "on");
+        var (fn, _, _, session) = Setup(elapsedSeconds: 9);
+        var finishedAt = session.StartedAt + TimeSpan.FromSeconds(10);
+        var body = $"{{\"sessionId\":\"{session.RowKey}\",\"score\":99999,\"finishedAt\":\"{finishedAt:o}\",\"period\":\"daily\",\"utcDate\":\"2026-05-14\"}}";
+
+        var resp = (FakeHttpResponseData)await fn.Run(PostScore(body));
+
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
+        Assert.Equal("stale_or_early_submission", resp.ReadBodyAs<JsonResponse.ErrorBody>()!.Error);
     }
 
     private static void AssertError(FakeHttpResponseData resp, HttpStatusCode status, string error, string message)

@@ -29,6 +29,8 @@
  * @module scripts/verify-deploy.checks.mjs
  */
 
+const SERVER_CLOCK_WAIT_MS = 10_100;
+
 const checks = [
   {
     name: 'frontend-root',
@@ -141,6 +143,11 @@ const checks = [
       // the probe row both clears the per-second plausibility check AND has a high
       // enough score to land in the top-100 leaderboard window even on a moderately
       // populated board. Pair with the unique finishedAt below to identify the row.
+      process.stdout.write(`leaderboard-sequence: waiting ${SERVER_CLOCK_WAIT_MS}ms before score submit to satisfy server-clock lower bound\n`);
+      const sleep = typeof ctx.sleep === 'function'
+        ? ctx.sleep
+        : (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      await sleep(SERVER_CLOCK_WAIT_MS);
       const finishedAt = new Date(startedAtMs + 11_000).toISOString();
       const probeScore = 500;
       const scoreResponse = await httpRequest({
