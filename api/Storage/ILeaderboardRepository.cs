@@ -47,7 +47,7 @@ public static class LeaderboardPartitions
             return false;
         }
         var suffix = partitionKey[DailyPrefix.Length..];
-        return IsUtcDate(suffix) &&
+        return UtcDatePattern.IsMatch(suffix) &&
             DateOnly.TryParseExact(suffix, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
     }
 
