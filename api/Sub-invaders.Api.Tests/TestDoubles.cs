@@ -141,5 +141,29 @@ public sealed class FakeLeaderboardRepository : ILeaderboardRepository
         }
     }
 
+    public Task<int> DeleteDailyPartitionsOlderThanAsync(
+        int retentionDays,
+        DateTimeOffset utcNow,
+        CancellationToken ct = default)
+    {
+        lock (_lock)
+        {
+            if (retentionDays <= 0)
+            {
+                return Task.FromResult(0);
+            }
+            var cutoffDate = DateOnly.FromDateTime(utcNow.UtcDateTime).AddDays(-retentionDays);
+            var keys = _items.Values
+                .Where(entity => LeaderboardPartitions.TryParseDailyPartitionDate(entity.PartitionKey, out var date) && date < cutoffDate)
+                .Select(entity => Key(entity.PartitionKey, entity.RowKey))
+                .ToList();
+            foreach (var key in keys)
+            {
+                _items.Remove(key);
+            }
+            return Task.FromResult(keys.Count);
+        }
+    }
+
     private static string Key(string pk, string rk) => $"{pk}|{rk}";
 }

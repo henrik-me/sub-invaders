@@ -15,10 +15,13 @@ public class ScoreFunction
 {
     public const int MinGameSeconds = 10;
     public const int MaxGameSeconds = 600;
+    public const int MaxSubmitSeconds = 900;
 
     private readonly ISessionsRepository _sessions;
     private readonly ILeaderboardRepository _leaderboard;
     private readonly int _maxScorePerSecond;
+    private readonly int _dailyScoreMultiplierCap;
+    private readonly Func<DateTimeOffset> _utcNow;
 
     public ScoreFunction(
         ISessionsRepository sessions,
@@ -28,12 +31,15 @@ public class ScoreFunction
         _sessions = sessions;
         _leaderboard = leaderboard;
         _maxScorePerSecond = options.MaxScorePerSecond;
+        _dailyScoreMultiplierCap = options.DailyScoreMultiplierCap;
+        _utcNow = options.UtcNow;
     }
 
     [Function("Score")]
     public async Task<HttpResponseData> Run(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "score")] HttpRequestData req)
     {
+        var serverNow = _utcNow();
         var (ok, body, error) = await RequestHelpers.ReadBodyBoundedAsync(req).ConfigureAwait(false);
         if (!ok)
         {
@@ -108,7 +114,17 @@ public class ScoreFunction
             return await JsonResponse.Error(req, HttpStatusCode.BadRequest, "invalid_duration",
                 $"finishedAt - startedAt must be between {MinGameSeconds}s and {MaxGameSeconds}s").ConfigureAwait(false);
         }
-        var maxAllowed = (long)Math.Floor(elapsed.TotalSeconds * _maxScorePerSecond);
+
+        var serverElapsed = serverNow - session.StartedAt;
+        if (serverElapsed.TotalSeconds < MinGameSeconds || serverElapsed.TotalSeconds > MaxSubmitSeconds)
+        {
+            return await JsonResponse.Error(req, HttpStatusCode.BadRequest, "stale_or_early_submission",
+                $"submission must arrive between {MinGameSeconds}s and {MaxSubmitSeconds}s after session start").ConfigureAwait(false);
+        }
+
+        var effectiveElapsedSeconds = Math.Min(elapsed.TotalSeconds, serverElapsed.TotalSeconds);
+        var multiplier = period == "daily" ? _dailyScoreMultiplierCap : 1;
+        var maxAllowed = (long)Math.Floor(effectiveElapsedSeconds * _maxScorePerSecond * multiplier);
         if (payload.Score > maxAllowed)
         {
             return await JsonResponse.Error(req, HttpStatusCode.BadRequest, "implausible_score",
@@ -155,4 +171,6 @@ public class ScoreFunction
 public sealed class ScoreOptions
 {
     public int MaxScorePerSecond { get; init; } = 50;
+    public int DailyScoreMultiplierCap { get; init; } = 4;
+    public Func<DateTimeOffset> UtcNow { get; init; } = () => DateTimeOffset.UtcNow;
 }

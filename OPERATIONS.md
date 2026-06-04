@@ -2025,21 +2025,25 @@ tag and skips create operations that already succeeded.
     RowKey = `sessionId` (cryptographically random GUID). Columns: `Nonce`, `StartedAt`,
     `Consumed`, `ConsumedAt`. Single-use; replay protection enforced via ETag-conditional
     `UpdateEntityAsync(Replace)` that returns 412 → mapped to HTTP 409 `already_consumed`.
-  - `Leaderboard` — PartitionKey = `"all"` (single hot partition acceptable up to ~10k rows
-    per the Azure Tables guidance; revisit if the table grows), RowKey =
+  - `Leaderboard` — PartitionKey = `"all"` for all-time scores or `daily-YYYY-MM-DD`
+    for daily scores (date suffix must be a real UTC calendar date), RowKey =
     `<invertedScore D8>_<submissionUuid>` so the natural ascending Table Storage sort
     returns top scores first (inverted score = `99_999_999 - score`, zero-padded to 8 digits).
     Columns: `Score` (int), `FinishedAt` (ISO-8601), `SessionId` (string).
 - Cleanup Function (`SessionsCleanup`, `POST /api/admin/sessions-cleanup`,
-  `AuthorizationLevel.Function`) deletes Sessions older than 24 h **and** trims the
-  `Leaderboard` table to the top 10 000 rows (`LeaderboardCap`). Azure Tables has no native
-  TTL; the cleanup Function is the source of truth. SWA managed Functions does not support
-  `timerTrigger` (the build emits *"Currently, only httpTriggers are supported"*), so the
-  hourly cadence is driven by an external scheduler (Azure Logic App / GitHub Actions cron)
-  that POSTs to the admin endpoint with the function key (`x-functions-key` header or
-  `?code=` query). Mitigation if the scheduler is offline: Sessions are still single-use, so
-  storage grows linearly but correctness is preserved; the next successful invocation
-  reclaims the backlog.
+  `AuthorizationLevel.Function`) deletes Sessions older than 24 h, trims the all-time
+  `Leaderboard` partition to the top 10 000 rows (`LeaderboardCap`), and deletes daily
+  leaderboard rows from `daily-YYYY-MM-DD` partitions older than
+  `DAILY_LEADERBOARD_RETENTION_DAYS` (default 30). Azure Tables has no native TTL; the cleanup
+  Function is the source of truth. SWA managed Functions does not support `timerTrigger` (the
+  build emits *"Currently, only httpTriggers are supported"*), so the hourly cadence is driven
+  by `.github/workflows/sessions-cleanup.yml` (GitHub Actions cron `5 * * * *`) which POSTs to
+  the admin endpoint with the function key in the `x-functions-key` header. Manual step: add
+  repository Actions secret `SUB_INVADERS_FUNCTION_KEY` with the production Function key and
+  rotate it periodically. The workflow logs a skip and exits 0 when the secret is absent
+  (fork/Dependabot safety). Mitigation if the scheduler is offline: Sessions are still
+  single-use, so storage grows linearly but correctness is preserved; the next successful
+  invocation reclaims the backlog.
 
 ### Env vars (deploy-time, set in Azure SWA configuration)
 
@@ -2049,6 +2053,8 @@ tag and skips create operations that already succeeded.
 | `RATE_LIMIT_PER_MINUTE` | Per-IP rate cap on `/api/session` and `/api/score` (default 30) | CS03+ |
 | `SUB_INVADERS_COMMIT` / `GITHUB_SHA` | **Removed in #52** — no longer consulted at runtime. The deployed commit SHA is now baked into `AssemblyInformationalVersionAttribute` at build time (`swa-deploy.yml` exposes `BUILD_COMMIT=${{ github.sha }}` to Oryx, which forwards it to `dotnet build`; `BuildInfoProvider` reads the attribute via reflection). | CS03+ |
 | `DAILY_CHALLENGE_SEED` | Pin deterministic daily challenge | CS04+ |
+| `DAILY_SCORE_MULTIPLIER_CAP` | Multiplier applied to `MAX_SCORE_PER_SECOND` for `period=daily` score submissions (default 4). | CS12+ |
+| `DAILY_LEADERBOARD_RETENTION_DAYS` | Daily leaderboard retention window for cleanup (default 30 days). | CS12+ |
 
 ### Secret rotation
 
@@ -2058,6 +2064,7 @@ tag and skips create operations that already succeeded.
   the SWA application settings (the Functions worker re-reads on cold start). Plan a
   rolling key rotation: regenerate key2 first, update settings to key2, then regenerate
   key1.
+- `SUB_INVADERS_FUNCTION_KEY`: rotate via Azure portal / Functions key management for the SWA-managed API; update the GitHub Actions secret used by `.github/workflows/sessions-cleanup.yml`.
 - Never log secrets in workflows; never copy into the active CS file.
 
 ### Configuring deploy-time commit injection (Issue #52) — RESOLVED

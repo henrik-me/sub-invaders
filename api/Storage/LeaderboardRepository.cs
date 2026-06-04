@@ -1,5 +1,6 @@
 namespace SubInvaders.Api.Storage;
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -65,6 +66,38 @@ public sealed class LeaderboardRepository : ILeaderboardRepository
                 kept++;
                 continue;
             }
+            try
+            {
+                await _table.DeleteEntityAsync(entity.PartitionKey, entity.RowKey, entity.ETag, ct).ConfigureAwait(false);
+                deleted++;
+            }
+            catch (Azure.RequestFailedException)
+            {
+            }
+        }
+        return deleted;
+    }
+
+    public async Task<int> DeleteDailyPartitionsOlderThanAsync(
+        int retentionDays,
+        DateTimeOffset utcNow,
+        CancellationToken ct = default)
+    {
+        if (retentionDays <= 0)
+        {
+            return 0;
+        }
+
+        var cutoffDate = DateOnly.FromDateTime(utcNow.UtcDateTime).AddDays(-retentionDays);
+        var filter = "PartitionKey ge 'daily-' and PartitionKey lt 'daily.'";
+        int deleted = 0;
+        await foreach (var entity in _table.QueryAsync<LeaderboardEntity>(filter, cancellationToken: ct).ConfigureAwait(false))
+        {
+            if (!LeaderboardPartitions.TryParseDailyPartitionDate(entity.PartitionKey, out var date) || date >= cutoffDate)
+            {
+                continue;
+            }
+
             try
             {
                 await _table.DeleteEntityAsync(entity.PartitionKey, entity.RowKey, entity.ETag, ct).ConfigureAwait(false);

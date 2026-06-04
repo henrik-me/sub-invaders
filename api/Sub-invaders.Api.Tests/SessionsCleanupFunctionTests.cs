@@ -5,9 +5,12 @@ using System.Net;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using SubInvaders.Api;
+using SubInvaders.Api.Common;
 using SubInvaders.Api.Models;
+using SubInvaders.Api.Storage;
 using Xunit;
 
+[Collection(FeatureFlagTestCollection.Name)]
 public class SessionsCleanupFunctionTests
 {
     private static FakeHttpRequestData NewRequest() =>
@@ -60,4 +63,33 @@ public class SessionsCleanupFunctionTests
         Assert.Equal("ok", body!.Status);
         Assert.Equal(25, body.LeaderboardRowsTrimmed);
     }
+
+    [Fact]
+    public async Task CS12_Cleanup_deletes_stale_daily_leaderboard_rows_and_reports_count()
+    {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, "on");
+        var sessions = new FakeSessionsRepository();
+        var leaderboard = new FakeLeaderboardRepository();
+        var oldDaily = LeaderboardPartitions.DailyPartition(DateTimeOffset.UtcNow.AddDays(-31).ToString("yyyy-MM-dd"));
+        await leaderboard.AddAsync(new LeaderboardEntity
+        {
+            RowKey = LeaderboardEntity.FormatRowKey(100, Guid.NewGuid()),
+            Score = 100,
+            FinishedAt = DateTimeOffset.UtcNow,
+        }, oldDaily);
+
+        var fn = new SessionsCleanupFunction(
+            sessions,
+            leaderboard,
+            NullLogger<SessionsCleanupFunction>.Instance,
+            new CleanupOptions { DailyLeaderboardRetentionDays = 30 });
+        var resp = await fn.Run(NewRequest());
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var body = ((FakeHttpResponseData)resp).ReadBodyAs<SessionsCleanupFunction.CleanupResult>();
+        Assert.NotNull(body);
+        Assert.Equal(1, body!.DailyLeaderboardRowsDeleted);
+        Assert.Equal(0, leaderboard.Count);
+    }
+
 }

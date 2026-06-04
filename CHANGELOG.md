@@ -8,6 +8,15 @@ once a tagged release exists.
 
 ## [Unreleased]
 
+
+### Fixed (SI-CS12 — 2026-06-04) — Leaderboard & score-integrity hardening
+
+- **Calendar-date validation hardened (#67).** Frontend daily leaderboard/score calls and backend daily partition routing now reject impossible `YYYY-MM-DD` values such as `2026-02-30`, while accepting real dates including `2024-02-29`.
+- **Daily score cap is daily-aware (#70).** `period=daily` submissions use `MAX_SCORE_PER_SECOND × DAILY_SCORE_MULTIPLIER_CAP` (default `4`); all-time submissions keep the fixed cap.
+- **Server-clock score integrity fixed (#49).** `/api/score` now rejects early/stale submissions outside 10–900 s of the stored session start and applies the score cap to `min(finishedAt-startedAt, serverNow-startedAt)`, closing the forged `finishedAt` bypass.
+- **Daily leaderboard retention added (#69).** Cleanup deletes rows from `daily-YYYY-MM-DD` partitions older than `DAILY_LEADERBOARD_RETENTION_DAYS` (default `30`) without touching all-time or current/recent daily rows.
+- **External cleanup scheduler added (#51).** `.github/workflows/sessions-cleanup.yml` invokes the admin cleanup endpoint hourly and skips cleanly when `SUB_INVADERS_FUNCTION_KEY` is unavailable.
+
 ### Added (SI-CS04 — 2026-05-14) — Daily challenge + whale-shark + v1 polish
 
 - **Sub Invaders v1 shipped.** CS04 closes the v1 milestone: a daily challenge mode
@@ -215,17 +224,6 @@ once a tagged release exists.
   - Clarified that the `Nonce` column on `Sessions` is currently reserved metadata;
     replay protection itself is keyed off `sessionId` consumption (ETag-conditional update),
     so `/api/score` does not require a nonce in the request body.
-
-### Known limitations (SI-CS03)
-
-- **`finishedAt` is client-supplied and not bounded by server wall-clock.** The plausibility
-  window check (`10 s ≤ finishedAt − startedAt ≤ 600 s`) does enforce the duration, but a
-  client can synthesise `finishedAt = startedAt + 600 s` immediately after `startSession`
-  to maximise the allowable score cap. The integration seed and `verify-deploy`
-  state-carrying probe both rely on this shortcut. A future CS should inject a server clock
-  and reject submissions where `(now − startedAt) < MinGameSeconds`. Tracked separately
-  from CS03 because the fix touches the seed/probe contract.
-
 
 ### Changed (post-CS03 — Issue #52) — Deploy-time commit injection
 

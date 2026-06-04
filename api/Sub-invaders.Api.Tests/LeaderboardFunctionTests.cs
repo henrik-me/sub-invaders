@@ -146,6 +146,52 @@ public class LeaderboardFunctionTests
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
     }
 
+    [Theory]
+    [InlineData("2026-02-30")]
+    [InlineData("2026-99-99")]
+    [InlineData("0000-00-00")]
+    [InlineData("2026-13-01")]
+    [InlineData("2026-00-10")]
+    public async Task CS12_Period_daily_flag_on_impossible_date_returns_400(string date)
+    {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, "on");
+        var leaderboard = new FakeLeaderboardRepository();
+        var fn = new LeaderboardFunction(leaderboard);
+
+        var resp = (FakeHttpResponseData)await fn.Run(GetLeaderboard("daily", date));
+
+        AssertInvalidDate(resp, "date must be YYYY-MM-DD");
+    }
+
+    [Fact]
+    public async Task CS12_Period_daily_flag_on_accepts_leap_day()
+    {
+        using var dailyFlag = new EnvironmentVariableScope(FeatureFlags.DailyChallengeEnvironmentVariable, "on");
+        var leaderboard = new FakeLeaderboardRepository();
+        await leaderboard.AddAsync(Row(777, LeaderboardPartitions.DailyPartition("2024-02-29")),
+            LeaderboardPartitions.DailyPartition("2024-02-29"));
+        var fn = new LeaderboardFunction(leaderboard);
+
+        var resp = (FakeHttpResponseData)await fn.Run(GetLeaderboard("daily", "2024-02-29"));
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var body = resp.ReadBodyAs<LeaderboardFunction.LeaderboardBody>();
+        Assert.NotNull(body);
+        Assert.Equal(777, Assert.Single(body!.Entries).Score);
+    }
+
+    [Theory]
+    [InlineData("2026-02-30", false)]
+    [InlineData("2026-99-99", false)]
+    [InlineData("0000-00-00", false)]
+    [InlineData("2026-13-01", false)]
+    [InlineData("2026-00-10", false)]
+    [InlineData("2024-02-29", true)]
+    public void CS12_IsUtcDate_requires_real_calendar_date(string date, bool expected)
+    {
+        Assert.Equal(expected, LeaderboardPartitions.IsUtcDate(date));
+    }
+
     private static void AssertInvalidDate(FakeHttpResponseData resp, string message)
     {
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);

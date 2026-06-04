@@ -20,6 +20,7 @@
 
 const SMOKE_SCORE = 137; // distinctive, low enough not to dominate a real leaderboard
 const RUN_DURATION_MS = 11_000; // > 10s minimum required by the server contract
+const SERVER_CLOCK_WAIT_MS = 10_100; // satisfy CS12 server-clock lower bound before score submit
 
 function resolveBaseUrl(env) {
   const fromEnv = process.env.SUB_INVADERS_BASE_URL ?? process.env.STAGING_BASE_URL;
@@ -84,7 +85,9 @@ export async function seed({ env, log }) {
   }
   log(`started session ${sessionId}`);
 
-  // Step 3 — submit the smoke score with a finishedAt > startedAt + 10s.
+  // Step 3 — wait, then submit the smoke score with a finishedAt > startedAt + 10s.
+  log(`waiting ${SERVER_CLOCK_WAIT_MS}ms before score submit to satisfy server-clock lower bound`);
+  await new Promise((resolve) => setTimeout(resolve, SERVER_CLOCK_WAIT_MS));
   const finishedAt = new Date(startedAtMs + RUN_DURATION_MS).toISOString();
   const submission = await postJson(`${baseUrl}/api/score`, {
     sessionId,

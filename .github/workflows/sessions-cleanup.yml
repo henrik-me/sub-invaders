@@ -1,0 +1,25 @@
+name: sessions-cleanup
+
+on:
+  schedule:
+    - cron: '5 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  sessions-cleanup:
+    name: sessions-cleanup
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Invoke cleanup endpoint
+        env:
+          FUNCTION_KEY: ${{ secrets.SUB_INVADERS_FUNCTION_KEY }}
+          CLEANUP_URL: https://happy-coast-04ffcaa1e.7.azurestaticapps.net/api/admin/sessions-cleanup
+        shell: bash
+        run: |
+          if [ -z "$FUNCTION_KEY" ]; then
+            echo "SUB_INVADERS_FUNCTION_KEY is not set; skipping sessions cleanup invocation."
+            exit 0
+          fi
+          curl --fail-with-body             --request POST             --header "x-functions-key: ${FUNCTION_KEY}"             "$CLEANUP_URL"

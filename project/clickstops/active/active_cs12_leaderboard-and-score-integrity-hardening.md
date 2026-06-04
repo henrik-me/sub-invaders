@@ -1,9 +1,9 @@
 # CS12 — Leaderboard & score-integrity hardening
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-si
+**Branch:** cs12/content
+**Started:** 2026-06-04T03:02Z
 **Closed:** —
 **Depends on:** CS03 (Backend Function project + persistent leaderboard), CS04 (Daily challenge + v1 ship)
 
@@ -135,21 +135,23 @@ agents never write the same file.
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Calendar-date validation (client + backend) | planned | sub-agent #1 | #67. `Date.UTC` round-trip + `DateOnly.TryParseExact`. |
-| Daily-aware score cap | planned | sub-agent #2 | #70. Option A, env `DAILY_SCORE_MULTIPLIER_CAP`. |
-| Server-clock bound on `/api/score` | planned | sub-agent #2 | #49. Injectable clock (R1). |
-| Daily-partition retention pass | planned | sub-agent #3 | #69. Option A in cleanup path. |
-| Seed/probe wait + cleanup cron workflow | planned | sub-agent #4 | #51 + #49 timing. Fork-safe secret guard. |
-| Docs: CHANGELOG/ARCHITECTURE/OPERATIONS + required-secret step | planned | sub-agent #5 | Move #49 from Known limitations to Fixed. |
-| `ILeaderboardRepository.cs` overlap arbitration | planned | orchestrator | Serialize #1 → #3 or single-owner. |
-| Plan-vs-implementation review (GO) | planned | orchestrator | Exit criterion #8. |
-| Close-out docs + restart state + issue references | planned | orchestrator | WORKBOARD + active CS notes; reference #67/#69/#70/#49/#51. |
+| Calendar-date validation (client + backend) | done | orchestrator | #67 implemented in JS + backend; impossible dates rejected, leap day accepted. |
+| Daily-aware score cap | done | orchestrator | #70 implemented with default multiplier 4 and env fallback tests. |
+| Server-clock bound on `/api/score` | done | orchestrator | #49 implemented with injectable `UtcNow`, 10–900s submit age, effectiveElapsed clamp. |
+| Daily-partition retention pass | done | orchestrator | #69 implemented in repository + cleanup response; boundary tested. |
+| Seed/probe wait + cleanup cron workflow | done | orchestrator | #51 workflow added; seed/probe wait 10.1s and log it. |
+| Docs: CHANGELOG/ARCHITECTURE/OPERATIONS + required-secret step | done | orchestrator | Docs updated; #49 limitation moved to SI-CS12 fixed entry. |
+| `ILeaderboardRepository.cs` overlap arbitration | done | orchestrator | Serialized in one edit: `IsUtcDate` + retention helper/method landed together. |
+| Plan-vs-implementation review (GO) | planned | orchestrator | Deferred to close-out after content PR merge per OPERATIONS close-out gate. |
+| Close-out docs + restart state | planned | orchestrator | Update WORKBOARD/CONTEXT/active CS notes and relevant docs before close-out; reference #67/#69/#70/#49/#51. |
+| Close-out learnings + follow-ups | planned | orchestrator | File or disposition learnings and planned follow-ups if needed. |
 
 ## Notes / Learnings
 
-Filled during execution. At minimum record: the chosen `DAILY_SCORE_MULTIPLIER_CAP`
-value and any observed boss-rush score-rate, the retention-window default rationale,
-and confirmation that `sessions-cleanup.yml` no-ops safely without the secret.
+- `DAILY_SCORE_MULTIPLIER_CAP` shipped with default `4`, matching CS12-2. Tests cover a daily score above the all-time cap but below `cap × 4`, exact cap boundary, and one-above rejection.
+- `DAILY_LEADERBOARD_RETENTION_DAYS` shipped with default `30`, matching CS12-4. Repository-level tests pin `utcNow` and prove old daily partitions delete while exact-boundary, recent daily, and all-time rows remain.
+- `.github/workflows/sessions-cleanup.yml` checks `SUB_INVADERS_FUNCTION_KEY` before invoking curl; missing secret logs a clear skip and exits 0 for fork/Dependabot safety.
+- Implementation was serialized by the orchestrator to avoid the `ILeaderboardRepository.cs` lane overlap called out in R7.
 
 ## Plan review
 
