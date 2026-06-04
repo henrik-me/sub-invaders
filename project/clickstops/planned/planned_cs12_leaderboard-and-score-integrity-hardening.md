@@ -27,8 +27,9 @@ review surfaced against the CS03/CS04 backend (open issues
 - `/api/score` enforces a **server wall-clock** bound against the stored session
   `StartedAt`, and the per-second cap is applied to an **effective scoring duration
   that can never exceed real server-elapsed time** (`min(finishedAt - startedAt,
-  serverNow - startedAt)`), closing the bypass where a client synthesises
-  `finishedAt = startedAt + 600s` after only a ~10s real wait.
+  serverNow - startedAt)`), closing the bypass where today a client can submit
+  immediately after `POST /api/session` with a forged `finishedAt = startedAt + 600s`
+  and have the cap trust that fabricated 600s of gameplay.
 - Daily leaderboard partitions have an **enforced retention window** so they do not
   accumulate indefinitely.
 - The hourly `POST /api/admin/sessions-cleanup` endpoint has an **external scheduler**
