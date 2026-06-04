@@ -117,7 +117,7 @@ export function createApiClient(opts = {}) {
       payload.period = period;
       if (period === 'daily') {
         if (!isValidUtcDate(utcDate)) {
-          throw new ApiError('submitScore: utcDate must be YYYY-MM-DD when period is "daily"', { code: 'invalid_argument' });
+          throw new ApiError('submitScore: utcDate must be YYYY-MM-DD and a real UTC date when period is "daily"', { code: 'invalid_argument' });
         }
         payload.utcDate = utcDate;
       }
@@ -136,7 +136,7 @@ export function createApiClient(opts = {}) {
     const params = new URLSearchParams({ period });
     if (period === 'daily') {
       if (!isValidUtcDate(date)) {
-        throw new ApiError('getLeaderboard: date must be YYYY-MM-DD when period is "daily"', { code: 'invalid_argument' });
+        throw new ApiError('getLeaderboard: date must be YYYY-MM-DD and a real UTC date when period is "daily"', { code: 'invalid_argument' });
       }
       params.set('date', date);
     }

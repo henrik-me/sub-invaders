@@ -22,4 +22,7 @@ jobs:
             echo "SUB_INVADERS_FUNCTION_KEY is not set; skipping sessions cleanup invocation."
             exit 0
           fi
-          curl --fail-with-body             --request POST             --header "x-functions-key: ${FUNCTION_KEY}"             "$CLEANUP_URL"
+          curl -sS --fail-with-body --max-time 30 \
+            --request POST \
+            --header "x-functions-key: ${FUNCTION_KEY}" \
+            "$CLEANUP_URL"
