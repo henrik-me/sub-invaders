@@ -150,10 +150,10 @@ All other steps proceed autonomously per the user's explicit "do this without my
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Phase A: bootstrap new repo (`gh repo create`, clone, `harness init`, CONVENTIONS + REVIEWS + bootstrap `done_cs01`) | planned | orchestrator | User-approval gate before `gh repo create`. Deliverables 1–4. |
-| Phase A: lift engine source (9 modules + 9 tests + JSDoc + CHANGELOG) + README + LICENSE | planned | sub-agent #1 | Verbatim copy + JSDoc only. Deliverables 5–6. |
-| Phase A: package.json with exports map + .npmrc + .gitignore + CI Node matrix + isolation lint + export-contract test + coverage thresholds | planned | sub-agent #2 | Mirrors sub-invaders gates. Deliverables 7–13. |
-| Phase A: open bootstrap PR + integration verification + tag `v0.1.0` + GitHub release | planned | orchestrator | User-approval gate before tag push. Deliverables 14–16. |
+| Phase A: bootstrap new repo (`gh repo create`, clone, `harness init` with scaffold opt-outs) | planned | orchestrator | User-approval gate before `gh repo create` (D1). Deliverables 1–3. |
+| Phase A: lift engine source verbatim + add JSDoc-as-types | planned | sub-agent #1 | 119/119 tests must remain green per-module. Deliverables 4–5. |
+| Phase A: package.json + exports map + export-contract test + CHANGELOG + README + CI workflow + bootstrap clickstop | planned | sub-agent #2 | All package metadata + verification surface. Deliverables 6–11. |
+| Phase A: open + merge bootstrap PR + post-merge integration verification + tag `v0.1.0` + release + post-tag smoke | planned | orchestrator | User-approval gate before tag push (D15). Deliverables 12–16. |
 | Phase B: branch + add `canvas-game-engine` git-URL dep + rewrite imports across `src/game/**` | planned | sub-agent #3 | 2 import shapes: `../engine/x.mjs` and `../../engine/x.mjs`. Deliverables 17–19. |
 | Phase B: delete `src/engine/` + `scripts/check-engine-isolation.mjs` + `scripts/check-engine-isolation.test.mjs` + retire 10 coverage overrides + retarget `_comment` | planned | sub-agent #4 | Deliverables 20–21. |
 | Phase B: rewrite CONVENTIONS.md isolation invariant + line 166 bullet + update ARCHITECTURE/README/LEARNINGS/CONTEXT refs | planned | sub-agent #5 | Two CONVENTIONS blocks per CS13-15. Deliverables 22–23. |
