@@ -1,10 +1,14 @@
 <!--
-  Pull request template — composed by the harness.
+  Pull request template — composed by the harness (refreshed manually
+  from template/composed/.github/pull_request_template.md at v0.8.0;
+  this file is NOT registered under composed.files in harness.config.json,
+  so `harness sync` does not auto-rewrite it for this consumer — re-copy
+  manually when adopting a future strict-schema bump).
 
-  This file has both harness-managed blocks (between
-  &lt;!-- harness:local-start id=... --&gt; ... &lt;!-- harness:local-end id=... --&gt;
-  markers) and consumer-owned content. `harness sync` only rewrites the
-  marker blocks; everything outside the markers is preserved.
+  The block between the
+  <!-- harness:local-start id=... --> ... <!-- harness:local-end id=... -->
+  markers is the harness-tracked review-evidence section; consumer-owned
+  content lives outside the markers.
 
   See OPERATIONS.md § Sync for the marker-block contract.
 -->
@@ -36,7 +40,7 @@ _(Describe how this was tested. Include at minimum:)_
 |---|---|
 | Implementer models | _(comma-separated, e.g. claude-opus-4.7-xhigh, gpt-5.4)_ |
 | Reviewer model | _(single id from C35-2 ladder, e.g. gpt-5.5)_ |
-| Implementer agent | _(e.g. yoga-ah)_ |
+| Implementer agent | _(e.g. omni-si, yoga-si — the consumer-repo agent ID; suffix `-si` for sub-invaders, not `-ah`)_ |
 | Reviewer agent | _(e.g. rubber-duck)_ |
 | Notes | _(optional)_ |
 
