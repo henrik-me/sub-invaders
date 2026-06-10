@@ -117,10 +117,18 @@ jobs:
             --reporter=text --reporter=text-summary --reporter=json-summary --reporter=lcov \
             --include "src/**/*.mjs" \
             --exclude "src/**/*.test.mjs" \
+            --exclude "src/dist/**" \
             --exclude "src/game/test-hooks.mjs" \
             --report-dir=coverage-report-unit \
             --check-coverage --lines=90 --statements=90 --functions=90 --branches=85 \
             node --test "${files[@]}"
+      # CS14: E2E coverage instruments the bundled output (src/dist/main.mjs),
+      # so build it first. test:e2e:coverage also self-builds via its
+      # pretest:e2e:coverage npm hook + the Playwright webServer command; this
+      # explicit step makes the bundle dependency visible in the workflow.
+      - name: Build frontend bundle
+        shell: bash
+        run: npm run build
       # CS09 Phase 1 regression guard: monocart-reporter onEnd hook fails the
       # step if E2E coverage drops below CS09 floor (lines=77, stmts=87,
       # funcs=84, branches=70, bytes=80). Per-file E2E exception list in

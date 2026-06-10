@@ -11,3 +11,6 @@ coverage-report-unit/
 
 coverage/
 
+# Frontend bundle output (npm run build / esbuild) — build artifact, not source
+src/dist/
+

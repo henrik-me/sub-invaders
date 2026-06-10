@@ -19,7 +19,7 @@ export default defineConfig({
   testDir: './tests/e2e',
   webServer: useWebServer
     ? {
-      command: 'npm run serve',
+      command: 'npm run build && npm run serve',
       url: 'http://localhost:4173',
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,

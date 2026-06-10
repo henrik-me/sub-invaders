@@ -4,18 +4,23 @@
   "devDependencies": {
     "@playwright/test": "^1.60.0",
     "c8": "^11.0.0",
+    "esbuild": "0.28.0",
     "http-server": "^14.1.1",
     "monocart-coverage-reports": "^2.12.12",
     "monocart-reporter": "^2.11.2"
   },
   "scripts": {
+    "build": "esbuild src/game/main.mjs --bundle --format=esm --target=es2022 --outfile=src/dist/main.mjs --sourcemap",
+    "build:watch": "esbuild src/game/main.mjs --bundle --format=esm --target=es2022 --outfile=src/dist/main.mjs --sourcemap --watch=forever",
+    "pretest:e2e": "npm run build",
+    "pretest:e2e:coverage": "npm run build",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:coverage": "playwright test --config=playwright.coverage.config.mjs && npm run coverage:check:e2e",
     "test:e2e:report": "playwright show-report",
     "test:unit": "node --test \"src/**/*.test.mjs\" \"scripts/**/*.test.mjs\"",
-    "test:unit:coverage": "c8 --reporter=text --reporter=text-summary --reporter=json-summary --reporter=lcov --include \"src/**/*.mjs\" --exclude \"src/**/*.test.mjs\" --exclude \"src/game/test-hooks.mjs\" --report-dir=coverage-report-unit --check-coverage --lines=90 --statements=90 --functions=90 --branches=85 node --test \"src/**/*.test.mjs\" \"scripts/**/*.test.mjs\" && npm run coverage:check:unit",
+    "test:unit:coverage": "c8 --reporter=text --reporter=text-summary --reporter=json-summary --reporter=lcov --include \"src/**/*.mjs\" --exclude \"src/**/*.test.mjs\" --exclude \"src/dist/**\" --exclude \"src/game/test-hooks.mjs\" --report-dir=coverage-report-unit --check-coverage --lines=90 --statements=90 --functions=90 --branches=85 node --test \"src/**/*.test.mjs\" \"scripts/**/*.test.mjs\" && npm run coverage:check:unit",
     "serve": "http-server src -p 4173 --silent -c-1",
     "coverage:check:unit": "node scripts/coverage-perfile.mjs --suite=unit --summary=coverage-report-unit/coverage-summary.json",
     "coverage:check:e2e": "node scripts/coverage-perfile.mjs --suite=e2e --summary=coverage-report/coverage-report.json"
