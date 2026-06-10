@@ -61,6 +61,11 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-${{ hashFiles('package-lock.json') }}
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+      # CS14: coverage instruments the bundle (src/dist/main.mjs); build it
+      # first. test:e2e:coverage also self-builds via its pretest hook + the
+      # Playwright webServer command; this explicit step makes it visible.
+      - name: Build frontend bundle
+        run: npm run build
       - name: Run E2E suite with V8 coverage
         run: npm run test:e2e:coverage
       - name: Print coverage summary to job summary

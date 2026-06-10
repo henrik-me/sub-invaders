@@ -44,6 +44,11 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-${{ hashFiles('package-lock.json') }}
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+      # CS14: e2e-local serves src/ locally, so the bundle (src/dist/main.mjs)
+      # must exist. test:e2e self-builds via its pretest:e2e npm hook + the
+      # Playwright webServer command; this explicit step makes it visible.
+      - name: Build frontend bundle
+        run: npm run build
       - name: Run Chromium E2E suite
         run: npm run test:e2e -- --project=chromium
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

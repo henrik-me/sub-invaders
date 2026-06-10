@@ -161,8 +161,9 @@ accounted for.
 
 ### JavaScript / browser game code (`src/`)
 
-- ES2022 modules (`.mjs` extension), strict mode by default. Browser-loaded as ES modules;
-  no bundler in v1.
+- ES2022 modules (`.mjs` extension), strict mode by default. Source files are hand-authored
+  ES2022 `.mjs`, bundled by esbuild (`npm run build`) into `src/dist/` (gitignored) and
+  browser-loaded as ES modules. See CS14 for the bundler rationale.
 - Engine code in `src/engine/` MUST NOT import from `src/game/`. Game code may import engine.
   Cyclic or reverse imports are an error and a learning candidate.
 - Use `const` by default; `let` only when reassignment is necessary; never `var`.

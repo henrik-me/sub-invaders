@@ -33,6 +33,24 @@ npm start
 
 For a full list of commands and options, see the docs or run `--help`.
 
+## Local development
+
+The frontend is bundled by [esbuild](https://esbuild.github.io/). After a one-time
+`npm install`, use two terminals:
+
+```sh
+# Terminal A — rebuild src/dist/main.mjs on every source change
+npm run build:watch
+
+# Terminal B — serve the built app at http://localhost:4173
+npm run serve
+```
+
+For a one-off production build (no watch), run `npm run build`. The bundle is written to
+`src/dist/` (gitignored) and `src/index.html` loads `./dist/main.mjs`. The Playwright
+suites self-rebuild before running — `npm run test:e2e` triggers `npm run build` via its
+`pretest:e2e` hook (and the test web server builds too) — so you never test a stale bundle.
+
 ## End-to-end tests
 
 Install the dev-time test tooling and Chromium browser once:
