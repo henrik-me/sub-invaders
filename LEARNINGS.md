@@ -1013,6 +1013,54 @@ which were both refuted on PR #72.)_
 
 ---
 
+### LRN-025
+
+```yaml
+id: LRN-025
+date: 2026-06-10
+category: architectural
+source_cs: CS14
+status: open
+tags: [esbuild, bundler, frontend-build, swa-deploy, coverage, sourcemap]
+```
+
+**Problem:** Consuming external/extracted ESM packages (immediately: CS13's
+`canvas-game-engine`) requires resolving bare-package specifiers
+(`from 'canvas-game-engine/loop.mjs'`) that browsers cannot resolve from a raw
+`src/` tree, and `node_modules` is not deployed to SWA. The v1 "no bundler"
+shortcut blocked any external dependency.
+
+**Finding:** esbuild (exact-pinned `0.28.0`) as a single-entry bundler
+(`src/game/main.mjs` → `src/dist/main.mjs`; ESM; ES2022; external sourcemap; no
+minify) cleanly resolves the existing relative `.mjs` graph and unblocks
+bare-specifier deps. Integration facts proven end-to-end on prod `368eb56`:
+
+- **SWA/Oryx:** `app_location:"src"` with no `src/package.json` meant Oryx never
+  built the frontend (it shipped raw static assets). Adding workflow-level
+  `npm ci && npm run build` before the `static-web-apps-deploy` action produces a
+  byte-identical bundle in production (`/dist/main.mjs` = 106,559 B) — no
+  `skip_app_build: true` needed, `api_location:"api"` untouched.
+- **Coverage:** the bundle must be excluded from c8 (`--exclude "src/dist/**"`)
+  in BOTH `package.json` and `ci.yml`; `scripts/coverage-perfile.mjs` `normalize()`
+  collapses leading `../` so the per-file gate attests sources, not the bundle
+  (esbuild sourcemap `sources` are `../game/…`/`../engine/…`, though monocart
+  already resolves them — the strip is regression-tested defensive insurance).
+  E2E per-file gate passed with 29 source files.
+- **Freshness:** `pretest:e2e[:coverage]` hooks + `webServer.command:
+  "npm run build && npm run serve"` + explicit CI build steps each guarantee a
+  fresh bundle; the hook specifically covers the local `reuseExistingServer` path
+  where Playwright skips the webServer build.
+- **Baseline (R7):** 104.1 KB raw / 191 KB map; esbuild build ~180 ms. No
+  bundle-size budget yet.
+
+**Disposition:** _(open as the standard frontend-build pattern. Enables but does
+not adopt TypeScript / a bundle-size budget (R7), both out of CS14 scope. The
+Node-24-local vs Node-20-CI `test:unit:coverage` V8 branch-count skew on
+`src/game/{flags,whaleshark}.mjs` is a separate pre-existing item, not a CS14
+regression.)_
+
+---
+
 _(no entries yet)_
 
 ## Obsolete

@@ -1,10 +1,10 @@
 # CS14 — Introduce esbuild bundler in sub-invaders frontend
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-si
 **Branch:** cs14/content
 **Started:** 2026-06-10
-**Closed:** —
+**Closed:** 2026-06-10
 **Filed by:** yoga-si (Claude Opus 4.7) on 2026-06-10, as precursor to CS13 (engine extraction). User chose "introduce a bundler" as the resolution to the bare-specifier browser-resolution blocker GPT-5.5 surfaced during CS13's R1 plan review, then delegated sequencing to the agent ("work autonomously, make good decisions"). Agent autonomously split bundler intro into its own CS per OPERATIONS.md "Keep PRs small and focused" doctrine. **Revised 2026-06-10** after GPT-5.5 R1 plan review returned `Needs-Fix` with 3 major + 2 minor findings (E2E build trigger; coverage/source-map handling; CONVENTIONS update must move to Phase B; SWA/Oryx wording; README deliverable missing). Revision addresses all 5 R1 findings. **Re-revised 2026-06-10** after GPT-5.5 R2 plan review returned `Needs-Fix` with 1 major + 1 minor finding (sourcemap normalization claim was wrong — `normalize()` doesn't handle `../game/` paths; SWA R2 risk wording still inaccurate). Re-revision corrects `normalize()` spec and Risks R2 wording.
 **Depends on:** CS02 (initial frontend shape: `src/index.html` + `src/game/main.mjs` ES-module entry), CS03 (SWA deploy pipeline owns the production upload path that this CS will reshape).
 
@@ -147,19 +147,28 @@ All other steps proceed autonomously.
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Phase A: branch + esbuild devDep + `.gitignore` for `src/dist/` | planned | sub-agent #1 | Exact-pinned esbuild version. Deliverables 1–3. |
-| Phase A: `build` + `build:watch` scripts + `pretest:e2e[:coverage]` hooks + first verified build + retarget `<script>` tag | planned | sub-agent #1 | esbuild only; no minify; ES2022; ESM. Deliverables 4–6. |
-| Phase A: manual smoke + unit tests (unchanged) + coverage `--exclude "src/dist/**"` + `normalize()` update for `(../)+` + regression tests | planned | sub-agent #2 | Test esbuild source-map shapes explicitly. Deliverables 7–9. |
-| Phase A: Playwright `webServer.command` self-build + e2e tests pass against bundle | planned | sub-agent #2 | Both Playwright configs. Deliverables 10–11. |
-| Phase B: SWA workflow setup-node + `npm ci` + `npm run build` before deploy | planned | sub-agent #3 | Verify Oryx does not double-build. Deliverable 12. |
-| Phase B: CI coverage job explicit build step + `--exclude "src/dist/**"` on c8 + e2e workflow explicit build step + pr-evidence-lint no-op verify | planned | sub-agent #3 | Mirrors local pretest. Deliverables 13–15. |
-| Phase B: CONVENTIONS.md update to retire "no bundler in v1" clause + README local-dev workflow section | planned | sub-agent #4 | Lines ~162–166. Deliverables 16–17. |
-| Phase B: open PR + rubber-duck Go + `copilot-engage` + user-approval merge | planned | orchestrator | User-approval gate before merge. Deliverables 18–21. |
-| Phase C: first prod deploy verify + bundle-size + SWA behavior LEARNINGS + WORKBOARD + active→done rotation + close-out commit | planned | orchestrator | Captures R7 baseline for future tracking. Deliverables 22–27. |
+| Phase A: branch + esbuild devDep + `.gitignore` for `src/dist/` | done | sub-agent #1 | Exact-pinned esbuild version. Deliverables 1–3. |
+| Phase A: `build` + `build:watch` scripts + `pretest:e2e[:coverage]` hooks + first verified build + retarget `<script>` tag | done | sub-agent #1 | esbuild only; no minify; ES2022; ESM. Deliverables 4–6. |
+| Phase A: manual smoke + unit tests (unchanged) + coverage `--exclude "src/dist/**"` + `normalize()` update for `(../)+` + regression tests | done | sub-agent #2 | Test esbuild source-map shapes explicitly. Deliverables 7–9. |
+| Phase A: Playwright `webServer.command` self-build + e2e tests pass against bundle | done | sub-agent #2 | Both Playwright configs. Deliverables 10–11. |
+| Phase B: SWA workflow setup-node + `npm ci` + `npm run build` before deploy | done | sub-agent #3 | Verify Oryx does not double-build. Deliverable 12. |
+| Phase B: CI coverage job explicit build step + `--exclude "src/dist/**"` on c8 + e2e workflow explicit build step + pr-evidence-lint no-op verify | done | sub-agent #3 | Mirrors local pretest. Deliverables 13–15. |
+| Phase B: CONVENTIONS.md update to retire "no bundler in v1" clause + README local-dev workflow section | done | sub-agent #4 | Lines ~162–166. Deliverables 16–17. |
+| Phase B: open PR + rubber-duck Go + `copilot-engage` + user-approval merge | done | orchestrator | User-approval gate before merge. Deliverables 18–21. |
+| Close-out: docs + restart state (deploy verify, WORKBOARD, active→done rotation, close-out commit) | done | orchestrator | Phase C deploy verified; bundle byte-identical in prod. Deliverables 22–23, 25–26. |
+| Close-out: learnings + follow-ups (bundle-size + SWA behavior in LEARNINGS; CS13 unblocked) | done | orchestrator | Captures R7 baseline. Deliverables 24, 27. |
 
 ## Notes / Learnings
 
-Filled during execution. At minimum, record: first-deploy bundle size baseline (gzipped + raw), observed SWA/Oryx behavior with the explicit `npm run build` step (whether `skip_app_build: true` is needed), `normalize()` regression-test coverage on actual esbuild source-map paths emitted, and any cold-start contributor friction with the new `npm ci` requirement.
+Recorded at close-out (HEAD `368eb56`):
+
+- **Bundle size baseline:** `src/dist/main.mjs` = 104.1 KB raw (106,559 bytes); sibling `src/dist/main.mjs.map` = 191 KB (195,632 bytes). Unminified per CS14-6. Larger than the plan's ~30–60 KB guess (the game graph is bigger than estimated) but fine for a hobby game; no minification needed yet (R7 baseline for future delta tracking). esbuild build time ~180 ms local.
+- **SWA/Oryx behavior:** the explicit workflow-level `npm ci && npm run build` before the SWA upload worked first try in production — deployed `/dist/main.mjs` is byte-identical (106,559 bytes) to the local build, `/api/health` returns 200 with `commit:368eb56`, and the API build (`api_location:"api"`) was unaffected. **`skip_app_build: true` was NOT needed** (R2 resolved — Oryx did not double-build or interfere with the prebuilt `src/` upload).
+- **esbuild sourcemap path shapes:** `sources` are single-`../` relative (`../game/main.mjs`, nested `../game/scenes/*.mjs`, `../game/modifiers/*.mjs`, `../engine/*.mjs`). monocart's own resolution already strips the `../` to `engine/`/`game/` form, so the `normalize()` `(\.\./)+` strip is defensive rather than strictly required by today's monocart — but it is correct, regression-tested, and protects against tooling changes / raw-path emitters. e2e per-file gate passed with 29 source files (no `src/dist/`, no raw `../`).
+- **Node version coverage skew:** `npm run test:unit:coverage` fails locally on Node 24 (V8 branch-count differences on pre-existing `src/game/{flags,whaleshark}.mjs`; identical on clean `main`). CI runs Node 20 where the `coverage` job is green. Not a CS14 regression. Follow-up candidate: pin a local Node 20 or relax the affected per-file branch floors — out of CS14 scope.
+- **CI step-time:** `coverage` job ~1m54s, `e2e-local` ~1m38s — the added `npm run build` step is sub-second; no meaningful regression.
+- **Process gotchas (this session):** (1) the `Co-authored-by` trailer must be on its own line in the final block — appending it to a sentence makes git's parser miss it and fails the B1 gate. (2) On Windows PowerShell, capturing `gh pr view --json body --jq .body` into a variable and passing it to `[Text.Encoding]::GetBytes` flattens the multi-line body to one line (array joined with spaces), breaking `## H2` review-evidence gates — round-trip PR bodies via a single here-string.
+- **CS13 unblocked:** browser delivery now goes through esbuild, so `from 'canvas-game-engine/<x>.mjs'` bare specifiers will resolve from `node_modules` at build time. CS13 Phase B needs no additional bundler work.
 
 ## Model audit
 
@@ -180,4 +189,23 @@ Filled during execution. At minimum, record: first-deploy bundle size baseline (
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate — required only when this file lives in `active/` or `done/`)_
+**Reviewer:** gpt-5.5 (rubber-duck)
+**Date:** 2026-06-10T20:34:00Z
+**Outcome:** GO
+
+Per-deliverable outcome (against merged content `368eb56`, parent `d32a4ae`):
+
+| # | Outcome | Note |
+|---:|---|---|
+| 1–8 | match | Branch/merge flow; esbuild `0.28.0` exact-pinned + lock updated; `.gitignore` ignores `src/dist/`; `build`/`build:watch`/`pretest:e2e[:coverage]` scripts; build verified (deployed `/dist/main.mjs` 200, 106559 B, byte-identical + `.map`); `index.html` → `./dist/main.mjs`; prod smoke/wave passed; unit suite 428 (+15). |
+| 9 | match | `--exclude "src/dist/**"` on unit coverage; `normalize()` strips leading `../`; 15 regression tests. Node-24 local coverage skew accepted/non-CS14. |
+| 10–11 | match | Both Playwright configs use `npm run build && npm run serve`; E2E stayed 48 and passed against the bundle. |
+| 12–17 | match | `swa-deploy.yml` setup-node + `npm ci` + `npm run build` before upload; `ci.yml` excludes `src/dist/**` + explicit build; `e2e.yml`/`e2e-coverage.yml` build before Playwright (`e2e-nightly.yml` deployed-URL only); `pr-evidence-lint.yml` no bundle change; `CONVENTIONS.md` retires no-bundler clause (grep zero); `README.md` local-dev section. |
+| 18–21 | match | PR #97 opened/merged; gpt-5.5 rubber-duck Go; Copilot attested; squash `368eb56`. |
+| 22–23 | match | Prod SWA deploy success; `/api/health` 200 `commit:368eb56`; bundle + map served; `grep "no bundler"` zero on main. |
+| 24–26 | match | Performed in this close-out PR (LEARNINGS entry, active→done rename, WORKBOARD removal). |
+| 27 | match | CS13 unblocked — browser delivery via esbuild resolves bare ESM package imports. |
+
+**Test-coverage assessment:** sufficient. +15 `normalize()` regression cases (single/double `../`, nested subdirs, absolute posix+windows, monocart URL, bare prefixes, dist-not-promoted, falsy); 48 E2E and 95 .NET preserved; production smoke verified the deployed bundle. The accepted Node-24 `test:unit:coverage` branch-count skew is pre-existing (identical on clean `main`); CI Node-20 coverage passed.
+
+No blocking plan-vs-implementation divergence, dropped deliverable, or CS14 security/correctness regression found.
