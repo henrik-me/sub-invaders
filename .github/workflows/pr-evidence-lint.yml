@@ -13,7 +13,7 @@ permissions:
 on:
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, edited]
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -87,10 +87,28 @@ jobs:
           PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
           PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           PR_BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
         run: |
           reasons=""
-          # workboard-only label short-circuits all gates (per C35-19).
+          # workboard-only label short-circuits all gates (per C35-19) — but ONLY
+          # when the diff is confined to the workboard path allowlist (CS63 C63-7).
+          # A mislabeled PR touching files outside the allowlist is REJECTED here,
+          # not skipped, so the label cannot be used to bypass review on content.
           if printf '%s' "$PR_LABELS" | grep -Fq '"workboard-only"'; then
+            # CS63 R8: rename/copy-source aware — check BOTH the current path and the
+            # previous (rename/copy source) path so a PR cannot rename a non-allowlisted
+            # file into an allowlisted path to dodge the workboard-only skip.
+            # Fail CLOSED on a gh api error (auth/rate-limit/network): capture the file
+            # list first so a failure is not masked by the grep's `|| true` below.
+            files=$(gh api --paginate "repos/${REPO}/pulls/${PR_NUM}/files" --jq '.[] | .filename, (.previous_filename // empty)') || { echo "::error ::workboard-only scope check: gh api failed; refusing to confirm bypass."; exit 1; }
+            outside=$(printf '%s\n' "$files" | grep -Ev '^(WORKBOARD\.md|CONTEXT\.md|LEARNINGS\.md)$|^project/clickstops/(planned|active|done)/' || true)
+            if [ -n "$outside" ]; then
+              echo "::error ::workboard-only label present but the PR changes files OUTSIDE the workboard allowlist (WORKBOARD.md / CONTEXT.md / LEARNINGS.md / project/clickstops/). Remove the label or split the PR."
+              printf '%s\n' "$outside" | sed 's/^/::error ::  outside-allowlist: /'
+              exit 1
+            fi
             reasons="${reasons:+$reasons,}workboard-only"
           fi
           # Bot-author detection: GitHub App / bot accounts have a [bot] suffix on login.

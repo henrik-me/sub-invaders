@@ -5,9 +5,111 @@
 > inside the `operations.project-deploy` local block (see § Local block at the end of this file).
 > All managed-core sections are overwritten on every `harness sync`.
 
-Day-to-day procedures for claiming, dispatching, syncing, and harvesting
-with the agent harness. This is the canonical operational reference for all
-harness-enabled projects.
+Day-to-day procedures for filing, claiming, dispatching, syncing, and
+harvesting with the agent harness. This is the canonical operational
+reference for all harness-enabled projects.
+
+---
+
+## Filing a clickstop
+
+A clickstop (CS) is the unit of planned work. **File a CS** when the work
+involves design decisions, multiple files, or a doctrine/process change —
+anything that benefits from a written plan and a plan review. Trivial
+dependency bumps, pure `WORKBOARD.md` edits, and one-line doc fixes do not
+need a CS (use the workboard-only / maintenance PR path instead). Filing
+creates the `planned` plan only; moving it into flight (the
+`planned → active` rename, the WORKBOARD row, the branch) is the separate
+claim step in § Claim. Follow the steps below rather than reverse-engineering
+the shape from an existing CS file.
+
+### Steps
+
+1. **Pick a collision-free id.** Use the next unused `CS<NN>` above every id
+   already present under `project/clickstops/{planned,active,done}/`. A
+   trailing letter (`CS63a`) marks a sub-task within one arc; when sibling
+   orchestrators are active, leave a margin above their in-flight arc.
+2. **Create** `project/clickstops/planned/planned_cs<NN>_<slug>.md` with LF
+   line endings and no BOM (the text-encoding gate rejects CRLF/BOM).
+3. **Author the plan** from the skeleton below.
+4. **Get an independent plan review.** Dispatch the `## Decisions` +
+   `## Deliverables` to the primary reviewer model (GPT-5.5; see
+   [REVIEWS.md](REVIEWS.md)), which MUST differ from every `Plan author
+   model(s)`. Iterate until the verdict is `Go` or `Go-with-amendments`.
+5. **Pin the attestation.** Compute the 12-char hash of the current
+   Decisions+Deliverables with `harness plan-review-hash <file>` and record
+   it in a `## Plan review` row. The latest row's hash MUST equal the
+   current Decisions+Deliverables hash, and its verdict MUST be `Go` or
+   `Go-with-amendments`.
+6. **Validate** with `harness lint` — it runs `check-clickstop` (structure),
+   `check-clickstop-plan-review` (attestation), and `check-text-encoding`
+   (LF/BOM).
+7. **Open a content PR** adding the file, with the `## Model audit` +
+   `## Review log` review evidence ([REVIEWS.md](REVIEWS.md) § 2.8). Filing
+   does not claim the CS.
+
+### Required structure
+
+Mechanically enforced by `scripts/check-clickstop.mjs` and
+`scripts/check-clickstop-plan-review.mjs`:
+
+- **Header fields (all required):** `**Status:** planned`, `**Owner:**`,
+  `**Branch:**`, `**Started:**`, `**Closed:**`, `**Depends on:**`. `Status`
+  must read `planned` while the file lives in `planned/`. (Filing agents also
+  add a `**Filed by:**` line by convention — it carries useful provenance but
+  is not one of the fields `scripts/check-clickstop.mjs` enforces.)
+- **`## Plan review`** — present, with the 8-column table and at least one
+  row: `Round | Reviewer model | Plan author model(s) | Reviewer agent |
+  Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200
+  chars)`. Reviewer model ∉ author models; ISO-8601 UTC timestamps; the
+  latest hash/verdict stay fresh per step 5.
+- **`## Plan-vs-implementation review`** — include the placeholder now; it is
+  only *enforced* once the file reaches `active/` or `done/` at close-out.
+
+The remaining sections are canonical convention — but `## Decisions` and
+`## Deliverables` are required in practice because the plan-review hash is
+computed over their bodies.
+
+### Skeleton
+
+```markdown
+# CS<NN> — <title>
+
+**Status:** planned
+**Owner:** —
+**Branch:** —
+**Started:** —
+**Closed:** —
+**Filed by:** <who filed it, when, and the surfacing context>
+**Depends on:** <none | CS refs>
+
+## Goal
+## Background
+## Decisions
+
+| # | Decision | Choice | Rationale |
+|---|---|---|---|
+
+## Deliverables
+## User-approval gates
+## Exit criteria
+## Risks + open questions
+## Plan review
+
+| Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
+|---|---|---|---|---|---|---|---|
+
+## Tasks
+
+| Task | State | Owner | Notes |
+|---|---|---|---|
+| (populated at claim time per § Claim) | planned | — | — |
+
+## Notes / Learnings
+## Plan-vs-implementation review
+
+> _(filled at close-out per the gate)_
+```
 
 ---
 
@@ -69,9 +171,9 @@ files closed on or after CS15a's close-out enforcement date.
 
 ### Pre-claim harvest gate (CS04+)
 
-`harness claim` runs `harness harvest` automatically before opening the
-workboard PR. It prompts the user only if stale `open` learnings tagged
-`process` or `architectural` exist, or learnings tagged with the
+Run `harness harvest` before claiming (a future `harness claim` command will
+run it automatically — tracked in CS64). It surfaces stale `open` learnings
+tagged `process` or `architectural`, or learnings tagged with the
 `claim_area` metadata for the current CS area. Resolve stale learnings
 before the workboard-claim PR lands.
 
@@ -105,7 +207,8 @@ the canonical `project/clickstops/{planned,active,done}/**` arc:
 ### Plan-vs-implementation review (close-out gate)
 
 This gate is **mandatory** before opening the close-out PR and before
-the `active → done` rename.
+the `active → done` rename. Run it against the merged content HEAD (or the
+content diff), not a half-migrated close-out worktree.
 
 **Reviewer:** GPT-5.5 (rubber-duck). Fallback: Claude Sonnet 4.6, subject
 to the independence invariant in [REVIEWS.md](REVIEWS.md) (non-high-risk
@@ -132,7 +235,8 @@ only; user waiver always allowed).
 
 The orchestrator records the review verbatim in the active CS file's
 `## Plan-vs-implementation review` section **before** the `active → done`
-rename. The section must contain:
+rename. Renaming first leaves a `done/` file with an unfilled PVI section
+that `check-clickstop` correctly rejects. The section must contain:
 
 ```
 **Reviewer:** <model name + rubber-duck | fallback reason>
@@ -200,7 +304,11 @@ eight cells; compute the hash via `harness plan-review-hash <file>`):
 Subsequent amendment rounds append `R2`, `R3`, ... rows below `R1`. The
 latest row's `Reviewed sections hash` MUST equal the SHA-256-prefix-12 of
 the file's current `## Decisions` + `## Deliverables` bodies (per C35b-3 —
-the linter computes this on every run via `lib/plan-review-hash.mjs`).
+the linter computes this on every run via `lib/plan-review-hash.mjs`). Once
+a `## Decisions` or `## Deliverables` row is covered by a recorded plan-review
+hash, factual errors found later must be corrected in the implementation and
+recorded as a dated `## Notes` deviation; never edit the hashed section just
+to make the plan match, because that invalidates the attestation.
 
 **Blocking behaviour:**
 
@@ -260,7 +368,12 @@ Content PRs MUST pass four PR-side status checks before merge:
 | `review-threads-resolved` | Every GitHub review thread on the PR is resolved. |
 
 The `review-gates.yml` workflow runs on every PR except PRs labeled
-`workboard-only`; workboard-only claim/close-out PRs are already constrained by
+`workboard-only`. **The `workboard-only` bypass is confined to its path
+allowlist (CS63 C63-7):** a `validate-workboard-only-scope` job (and the
+`pr-evidence` skip-reason check) rejects a `workboard-only`-labelled PR whose
+diff touches any file outside `WORKBOARD.md` / `CONTEXT.md` / `LEARNINGS.md` /
+`project/clickstops/`, so the label cannot bypass review on content. Genuine
+workboard-only claim/close-out PRs are already constrained by
 the workboard-only validation path. Configure the gates under
 `harness.config.json → reviews`: `enforce_gates` controls workflow/ruleset
 installation, `require_copilot_review` lets consumers without Copilot reviews
@@ -279,6 +392,21 @@ for owner override (LRN-080). Decision #23 activates the
 `workboard-only` label + actor allowlist, submits the approval, and
 auto-merges. The global review-required rule stays in force; the bot's review
 satisfies it for eligible workboard-only PRs.
+
+#### Consumer structural PR gate (harness-pr-check, CS63a)
+
+Fresh `harness init` also installs `.github/workflows/harness-pr-check.yml`
+(default-on; opt out via `harness.config.json → pr_check.enabled: false`). On
+every PR it runs `harness lint` plus a file-class drift classifier
+(`scripts/check-managed-drift.mjs`) that **fails the PR when a `managed` or
+`composed` template file has been diverged** from its rendered template —
+shipping the structural-integrity protection the harness enforces on itself as a
+real consumer merge gate. `seeded` files are consumer-owned and never fail the
+gate. An emergency managed edit can land via a `harness-managed-edit-ack` PR
+label **plus** a `Harness-managed-edit:` justification line in the body (the
+override is surfaced in the gate output, never silent). The workflow reads the
+harness ref from the **base-branch** config and declares least-privilege
+permissions, defeating fork-PR ref injection.
 
 ### Workboard-first for out-of-CS work
 
@@ -547,6 +675,58 @@ per workstream, `[harness:csNN]` title prefix) apply unchanged. The
 PR-body checklist is per-PR; the issue-creation guard is
 per-workstream.
 
+### Adopting the strict PR template in an existing consumer (CS54b)
+
+The harness ships its PR template as a **composed** file
+(`.github/pull_request_template.md`, rendered from
+`template/composed/.github/pull_request_template.md`). Since v0.6.0
+the shipped template already carries the strict `## Model audit`
+(with `Implementer agent` / `Reviewer agent` rows + optional
+`Notes`) and the 6-column `## Review log`, so a **fresh**
+`harness init` seeds a consumer with the strict schema
+automatically.
+
+An **existing** consumer can still carry a stale, pre-strict copy
+(the SI PR #79 failure mode: a pre-v0.6.0 template silently produces
+an A3 hard-fail on `read-only-gates`). The harness does **not**
+auto-rewrite a consumer's `.github/pull_request_template.md` unless
+the consumer has opted the file into the composed flow — it is
+consumer scaffold, and silently overwriting it could clobber local
+customisations. Adoption is therefore **opt-in**:
+
+1. **One-time copy (recommended — simple and reliable).** Copy
+   `template/composed/.github/pull_request_template.md` from the
+   pinned harness version over the consumer's
+   `.github/pull_request_template.md` and commit it. This immediately
+   adopts the strict schema; the file stays consumer-owned (re-copy
+   on future harness bumps if desired).
+
+2. **Reclassify for an ongoing harness-seeded evidence block
+   (advanced).** Register `.github/pull_request_template.md` under the
+   consumer's `harness.config.json` `composed.files`, with a
+   `composed.overrides` entry that sets `"_inherited_class": "managed"`
+   **and** `"local_blocks": ["pull-request.review-evidence"]`
+   (mirroring how the harness itself ships the file). With that hint,
+   `harness sync` runs the inherited-managed merge, which **preserves
+   the consumer's existing content as-is** and, when the
+   `pull-request.review-evidence` block is absent, **appends a seeded
+   copy of it at end-of-file** (the strict `## Model audit` +
+   `## Review log` placeholders, with a sync warning to relocate the
+   block to your preferred position); an already-present block is
+   preserved as consumer-owned. This path therefore **adds** the strict
+   evidence sections to the current file rather than replacing it with
+   the canonical template layout — use the one-time copy above if you
+   want the full canonical template. Without the
+   `"_inherited_class": "managed"` hint, the first sync of a file whose
+   content does not already match the template fails closed
+   (`EMERGE_LEGACY_UNMAPPED`).
+
+Until a consumer adopts the strict template by either path, the
+**inline-sections fallback** in the pin-bump checklist above remains
+the safety net: author the canonical `## Model audit` + `## Review
+log` sections directly in each PR body at open time rather than
+relying on the (possibly stale) template to inject them.
+
 ### Narrow re-attest after trivial commits (CS54)
 
 When a content PR receives small follow-on commits in response to
@@ -745,6 +925,10 @@ List explicitly:
 
 #### 7. Self-checks before reporting
 
+- In a freshly-created git worktree or checkout, run `npm install` in that
+  checkout before dependency-backed harness linters (`harness lint`,
+  `harness plan-review-hash`, schema/doc checks, etc.); `node_modules` is
+  gitignored and per-checkout, not shared from the parent worktree.
 - Run `node --test` and report the test count and delta.
 - Run any existing linters that cover the deliverables area.
 - Verify JSON schema conformance for any `.json` files created.
@@ -793,6 +977,35 @@ reading** (explicit paths for this CS), **Deliverables**, **Decision
 authority**, and any additional task-specific conventions. Do not modify the
 pasted block itself.
 
+### Subcommand authoring: never `git checkout` the consumer working repo ([LRN-124](LEARNINGS.md#lrn-124))
+
+Harness subcommands run inside the consumer's (or self-host's) working repo,
+which routinely carries **uncommitted, unstaged tracked edits**. Several git
+verbs are destructive on such a repo: `reset --hard`, `restore`, `checkout -f`,
+and `stash` can discard or stash away dirty tracked edits, and `clean` removes
+untracked files; meanwhile `git checkout <commit-or-tag>` and
+`git switch --detach <ref>` detach HEAD. The LRN-124 working-tree-loss
+signature combined a detached HEAD with reverted tracked edits and no error.
+CS47's bisection (`tests/cs47-detached-head-bisect.test.mjs`) proved no current
+subcommand does any of this; this rule keeps it that way for new subcommands.
+
+When a subcommand must read content at a specific ref, use, in preference order:
+
+1. **`git show <ref>:<path>`** — read-only; never touches HEAD or the worktree. The default for inspecting tagged/committed file content.
+2. **`git worktree add --detach <unique-tmpdir> <ref>`** — for multi-file scoped operations; clean up with `git worktree remove --force <path>` then `rmSync(<path>, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })` (Windows EPERM/EBUSY-hardened).
+3. **`try { prev = git symbolic-ref HEAD; git stash push --include-untracked; ... } finally { restore prev + stash pop }`** — last resort only; the `stash` is mandatory, because restoring the branch ref alone does NOT restore dirty tracked-file contents.
+
+> **Caveat:** approaches 2–3 use the `worktree`/`stash` verbs that the CS47
+> trace guard flags as mutating — at the argv level it cannot prove they are
+> scoped to an isolated tmpdir rather than the primary worktree. A subcommand
+> that reaches for them trips the bisection suite and must be allow-listed with
+> an explicit rationale documenting why the operation cannot lose consumer
+> edits. Prefer approach 1 (`git show`) wherever possible.
+
+Any new subcommand that reaches a git ref is covered automatically: the CS47
+bisection enumerates the live `COMMAND_REGISTRY`, so a new subcommand that is
+neither exercised nor allow-listed (with rationale) fails the suite.
+
 ```text
 ## CRITICAL PREFLIGHT (LRN-021)
 
@@ -829,6 +1042,10 @@ need" produces silent gaps that surface as integration failures later.
 
 - ESM `.mjs` only, Node 20+ stdlib. No CommonJS `require()`, no `.cjs`
   files, no npm dependencies unless explicitly authorized in this dispatch.
+
+- Fresh git worktrees/checkouts need their own `npm install` before running
+  dependency-backed harness linters; `node_modules` is gitignored and
+  per-checkout, not shared from the parent worktree.
 
 - LF line endings, no BOM. After every file write on Windows, normalize:
   strip BOM if present (first 3 bytes must NOT be 0xEF 0xBB 0xBF), replace
@@ -954,7 +1171,12 @@ summary stays within the source entry's Problem/Finding scope (no
 generalisation); (F5) cross-doc claims (CHANGELOG vs OPERATIONS vs README
 vs LRN) are mutually consistent. Do NOT issue a Go verdict on a doc PR
 based on diff-internal coherence alone — cross-check claims against the
-shipped surfaces they reference.
+shipped surfaces they reference. For changes that add or edit a config or
+schema reader, you MUST ALSO perform schema-conformance verification per
+REVIEWS.md § 2.6b: (S1) the reader requires no field the schema marks
+optional/defaulted; (S2) each default-when-absent matches the schema's
+declared `default` (or a documented divergence); (S3) present-but-malformed
+values fail closed against the schema's `type`/`pattern`/`enum`.
 
 **independence-invariant:** Your model MUST NOT appear in the active CS file's
 `## Model audit` `Implementer models` field. If it does, refuse the dispatch
@@ -1198,7 +1420,7 @@ for the full transcript.
 ### Recommended invocation (CS41+):
 
 ```
-harness copilot-engage <pr-number> [--repo owner/name] [--no-poll] [--poll-timeout 300] [--submitted-after <iso>]
+harness copilot-engage <pr-number> [--repo owner/name] [--head <sha>] [--no-poll] [--poll-timeout 300] [--submitted-after <iso>]
 ```
 
 The CLI:
@@ -1216,12 +1438,15 @@ The CLI:
    request the review (per ADR-0004 § ADR4-2 — `requestReviews` GraphQL rejects
    Bot IDs).
 4. Polls the PR's reviews via GraphQL every 30s up to `--poll-timeout` (default 300s);
-   exits 0 when at least one Bot review by `copilot-pull-request-reviewer` with state
-   ∈ {APPROVED, COMMENTED, CHANGES_REQUESTED} is observed at the current PR head AND
-   submitted at or after the engage-request timestamp (or the explicit
-   `--submitted-after <iso>` floor if provided). The submitted-after floor enforces
-   the A5 ordering doctrine: a stale Copilot review on the same HEAD that predates
-   the latest local Go MUST NOT satisfy the gate.
+   by default the poll HEAD is the PR's GitHub `headRefOid`, not the cwd's local
+   git HEAD. `--head <sha>` is an opt-in override, and the CLI warns when the
+   detected local HEAD differs from the PR head. The command exits 0 when at least
+   one Bot review by `copilot-pull-request-reviewer` with state ∈ {APPROVED,
+   COMMENTED, CHANGES_REQUESTED} is observed at the selected PR head AND submitted
+   at or after the engage-request timestamp (or the explicit `--submitted-after <iso>`
+   floor if provided). The submitted-after floor enforces the A5 ordering doctrine:
+   a stale Copilot review on the same HEAD that predates the latest local Go MUST NOT
+   satisfy the gate.
 5. Exits 0 immediately after the request when `--no-poll` is set (CI use case
    where verification happens in a separate job).
 6. Exits 2 on fork PRs (`isCrossRepository == true`) with the maintainer-rerun
@@ -1230,6 +1455,11 @@ The CLI:
 The poll predicate is identical to the A5+A16 gate
 (`scripts/check-copilot-review.mjs`) so "engage CLI says satisfied" =
 "PR-evidence gate says satisfied".
+
+Windows authoring reminder: the harness repo stays LF-clean and BOM-free.
+Normalize any PR-body or review-log scratch text before writing tracked files;
+`scripts/check-text-encoding.mjs` already respects `.gitignore`, so transient
+ignored scratch paths such as `.tmp/` are skipped.
 
 ### Manual fallback (only if `harness copilot-engage` is unavailable):
 
@@ -1466,6 +1696,19 @@ makes no config or filesystem changes).
 `harness sync` updates managed and composed files in a consumer repo from the
 pinned harness version recorded in `.harness-lock.json`.
 
+### Previewing an upgrade — `harness upgrade`
+
+`harness upgrade <ref>` is a **read-only preview** of bumping the pinned harness
+to `<ref>` (a semver tag, branch, or 40-char SHA). It fetches that ref's
+templates and runs a **dry-run** `sync` against the consumer repo, printing the
+list of files that would change (per-file action + class) + a change-count
+summary. **It never writes** — it is additive over `lib/sync.mjs` (no apply-path
+rewrite), so it cannot cause data loss. To apply after reviewing: set
+`harness.config.json` `version` to `<ref>` and run `harness sync --mode=apply`
+(add `--accept-major` for a major bump per § SemVer
+policy). This replaces the previous hand-edit-`version`-then-sync-blind workflow
+with a previewable upgrade.
+
 ### Modes
 
 | Invocation | Behaviour |
@@ -1687,10 +1930,11 @@ harness package is not published to npm. Always use
 
 - **Weekly:** Monday morning, run `harness harvest` (CS04+) and review
   `LEARNINGS.md`. Disposition any `open` entries.
-- **Before-claim (CS04+):** `harness harvest` runs automatically as part of
-  `harness claim`. It prompts for disposition of stale `open` learnings tagged
-  `process` or `architectural`, or tagged with `claim_area` metadata matching
-  the current CS. Resolve before the workboard-claim PR lands.
+- **Before-claim (CS04+):** run `harness harvest` before claiming (a future
+  `harness claim` command will run it automatically — tracked in CS64). It
+  surfaces stale `open` learnings tagged `process` or `architectural`, or
+  tagged with `claim_area` metadata matching the current CS. Resolve before
+  the workboard-claim PR lands.
 
 ### Bounded-before-claim invariant
 

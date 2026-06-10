@@ -1,53 +1,58 @@
 <!--
-  Pull request template for Sub Invaders.
-  Fill in every section before requesting review.
-  Delete placeholder lines (wrapped in italics) when you fill them in.
+  Pull request template — composed by the harness (refreshed manually
+  from template/composed/.github/pull_request_template.md at v0.8.0;
+  this file is NOT registered under composed.files in harness.config.json,
+  so `harness sync` does not auto-rewrite it for this consumer — re-copy
+  manually when adopting a future strict-schema bump).
+
+  The block between the
+  &lt;!-- harness:local-start id=... --&gt; ... &lt;!-- harness:local-end id=... --&gt;
+  markers is the harness-tracked review-evidence section; consumer-owned
+  content lives outside the markers.
+
+  See OPERATIONS.md § Sync for the marker-block contract.
 -->
 
-## CS reference
+## Summary
 
-_Which Clickstop does this PR belong to? (e.g. CS01 — repo hardening)_
+_(Write a concise description of what this PR does and why. One to three
+sentences is usually enough. Remove this line before requesting review.)_
 
-## What
+## Changes
 
-_Bullet list of what changed:_
+_(Replace with a bullet list of the files and areas changed. Example:)_
 
-- _`path/to/file` — what changed and why_
-
-## Why
-
-_Why was this change needed? What problem does it solve or requirement does it satisfy?_
+- `path/to/file.ts` — _(what changed and why)_
+- `path/to/other.ts` — _(what changed and why)_
 
 ## Testing
 
-_What was run and what were the results?_
+_(Describe how this was tested. Include at minimum:)_
 
-- [ ] _Unit / integration tests added or updated — file paths:_
-- [ ] _Manual verification steps:_
-- [ ] _CI checks expected to pass:_
+- _(unit/integration tests added or updated, with file paths)_
+- _(manual verification steps, if any)_
+- _(CI checks expected to pass)_
 
-## Known limitations / follow-ups
+<!-- harness:local-start id=pull-request.review-evidence -->
+## Model audit
 
-_Optional. List caveats, known gaps, or follow-up issues. Delete this section if none._
+| Field | Value |
+|---|---|
+| Implementer models | _(comma-separated, e.g. claude-opus-4.7-xhigh, gpt-5.4)_ |
+| Reviewer model | _(single id from C35-2 ladder, e.g. gpt-5.5)_ |
+| Implementer agent | _(e.g. omni-si, yoga-si — the consumer-repo agent ID; suffix `-si` for sub-invaders, not `-ah`)_ |
+| Reviewer agent | _(e.g. rubber-duck)_ |
+| Notes | _(optional)_ |
 
 ## Review log
 
-| Round | Reviewer model | Verdict | Blocking | Non-blocking | Suggestions |
-|-------|---------------|---------|----------|--------------|-------------|
-| 1     | _GPT-5.5_     | _—_     | _—_      | _—_          | _—_         |
+| timestamp | analyzed_head | actor | model | verdict | evidence_link |
+|---|---|---|---|---|---|
+| _(YYYY-MM-DDTHH:MM:SSZ)_ | _(40-char SHA)_ | _(actor)_ | _(model)_ | _(Go / Conditional Go / Needs-Fix)_ | _(URL or note)_ |
+<!-- harness:local-end id=pull-request.review-evidence -->
 
-## Model audit
+## Notes
 
-| Role | Model |
-|------|-------|
-| Implementer | _model name_ |
-| Reviewer | _GPT-5.5 or approved fallback_ |
-| Fallback rationale | _n/a or reason_ |
-
----
-
-> **Trailer reminder:** every commit in this PR made with agent assistance must end with:
->
-> ```
-> Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
-> ```
+_(Optional. Use this section for caveats, follow-up items, or anything a
+reviewer should know that doesn't fit above. Delete this section entirely
+if there is nothing to add.)_
