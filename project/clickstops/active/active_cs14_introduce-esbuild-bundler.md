@@ -1,9 +1,9 @@
 # CS14 — Introduce esbuild bundler in sub-invaders frontend
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-si
+**Branch:** cs14/content
+**Started:** 2026-06-10
 **Closed:** —
 **Filed by:** yoga-si (Claude Opus 4.7) on 2026-06-10, as precursor to CS13 (engine extraction). User chose "introduce a bundler" as the resolution to the bare-specifier browser-resolution blocker GPT-5.5 surfaced during CS13's R1 plan review, then delegated sequencing to the agent ("work autonomously, make good decisions"). Agent autonomously split bundler intro into its own CS per OPERATIONS.md "Keep PRs small and focused" doctrine. **Revised 2026-06-10** after GPT-5.5 R1 plan review returned `Needs-Fix` with 3 major + 2 minor findings (E2E build trigger; coverage/source-map handling; CONVENTIONS update must move to Phase B; SWA/Oryx wording; README deliverable missing). Revision addresses all 5 R1 findings. **Re-revised 2026-06-10** after GPT-5.5 R2 plan review returned `Needs-Fix` with 1 major + 1 minor finding (sourcemap normalization claim was wrong — `normalize()` doesn't handle `../game/` paths; SWA R2 risk wording still inaccurate). Re-revision corrects `normalize()` spec and Risks R2 wording.
 **Depends on:** CS02 (initial frontend shape: `src/index.html` + `src/game/main.mjs` ES-module entry), CS03 (SWA deploy pipeline owns the production upload path that this CS will reshape).
@@ -160,6 +160,15 @@ All other steps proceed autonomously.
 ## Notes / Learnings
 
 Filled during execution. At minimum, record: first-deploy bundle size baseline (gzipped + raw), observed SWA/Oryx behavior with the explicit `npm run build` step (whether `skip_app_build: true` is needed), `normalize()` regression-test coverage on actual esbuild source-map paths emitted, and any cold-start contributor friction with the new `npm ci` requirement.
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-si |
+| Reviewer agent | rubber-duck |
 
 ## Plan review
 
