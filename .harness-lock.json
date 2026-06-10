@@ -1,15 +1,15 @@
 {
-  "harness_ref": "v0.7.0",
-  "resolved_sha": "53e1a09cb74a2fb33c9fdab1946613c88cdaa003",
+  "harness_ref": "v0.8.0",
+  "resolved_sha": "2352d38b3ea7dff3147bc0c70c29cb0d5c4815b2",
   "config_schema_version": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
-  "synced_at": "2026-06-04T00:48:09.026Z",
+  "synced_at": "2026-06-10T06:12:06.365Z",
   "files": [
     {
       "target": ".github/workflows/pr-evidence-lint.yml",
       "source_template": "template/managed/.github/workflows/pr-evidence-lint.yml",
       "class": "managed",
-      "rendered_hash": "d5e4a71cc44a1d9e7a6504e8e5fc3453475e3b7d8c9589611028e9d9fc7f32ac",
-      "action": "skipped"
+      "rendered_hash": "7ec3e619969cf1915794bd14df99cb1359dd1fca508049e0251d15249020dad4",
+      "action": "updated"
     },
     {
       "target": "CONVENTIONS.md",
@@ -35,63 +35,63 @@
       "target": "OPERATIONS.md",
       "source_template": "template/composed/OPERATIONS.md",
       "class": "composed",
-      "rendered_hash": "bd53d5fd898b982f82ffb3d3e27a7c97772a931bc44e32add2a2685b68084b96",
+      "rendered_hash": "003c7ac03073403491d0fd9ebcb726ba32c7f24de8b370b7e93c90c34679a8fe",
       "action": "updated",
       "blocks": [
         {
           "id": "operations.project-deploy",
           "source_line_range": {
-            "start": 1980,
-            "end": 2203
+            "start": 2224,
+            "end": 2454
           },
-          "body_hash": "0047b402ea4aa3a7607af2f3f2024ee98bb7f62dbf80f046547efddc68668755",
+          "body_hash": "c49347d7648a0a63e99038332089ce49ddfe9c50c1d5c50c4cc3d37a619a9f2d",
           "template_marker_hash": "c538812699662e1747082864f419826b433df6e5164cdd28e870df72fcc559e5",
           "provenance": "user-authored"
         }
       ],
-      "template_prose_hash": "09ad2613121fcc90fdfd4931423a683cc3041ad62f27d558fa5777769a83a094"
+      "template_prose_hash": "94303d464b650f57bbeba95bc2a085dd87f531928400b34e428e8665d698fafb"
     },
     {
       "target": "REVIEWS.md",
       "source_template": "template/composed/REVIEWS.md",
       "class": "composed",
-      "rendered_hash": "29a0a329b99fea51df6f94f0c4184891646e3993da49d27eadf4b46f4204bd13",
+      "rendered_hash": "7c484eecbaebb2ab562190ab5703892eda460be1a3054ee599aac8fc6d4ebb20",
       "action": "updated",
       "blocks": [
         {
           "id": "reviews.project-gates",
           "source_line_range": {
-            "start": 565,
-            "end": 607
+            "start": 611,
+            "end": 653
           },
           "body_hash": "464f711b20a4a7f037588e173d498c9c88f4943d1b09e62e607daf5d86636241",
           "template_marker_hash": "5e1b41d3287a93df32706fff5619c8aa4fd7cfacd0f601fd1d23489010a4319e",
           "provenance": "user-authored"
         }
       ],
-      "template_prose_hash": "99a58b595952300b32d1b67a1608c92665a1123897fba44352a29de50c460b73"
+      "template_prose_hash": "b1d31f63ca7338a3c164667d4a60686c03e2c0c305159f480413ef4e7db09eff"
     }
   ],
   "scaffolds": [
     {
       "name": "feature-flags",
-      "version": "v0.7.0"
+      "version": "v0.8.0"
     },
     {
       "name": "verify-deploy",
-      "version": "v0.7.0"
+      "version": "v0.8.0"
     },
     {
       "name": "container-validate",
-      "version": "v0.7.0"
+      "version": "v0.8.0"
     },
     {
       "name": "seed",
-      "version": "v0.7.0"
+      "version": "v0.8.0"
     },
     {
       "name": "health-check",
-      "version": "v0.7.0"
+      "version": "v0.8.0"
     }
   ],
   "excluded": []

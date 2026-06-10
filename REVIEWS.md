@@ -223,6 +223,52 @@ text/doctrine. Examples of what was missed: nonexistent CLI flag
 enforced", and LRN-138 summary that generalised the entry beyond its
 "contents transmitted to a third party" scope.
 
+### 2.6b Rubber-duck scope — schema-conformance verification (LRN-145)
+
+A change that **adds or edits a config or schema reader** — any code that reads
+`harness.config.json`, a `schemas/*.schema.json`, or another structured
+artefact and decides which fields are required vs defaulted vs validated —
+carries a P0 blind spot that diff-coherence review misses: the reader can
+enforce a requirement-level the schema does not declare. A "Go" verdict on such
+a change is only valid when the reviewer has diffed the reader's enforced
+contract against the schema's declared contract.
+
+**Required checks for every Go verdict on a config/schema-reader change:**
+
+| # | Check | Source of truth |
+|---|---|---|
+| S1 | Every field the reader *requires* (throws/errors when absent) appears in the schema's `required` array. A reader that rejects a field the schema marks optional or supplies a `default` for is a defect — fix the reader, not the schema. | `schemas/*.schema.json` `required` + per-property presence. |
+| S2 | Every field the reader defaults-when-absent uses the **same default** the schema declares (`default`), unless a deliberate divergence is documented (code comment + LEARNINGS.md). A silent default mismatch is a defect. | `schemas/*.schema.json` per-property `default`. |
+| S3 | The inverse also holds: the reader does not silently accept a *present-but-malformed* value the schema would reject (wrong `type`, bad `pattern`/`enum`, non-`uniqueItems`). Fail closed on present-but-malformed. | The property's `type` / `pattern` / `enum` / `items` constraints. |
+
+**Reviewer prompt obligation.** When dispatching a rubber-duck for a change
+that touches a config or schema reader, the orchestrator MUST include language
+equivalent to: *"verify S1–S3 above — diff the reader's required / default /
+validation contract against the schema, not just the diff's internal logic."*
+
+**Empirical motivation.** In CS60 the LRN-142 de-drift of
+`check-independence-invariant.mjs` made the reader *require*
+`reviews.rubber_duck_model` and `reviews.high_risk_clickstops`, both of which
+the schema marks optional with `default`s — a silent breaking change for a
+schema-valid consumer config that omits them. A three-round GPT-5.5 rubber-duck
+review-of-record returned Go without catching it (it verified the fail-closed
+*logic*, never the reader-vs-schema *contract*); GitHub Copilot caught it
+post-Go by reading the schema. CS61 (LRN-145) factored the reader into a single
+`loadReviewsPolicy` with default-when-absent / fail-closed-on-malformed
+semantics and added this checklist item.
+
+**Author-side self-check (LRN-149).** Apply S1–S3 to your *own* config/schema
+reader **before** opening the PR. Enumerate every constraint dimension the
+schema declares for the subtree you read — `required`, per-field `default`,
+`type`, `enum`, `pattern`, `uniqueItems`, `additionalProperties`,
+`minLength`/`maxLength`, numeric bounds — and confirm the reader honours each
+(default-when-absent for optional+defaulted; fail-closed on present-but-malformed
+for every constraint). This is the cheapest place to catch the gap: in CS61
+(PR #250) the post-merge-style review surfaced roughly one unhandled dimension
+per round (`additionalProperties:false`, then empty-string `minLength`, then
+whitespace-only `pattern`) across several rounds; a single up-front author S1–S3
+sweep would have collapsed them into the first.
+
 ### 2.7 Finding disposition
 
 **Blocking findings:** must be addressed before merge via one of:

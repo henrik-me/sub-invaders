@@ -153,6 +153,15 @@ agents never write the same file.
 - `.github/workflows/sessions-cleanup.yml` checks `SUB_INVADERS_FUNCTION_KEY` before invoking curl; missing secret logs a clear skip and exits 0 for fork/Dependabot safety.
 - Implementation was serialized by the orchestrator to avoid the `ILeaderboardRepository.cs` lane overlap called out in R7.
 
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-si |
+| Reviewer agent | rubber-duck |
+
 ## Plan review
 
 | Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
