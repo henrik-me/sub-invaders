@@ -147,15 +147,15 @@ All other steps proceed autonomously.
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Phase A: add esbuild devDep + `build` / `build:watch` scripts + README build section | planned | sub-agent #1 | esbuild only; no minify; ES2022; ESM. Deliverables 1–3. |
-| Phase A: gitignore `src/dist/` + `<script src>` retarget + first verified build | planned | sub-agent #1 | Verify output exists + console-clean load. Deliverables 4–6. |
-| Phase A: `pretest:e2e` + `pretest:e2e:coverage` hooks + Playwright `webServer.command` self-build | planned | sub-agent #2 | Two Playwright configs. Deliverables 7–8. |
-| Phase A: update `scripts/coverage-perfile.mjs` `normalize()` for `(../)+` + regression tests + c8 exclude | planned | sub-agent #2 | Test esbuild source-map shapes explicitly. Deliverables 9–11. |
-| Phase B: SWA workflow setup-node + `npm ci` + `npm run build` before deploy | planned | sub-agent #3 | Verify Oryx does not double-build. Deliverables 12, 14. |
-| Phase B: CI coverage job explicit build step + `--exclude "src/dist/**"` on c8 | planned | sub-agent #3 | Mirrors local pretest. Deliverable 13. |
-| Phase B: CONVENTIONS.md update to retire "no bundler in v1" clause + cite CS14 | planned | sub-agent #4 | Lines ~162–166. Deliverable 15. |
-| Phase B: `npm ci` lockfile commit + lint/unit/e2e/coverage all-green + user-approval merge | planned | orchestrator | User-approval gate before merge. Deliverables 16–21. |
-| Phase C: first prod deploy verification + LEARNINGS entry (bundle size baseline, SWA behavior) | planned | orchestrator | Captures R7 baseline for future tracking. Deliverables 22–27. |
+| Phase A: branch + esbuild devDep + `.gitignore` for `src/dist/` | planned | sub-agent #1 | Exact-pinned esbuild version. Deliverables 1–3. |
+| Phase A: `build` + `build:watch` scripts + `pretest:e2e[:coverage]` hooks + first verified build + retarget `<script>` tag | planned | sub-agent #1 | esbuild only; no minify; ES2022; ESM. Deliverables 4–6. |
+| Phase A: manual smoke + unit tests (unchanged) + coverage `--exclude "src/dist/**"` + `normalize()` update for `(../)+` + regression tests | planned | sub-agent #2 | Test esbuild source-map shapes explicitly. Deliverables 7–9. |
+| Phase A: Playwright `webServer.command` self-build + e2e tests pass against bundle | planned | sub-agent #2 | Both Playwright configs. Deliverables 10–11. |
+| Phase B: SWA workflow setup-node + `npm ci` + `npm run build` before deploy | planned | sub-agent #3 | Verify Oryx does not double-build. Deliverable 12. |
+| Phase B: CI coverage job explicit build step + `--exclude "src/dist/**"` on c8 + e2e workflow explicit build step + pr-evidence-lint no-op verify | planned | sub-agent #3 | Mirrors local pretest. Deliverables 13–15. |
+| Phase B: CONVENTIONS.md update to retire "no bundler in v1" clause + README local-dev workflow section | planned | sub-agent #4 | Lines ~162–166. Deliverables 16–17. |
+| Phase B: open PR + rubber-duck Go + `copilot-engage` + user-approval merge | planned | orchestrator | User-approval gate before merge. Deliverables 18–21. |
+| Phase C: first prod deploy verify + bundle-size + SWA behavior LEARNINGS + WORKBOARD + active→done rotation + close-out commit | planned | orchestrator | Captures R7 baseline for future tracking. Deliverables 22–27. |
 
 ## Notes / Learnings
 
