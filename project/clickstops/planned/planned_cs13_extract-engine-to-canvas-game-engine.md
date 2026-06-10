@@ -146,6 +146,24 @@ All other steps proceed autonomously per the user's explicit "do this without my
 7. **R7 — Future sub-invaders engine bugfixes require a round-trip.** Once `src/engine/` is deleted, any engine bug found while working on sub-invaders requires: PR to `canvas-game-engine`, merge, tag bump, sub-invaders dep bump. This is by-design (extraction's whole point) but adds latency for hot engine fixes. Mitigation: documented in close-out LEARNINGS as an accepted tradeoff. Hotfix path: temporary `"canvas-game-engine": "github:henrik-me/canvas-game-engine#<branch-name>"` pin during iteration, then re-pin to a tag for merge.
 8. **R8 — Engine tests run twice (once upstream, once nowhere in sub-invaders).** Sub-invaders' coverage report loses the engine tests entirely. This is correct (they belong upstream) but means the sub-invaders CI no longer attests engine correctness. Mitigation: the new repo's CI is required-on `main` per its own gates; sub-invaders' `package.json` git-URL dep at a pinned tag is reproducible byte-for-byte. Document the trust delegation in CONVENTIONS.md update (Phase B step 22 — see CS13-15 block (i)).
 
+## Tasks
+
+| Task | State | Owner | Notes |
+|---|---|---|---|
+| Phase A: bootstrap new repo (`gh repo create`, `harness init`, CONVENTIONS + REVIEWS + bootstrap clickstop) | planned | orchestrator | User-approval gate before `gh repo create`. Deliverables 1–4. |
+| Phase A: lift engine source + tests with JSDoc + CHANGELOG + `package.json` exports map | planned | sub-agent #1 | Verbatim copy + JSDoc only. Deliverables 5–9. |
+| Phase A: CI on new repo (Node matrix, isolation lint, export-contract tests, coverage) | planned | sub-agent #2 | Mirrors sub-invaders gates. Deliverables 10–13. |
+| Phase A: integration verification + tag `v0.1.0` + GitHub release | planned | orchestrator | User-approval gate before tag push. Deliverables 14–16. |
+| Phase B: add `canvas-game-engine` git-URL dep + rewrite imports (game + scenes + tests) | planned | sub-agent #3 | 2 import shapes: `../engine/x.mjs` and `../../engine/x.mjs`. Deliverables 17–20. |
+| Phase B: delete `src/engine/` (20 files) + `scripts/lint-engine-isolation.mjs` + coverage overrides | planned | sub-agent #4 | 10 engine overrides + `_comment` retargeted to `src/game/**/*.mjs`. Deliverables 21–23. |
+| Phase B: rewrite CONVENTIONS.md isolation block + line 166 bullet | planned | sub-agent #5 | Two distinct blocks per CS13-15. Deliverable 24. |
+| Phase B: run full lint + unit + e2e + coverage, then merge | planned | orchestrator | User-approval gate before merge. Deliverables 25–29. |
+| Close-out: WORKBOARD updates + LEARNINGS entry + active→done rotation | planned | orchestrator | Capture harness-init friction per CS13-17. Deliverables 30–32. |
+
+## Notes / Learnings
+
+Filled during execution. At minimum, record: harness-init friction with library-shaped consumer (per CS13-17), final lifted-file count vs. plan estimate (target ~20), any `exports`-map shape adjustments needed during Phase A step 14 integration verification, coverage-percentage delta in sub-invaders after engine deletion, and any post-tag `v0.1.1` patch required.
+
 ## Plan review
 
 | Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |

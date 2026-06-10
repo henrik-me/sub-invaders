@@ -143,6 +143,24 @@ All other steps proceed autonomously.
 7. **R7 — Bundle size growth invisible.** Without a bundle-size budget, future engine additions may bloat the deployed game silently. Out of scope for CS14 v1; track as a follow-up if observed. Mitigation: LEARNINGS entry records baseline bundle size; future contributors can eyeball deltas.
 8. **R8 — Service worker (CS08) interaction.** CS08 introduces a service worker with a SHA-versioned cache; the SW will need to know about `src/dist/main.mjs` instead of `src/game/main.mjs` in its precache list. CS08 is still planned at CS14 authoring, so this is a forward-looking note for whoever claims CS08. Mitigation: CS08 author reads CS14 close-out LEARNINGS for the file-path change.
 
+## Tasks
+
+| Task | State | Owner | Notes |
+|---|---|---|---|
+| Phase A: add esbuild devDep + `build` / `build:watch` scripts + README build section | planned | sub-agent #1 | esbuild only; no minify; ES2022; ESM. Deliverables 1–3. |
+| Phase A: gitignore `src/dist/` + `<script src>` retarget + first verified build | planned | sub-agent #1 | Verify output exists + console-clean load. Deliverables 4–6. |
+| Phase A: `pretest:e2e` + `pretest:e2e:coverage` hooks + Playwright `webServer.command` self-build | planned | sub-agent #2 | Two Playwright configs. Deliverables 7–8. |
+| Phase A: update `scripts/coverage-perfile.mjs` `normalize()` for `(../)+` + regression tests + c8 exclude | planned | sub-agent #2 | Test esbuild source-map shapes explicitly. Deliverables 9–11. |
+| Phase B: SWA workflow setup-node + `npm ci` + `npm run build` before deploy | planned | sub-agent #3 | Verify Oryx does not double-build. Deliverables 12, 14. |
+| Phase B: CI coverage job explicit build step + `--exclude "src/dist/**"` on c8 | planned | sub-agent #3 | Mirrors local pretest. Deliverable 13. |
+| Phase B: CONVENTIONS.md update to retire "no bundler in v1" clause + cite CS14 | planned | sub-agent #4 | Lines ~162–166. Deliverable 15. |
+| Phase B: `npm ci` lockfile commit + lint/unit/e2e/coverage all-green + user-approval merge | planned | orchestrator | User-approval gate before merge. Deliverables 16–21. |
+| Phase C: first prod deploy verification + LEARNINGS entry (bundle size baseline, SWA behavior) | planned | orchestrator | Captures R7 baseline for future tracking. Deliverables 22–27. |
+
+## Notes / Learnings
+
+Filled during execution. At minimum, record: first-deploy bundle size baseline (gzipped + raw), observed SWA/Oryx behavior with the explicit `npm run build` step (whether `skip_app_build: true` is needed), `normalize()` regression-test coverage on actual esbuild source-map paths emitted, and any cold-start contributor friction with the new `npm ci` requirement.
+
 ## Plan review
 
 | Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
