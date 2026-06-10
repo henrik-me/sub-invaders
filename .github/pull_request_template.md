@@ -6,7 +6,7 @@
   manually when adopting a future strict-schema bump).
 
   The block between the
-  <!-- harness:local-start id=... --> ... <!-- harness:local-end id=... -->
+  &lt;!-- harness:local-start id=... --&gt; ... &lt;!-- harness:local-end id=... --&gt;
   markers is the harness-tracked review-evidence section; consumer-owned
   content lives outside the markers.
 
