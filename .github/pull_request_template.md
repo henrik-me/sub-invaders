@@ -44,7 +44,7 @@ _(Describe how this was tested. Include at minimum:)_
 
 | timestamp | analyzed_head | actor | model | verdict | evidence_link |
 |---|---|---|---|---|---|
-| _(YYYY-MM-DDTHH:MM:SSZ)_ | _(40-char SHA)_ | _(actor)_ | _(model)_ | _(Go / Go-with-amendments / Needs-Fix)_ | _(URL or note)_ |
+| _(YYYY-MM-DDTHH:MM:SSZ)_ | _(40-char SHA)_ | _(actor)_ | _(model)_ | _(Go / Conditional Go / Needs-Fix)_ | _(URL or note)_ |
 <!-- harness:local-end id=pull-request.review-evidence -->
 
 ## Notes
