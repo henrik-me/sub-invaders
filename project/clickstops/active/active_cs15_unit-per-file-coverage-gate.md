@@ -1,9 +1,9 @@
 # CS15 — Wire unit per-file coverage gate into CI + close flags/whaleshark coverage gap
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** omni-si
+**Branch:** cs15/content
+**Started:** 2026-06-16
 **Closed:** —
 **Filed by:** omni-si (Claude Opus 4.8) on 2026-06-15, surfacing the complete-but-uncommitted coverage work found in the working tree during session-start bootstrap. The gap was documented but deferred: CS14's close-out disposition (LEARNINGS.md, CS14 entry) carved out the "Node-24-local vs Node-20-CI V8 branch-count skew on `src/game/{flags,whaleshark}.mjs`" as a separate pre-existing item; CS09 shipped the per-file coverage tooling but the unit suite's per-file floors were never wired into `ci.yml` (only the c8 aggregate thresholds run there).
 **Depends on:** none (CS09 shipped the per-file gate tooling; CS14 documented the deferred gap this CS closes).
@@ -66,6 +66,15 @@ CS15 performs no irreversible or public-facing operations (no repo creation, no 
 ## Notes / Learnings
 
 Filled during execution. At minimum, record: the final per-file coverage numbers for `flags.mjs` and `whaleshark.mjs` on Node 20 CI vs Node 24 local, the exact added-test counts, and confirmation that no `coverage-thresholds.json` override was needed.
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | omni-si |
+| Reviewer agent | rubber-duck |
 
 ## Plan review
 
