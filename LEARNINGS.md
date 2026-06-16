@@ -1061,6 +1061,47 @@ regression.)_
 
 ---
 
+### LRN-026
+
+```yaml
+id: LRN-026
+date: 2026-06-16
+category: tooling
+source_cs: CS15
+status: open
+tags: [coverage, c8, per-file, gating, ci, node-version, branch-count]
+```
+
+**Problem:** The unit-suite coverage CI step ran only `c8 --check-coverage` with
+AGGREGATE thresholds and never invoked `coverage:check:unit`, so a single unit
+file could sit below its per-file floor while the suite average kept CI green —
+asymmetric with the E2E suite, which already runs its per-file gate via
+`test:e2e:coverage`. Concretely `src/game/whaleshark.mjs` (~85% stmt / ~59%
+branch) and `src/game/flags.mjs` (~77% branch) were below floor, the
+Node-24-local vs Node-20-CI V8 branch-count skew that CS14 deferred (LRN-025
+disposition).
+
+**Finding:** Wiring `npm run coverage:check:unit` as a dedicated CI step
+immediately after the c8 unit step — reusing the json-summary the c8 step
+already writes (`coverage-report-unit/coverage-summary.json`), guarded to skip +
+`exit 0` when that summary is absent (empty unit matrix) — enforces per-file
+floors on every PR with no second instrumented run. Closing the gap by ADDING
+tests (+6 flags, +17 whaleshark) rather than lowering thresholds or adding
+overrides raised `flags.mjs` to 100% stmt / 96.29% branch and `whaleshark.mjs`
+to 100% stmt / 98.88% branch — ample margin above the 80% branch floor, so the
+gate is robust to the Node-version branch-count skew on both Node 20 (CI) and
+Node 24 (local). Scope stayed test-files + one CI step; no production `src/**`
+or `coverage-thresholds.json` change.
+
+**Disposition:** _(open as the standard unit-coverage gate; resolves the
+LRN-025-deferred `src/game/{flags,whaleshark}.mjs` skew. Follow-up candidate: a
+pre-existing flaky E2E test `tests/e2e/game-flow.spec.mjs:26 — KeyM on game-over
+returns to the main menu` surfaced during CS15 CI and passed on re-run; it is
+input-timing flakiness of the class fixed for the score/input specs in PR #90,
+out of CS15 scope.)_
+
+---
+
 _(no entries yet)_
 
 ## Obsolete
