@@ -1,10 +1,10 @@
 # CS15 — Wire unit per-file coverage gate into CI + close flags/whaleshark coverage gap
 
-**Status:** active
+**Status:** done
 **Owner:** omni-si
 **Branch:** cs15/content
 **Started:** 2026-06-16
-**Closed:** —
+**Closed:** 2026-06-16
 **Filed by:** omni-si (Claude Opus 4.8) on 2026-06-15, surfacing the complete-but-uncommitted coverage work found in the working tree during session-start bootstrap. The gap was documented but deferred: CS14's close-out disposition (LEARNINGS.md, CS14 entry) carved out the "Node-24-local vs Node-20-CI V8 branch-count skew on `src/game/{flags,whaleshark}.mjs`" as a separate pre-existing item; CS09 shipped the per-file coverage tooling but the unit suite's per-file floors were never wired into `ci.yml` (only the c8 aggregate thresholds run there).
 **Depends on:** none (CS09 shipped the per-file gate tooling; CS14 documented the deferred gap this CS closes).
 
@@ -65,7 +65,7 @@ CS15 performs no irreversible or public-facing operations (no repo creation, no 
 
 ## Notes / Learnings
 
-Filled during execution. At minimum, record: the final per-file coverage numbers for `flags.mjs` and `whaleshark.mjs` on Node 20 CI vs Node 24 local, the exact added-test counts, and confirmation that no `coverage-thresholds.json` override was needed.
+Final per-file coverage (Node 24 local; CI Node 20 green): `flags.mjs` 100% stmt / 96.29% branch; `whaleshark.mjs` 100% stmt / 98.88% branch — both comfortably above the per-file floors, so the gate holds across the Node-version branch-count skew. Added-test counts: +6 `flags.test.mjs`, +17 `whaleshark.test.mjs` (unit suite 428 → 451). No `coverage-thresholds.json` override was needed. Content shipped as squash `6851611` (PR #102); a follow-up commit renamed two `whaleshark` tests for left-moving clarity per Copilot. Learning filed as LRN-026. A pre-existing flaky E2E test (`game-flow.spec.mjs:26 — KeyM on game-over returns to the main menu`) surfaced during CI and passed on re-run — noted in LRN-026 as a follow-up candidate; no follow-up CS filed.
 
 ## Model audit
 
@@ -84,4 +84,17 @@ Filled during execution. At minimum, record: the final per-file coverage numbers
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate — required only when this file lives in `active/` or `done/`)_
+**Reviewer:** gpt-5.5 (rubber-duck, dispatched by orchestrator omni-si)
+**Date:** 2026-06-16T16:03:06Z
+**Outcome:** GO
+
+All four deliverables matched the plan, with no divergences, additions, or drops. Decisions CS15-2 (raise real coverage rather than lower thresholds) and CS15-3 (scope = test files + one CI step) were honored — the merged diff (squash `6851611`) touches only `.github/workflows/ci.yml`, `src/game/flags.test.mjs`, and `src/game/whaleshark.test.mjs`, with no production `src/**` module change and no `coverage-thresholds.json` change. Test coverage is **sufficient**. Local verification at close-out: `npm run test:unit` 451/451 pass; `npm run test:unit:coverage` exit 0 with the unit per-file gate green over 30 files; `dotnet test api/` 95/95; harness lint 18 passed / 0 failed; harness sync `--mode=check` no drift.
+
+| Deliverable | Outcome | Notes |
+|---|---|---|
+| D1 — CI unit per-file coverage floors step | match | `ci.yml` adds `Unit per-file coverage floors` immediately after the c8 unit-coverage step, checks for `coverage-report-unit/coverage-summary.json`, skips with `exit 0` when absent, then runs `npm run coverage:check:unit`. |
+| D2 — whaleshark +17 tests | match | Diff adds 17 `whaleshark.test.mjs` tests; `whaleshark.mjs` now at 100% statements / 98.88% branches. |
+| D3 — flags +6 tests | match | Diff adds 6 `flags.test.mjs` tests; `flags.mjs` now at 100% statements / 96.29% branches. |
+| D4 — verification | match | `test:unit` 451/451; `test:unit:coverage` per-file gate green over 30 files; harness lint 18/0; sync no drift; `dotnet test api/` 95/95; commit touches only the 3 planned files, not `coverage-thresholds.json`. |
+
+Test-coverage assessment: **sufficient**.
