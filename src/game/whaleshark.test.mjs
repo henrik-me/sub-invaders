@@ -191,7 +191,7 @@ test('forceSpawn while already active returns the existing shark', () => {
   assert.equal(first, second);
 });
 
-test('alternating spawns flip the entry edge to a right-moving shark', () => {
+test('alternating spawns flip the entry edge to a left-moving shark entering from the right', () => {
   const whaleShark = createWhaleShark({ rng: intervalRng() });
   whaleShark.__forTesting.forceSpawn();
   whaleShark.__forTesting.despawn({ resetTimer: false });
@@ -203,7 +203,7 @@ test('alternating spawns flip the entry edge to a right-moving shark', () => {
   assert.equal(whaleShark.state.lastSpawnAtMs, 1000);
 });
 
-test('a right-moving shark despawns after exiting the left edge', () => {
+test('a left-moving shark despawns after exiting the left edge', () => {
   const whaleShark = createWhaleShark({ rng: intervalRng(17000), canvasWidth: 100, canvasHeight: 600 });
   whaleShark.__forTesting.forceSpawn();
   whaleShark.__forTesting.despawn({ resetTimer: false });
