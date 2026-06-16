@@ -122,6 +122,19 @@ jobs:
             --report-dir=coverage-report-unit \
             --check-coverage --lines=90 --statements=90 --functions=90 --branches=85 \
             node --test "${files[@]}"
+      # CS09 per-file floors for the UNIT suite. The c8 step above enforces only
+      # suite-level totals; coverage-perfile.mjs enforces the per-file floors in
+      # coverage-thresholds.json against the json-summary that step wrote. (E2E
+      # already runs its per-file gate via `npm run test:e2e:coverage` below.)
+      - name: Unit per-file coverage floors
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f coverage-report-unit/coverage-summary.json ]; then
+            echo "No unit coverage summary (no tests ran) — skipping per-file floors."
+            exit 0
+          fi
+          npm run coverage:check:unit
       # CS14: E2E coverage instruments the bundled output (src/dist/main.mjs),
       # so build it first. test:e2e:coverage also self-builds via its
       # pretest:e2e:coverage npm hook + the Playwright webServer command; this

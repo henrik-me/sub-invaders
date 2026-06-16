@@ -117,3 +117,151 @@ test('render draws an active whale shark as a rectangle placeholder', () => {
   assert.equal(calls.length, 1);
   assert.deepEqual(calls[0].slice(0, 4), [shark.x, shark.y, shark.w, shark.h]);
 });
+
+test('normal-mode interval uses rng.range when rng.int is absent', () => {
+  const whaleShark = createWhaleShark({ rng: { range: () => 20000.7 } });
+  assert.equal(whaleShark.state.spawnIntervalMs, 20000);
+});
+
+test('normal-mode interval uses rng.next (then Math.random fallback) when int and range are absent', () => {
+  const whaleShark = createWhaleShark({ rng: { next: () => 0.5 } });
+  const { normalMinMs, normalMaxMs } = whaleShark.__forTesting.constants;
+  assert.equal(
+    whaleShark.state.spawnIntervalMs,
+    Math.floor(0.5 * (normalMaxMs - normalMinMs + 1)) + normalMinMs,
+  );
+});
+
+test('rng.next returning a non-finite value is clamped to 0', () => {
+  const whaleShark = createWhaleShark({ rng: { next: () => Number.NaN } });
+  assert.equal(whaleShark.state.spawnIntervalMs, whaleShark.__forTesting.constants.normalMinMs);
+});
+
+test('rng.next above 1 is clamped just below 1', () => {
+  const whaleShark = createWhaleShark({ rng: { next: () => 5 } });
+  const { normalMinMs, normalMaxMs } = whaleShark.__forTesting.constants;
+  assert.equal(
+    whaleShark.state.spawnIntervalMs,
+    Math.floor(0.999999999 * (normalMaxMs - normalMinMs + 1)) + normalMinMs,
+  );
+});
+
+test('non-positive canvas dimensions fall back to defaults', () => {
+  const whaleShark = createWhaleShark({ rng: intervalRng(), canvasWidth: 0, canvasHeight: -5 });
+  const shark = whaleShark.__forTesting.forceSpawn();
+  assert.equal(shark.x, -whaleShark.__forTesting.constants.width);
+});
+
+test('checkHit uses torpedo.aabb() and torpedo.kill() when provided', () => {
+  const whaleShark = createWhaleShark({ rng: intervalRng(15000, 0) });
+  const shark = whaleShark.__forTesting.forceSpawn();
+  let killed = false;
+  const torpedo = {
+    alive: true,
+    aabb: () => ({ x: shark.x + 2, y: shark.y + 2, w: 4, h: 4 }),
+    kill() {
+      killed = true;
+      this.alive = false;
+    },
+  };
+
+  const result = whaleShark.checkHit([torpedo]);
+
+  assert.equal(result.hit, true);
+  assert.equal(killed, true);
+  assert.equal(torpedo.consumed, true);
+});
+
+test('checkHit tolerates a torpedo missing geometry fields (defaults to 0)', () => {
+  const whaleShark = createWhaleShark({ rng: intervalRng() });
+  whaleShark.__forTesting.forceSpawn();
+  assert.equal(typeof whaleShark.checkHit([{ alive: true }]).hit, 'boolean');
+});
+
+test('render returns false when the active shark has no drawRect renderer', () => {
+  const whaleShark = createWhaleShark({ rng: intervalRng() });
+  whaleShark.__forTesting.forceSpawn();
+  assert.equal(whaleShark.render({}), false);
+});
+
+test('forceSpawn while already active returns the existing shark', () => {
+  const whaleShark = createWhaleShark({ rng: intervalRng() });
+  const first = whaleShark.__forTesting.forceSpawn();
+  const second = whaleShark.__forTesting.forceSpawn();
+  assert.equal(first, second);
+});
+
+test('alternating spawns flip the entry edge to a right-moving shark', () => {
+  const whaleShark = createWhaleShark({ rng: intervalRng() });
+  whaleShark.__forTesting.forceSpawn();
+  whaleShark.__forTesting.despawn({ resetTimer: false });
+  const shark = whaleShark.__forTesting.forceSpawn(1000);
+
+  assert.equal(shark.direction, -1);
+  assert.equal(shark.x, 800);
+  assert.equal(shark.vx, -whaleShark.__forTesting.constants.speed);
+  assert.equal(whaleShark.state.lastSpawnAtMs, 1000);
+});
+
+test('a right-moving shark despawns after exiting the left edge', () => {
+  const whaleShark = createWhaleShark({ rng: intervalRng(17000), canvasWidth: 100, canvasHeight: 600 });
+  whaleShark.__forTesting.forceSpawn();
+  whaleShark.__forTesting.despawn({ resetTimer: false });
+  const shark = whaleShark.__forTesting.forceSpawn();
+  const travelSeconds = (100 + shark.w + 1) / whaleShark.__forTesting.constants.speed;
+
+  whaleShark.update(travelSeconds);
+
+  assert.equal(whaleShark.state.active, false);
+});
+
+test('despawn with a finite now schedules the next spawn at now + interval', () => {
+  const whaleShark = createWhaleShark({ rng: intervalRng(15000) });
+  whaleShark.__forTesting.forceSpawn();
+  whaleShark.__forTesting.despawn({ now: 5000 });
+  assert.equal(whaleShark.state.nextSpawnAtMs, 5000 + 15000);
+});
+
+test('maybeSpawn returns the existing shark when already active', () => {
+  const whaleShark = createWhaleShark({ rng: intervalRng() });
+  const shark = whaleShark.__forTesting.forceSpawn();
+  assert.equal(whaleShark.maybeSpawn(123), shark);
+});
+
+test('maybeSpawn(now) schedules then spawns on an external clock', () => {
+  const whaleShark = createWhaleShark({ rng: intervalRng(15000) });
+
+  assert.equal(whaleShark.maybeSpawn(1000), null);
+  assert.equal(whaleShark.state.active, false);
+
+  whaleShark.maybeSpawn(1000 + 15000);
+  assert.equal(whaleShark.state.active, true);
+});
+
+test('checkHit skips dead torpedoes and tolerates a missing list', () => {
+  const whaleShark = createWhaleShark({ rng: intervalRng() });
+  const shark = whaleShark.__forTesting.forceSpawn();
+  const dead = { x: shark.x, y: shark.y, w: shark.w, h: shark.h, alive: false };
+
+  assert.deepEqual(whaleShark.checkHit([dead]), { hit: false });
+  assert.deepEqual(whaleShark.checkHit(), { hit: false });
+});
+
+test('reset() despawns an active shark and re-arms the timer', () => {
+  const whaleShark = createWhaleShark({ rng: intervalRng(18000) });
+  whaleShark.__forTesting.forceSpawn();
+  assert.equal(whaleShark.state.active, true);
+
+  whaleShark.reset();
+
+  assert.equal(whaleShark.state.active, false);
+  assert.equal(whaleShark.state.shark, null);
+  assert.equal(whaleShark.state.nextSpawnAtMs, null);
+  assert.equal(whaleShark.state.spawnIntervalMs, 18000);
+});
+
+test('reset() is safe when no shark is active', () => {
+  const whaleShark = createWhaleShark({ rng: intervalRng(19000) });
+  whaleShark.reset();
+  assert.equal(whaleShark.state.active, false);
+});
