@@ -134,3 +134,51 @@ test('flags: isDailyChallengeEnabled true only when value === "on"', () => {
   assert.equal(isDailyChallengeEnabled(null), false);
   assert.equal(isDailyChallengeEnabled(undefined), false);
 });
+
+test('flags: parseMetaFlags skips empty segments from doubled/trailing separators', () => {
+  assert.deepEqual(parseMetaFlags('a=1;;b=2;'), { a: '1', b: '2' });
+  assert.deepEqual(parseMetaFlags(';'), {});
+});
+
+test('flags: parseMetaFlags skips pairs with an empty key', () => {
+  assert.deepEqual(parseMetaFlags('=novalue; ok=yes'), { ok: 'yes' });
+});
+
+test('flags: readDefaultFlags returns {} with no documentRef and no global document', () => {
+  assert.deepEqual(readDefaultFlags(), {});
+});
+
+test('flags: fetchFlags returns defaults when neither fetchImpl nor global fetch exists', async () => {
+  const savedFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = undefined;
+    const doc = { querySelector: () => ({ getAttribute: () => 'dailyChallenge=off' }) };
+    const flags = await fetchFlags({ documentRef: doc });
+    assert.equal(flags.dailyChallenge, 'off');
+  } finally {
+    globalThis.fetch = savedFetch;
+  }
+});
+
+test('flags: fetchFlags skips the timeout timer when timeoutMs is 0', async () => {
+  const doc = { querySelector: () => ({ getAttribute: () => 'dailyChallenge=off' }) };
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ flags: { dailyChallenge: 'on' } }) });
+  const flags = await fetchFlags({ documentRef: doc, fetchImpl, timeoutMs: 0 });
+  assert.equal(flags.dailyChallenge, 'on');
+});
+
+test('flags: fetchFlags works when AbortController is unavailable (no signal passed)', async () => {
+  const savedAbort = globalThis.AbortController;
+  try {
+    globalThis.AbortController = undefined;
+    const doc = { querySelector: () => ({ getAttribute: () => 'dailyChallenge=off' }) };
+    const fetchImpl = async (_url, init) => {
+      assert.equal(init, undefined);
+      return { ok: true, json: async () => ({ flags: { dailyChallenge: 'on' } }) };
+    };
+    const flags = await fetchFlags({ documentRef: doc, fetchImpl });
+    assert.equal(flags.dailyChallenge, 'on');
+  } finally {
+    globalThis.AbortController = savedAbort;
+  }
+});
