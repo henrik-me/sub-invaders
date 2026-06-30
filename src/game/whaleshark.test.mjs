@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createRng } from '../engine/seed.mjs';
+import { createRng } from 'canvas-game-engine/seed.mjs';
 import { createWhaleShark } from './whaleshark.mjs';
 
 function intervalRng(intervalMs = 15000, pointIndex = 0) {

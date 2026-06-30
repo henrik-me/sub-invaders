@@ -13,7 +13,7 @@ import url from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 
-// Normalize file key to repo-relative posix path: src/engine/loop.mjs
+// Normalize file key to repo-relative posix path: src/game/main.mjs
 export function normalize(key) {
   if (!key) return null;
   let p = key;
@@ -21,16 +21,21 @@ export function normalize(key) {
   p = p.replace(/^https?:\/\/[^/]+\//, '');
   // Strip absolute repo prefix (c8 keys are absolute paths)
   p = p.replace(/\\/g, '/');
+  // External dependencies are not sub-invaders source. The per-file gate
+  // measures only this repo's own files; the bundled canvas-game-engine
+  // package is covered upstream (its bytes still count toward the e2e
+  // aggregate via playwright.coverage.config.mjs, but it is not per-file
+  // gated here). Drop any node_modules path before src/ detection (CS13).
+  if (p.includes('node_modules/')) return null;
   const idx = p.lastIndexOf('/src/');
   if (idx >= 0) p = p.slice(idx + 1);
   // esbuild sourcemaps reference parent-relative paths (../game/main.mjs,
-  // ../game/scenes/play.mjs, and ../../engine/loop.mjs from a deeper bundle
-  // dir); collapse any leading ../ segments before the engine/|game/ prefix
-  // detection so they resolve to src/<dir>/<file> like the absolute and
-  // bare-prefix forms.
+  // ../game/scenes/play.mjs from a deeper bundle dir); collapse any leading
+  // ../ segments before the game/ prefix detection so they resolve to
+  // src/game/<file> like the absolute and bare-prefix forms.
   p = p.replace(/^(?:\.\.\/)+/, '');
-  // monocart strips the /src/ segment, so engine/loop.mjs -> src/engine/loop.mjs
-  if (!p.startsWith('src/') && (p.startsWith('engine/') || p.startsWith('game/'))) {
+  // monocart strips the /src/ segment, so game/main.mjs -> src/game/main.mjs
+  if (!p.startsWith('src/') && p.startsWith('game/')) {
     p = 'src/' + p;
   }
   return p;

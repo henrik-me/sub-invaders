@@ -1,11 +1,9 @@
 {
-  "_comment": "Per-file coverage thresholds enforced by scripts/coverage-perfile.mjs. Defaults apply to every file under src/{engine,game}/*.mjs (excluding test-hooks.mjs). Files in 'overrides' lower the floor with a documented reason. NEW files automatically inherit defaults: any new file added to src/ that ships below the defaults will fail the gate.",
+  "_comment": "Per-file coverage thresholds enforced by scripts/coverage-perfile.mjs. Defaults apply to every file under src/game/**/*.mjs (excluding test-hooks.mjs). Files in 'overrides' lower the floor with a documented reason. NEW files automatically inherit defaults: any new file added to src/ that ships below the defaults will fail the gate.",
   "unit": {
     "suite": { "lines": 90, "statements": 90, "functions": 90, "branches": 85 },
     "perFileDefaults": { "lines": 90, "statements": 90, "functions": 85, "branches": 80 },
     "overrides": {
-      "src/engine/loop.mjs":            { "functions": 80, "_reason": "small public surface; one untested admin path drops fn% disproportionately" },
-      "src/engine/renderer.mjs":        { "branches": 75, "_reason": "defensive canvas-mock branches not exercised in jsdom-style harness" },
       "src/game/invaders.mjs":          { "branches": 70, "_reason": "consumeFireCadence external-clock branches (nowMs/dtMs/dt/elapsedMs) reachable via API but not used by production play scene; unit covers 99/74" },
       "src/game/main.mjs":              { "lines": 88, "statements": 88, "functions": 65, "branches": 70, "_reason": "boot-time/storage error recovery paths + CS03 leaderboard wiring (createLeaderboard/showLeaderboard/apiClient ternary) run only in real browser; covered by e2e-local" },
       "src/game/player.mjs":            { "branches": 75, "_reason": "defensive guards on null inputs from caller" },
@@ -18,14 +16,6 @@
     "suite": { "lines": 77, "statements": 87, "functions": 84, "branches": 70, "bytes": 80 },
     "perFileDefaults": { "lines": 80, "statements": 85, "functions": 80, "branches": 70, "bytes": 80 },
     "overrides": {
-      "src/engine/audio.mjs":           { "_skip": true, "_reason": "not loaded by production; Web Audio mock in unit only" },
-      "src/engine/collision.mjs":       { "lines": 60, "functions": 70, "branches": 75, "bytes": 85, "_reason": "polygon helpers dead in production; unit covers 100/84/100/100" },
-      "src/engine/entity.mjs":          { "functions": 75, "_reason": "factory variants dead in production; unit covers 100" },
-      "src/engine/input.mjs":           { "lines": 70, "functions": 75, "branches": 65, "_reason": "keyboard/touch fallback paths dead in headless E2E; unit covers 99/100/94" },
-      "src/engine/loop.mjs":            { "lines": 80, "_reason": "rAF backoff branches dead under deterministic E2E clock" },
-      "src/engine/renderer.mjs":        { "lines": 75, "branches": 70, "statements": 85, "_reason": "context-loss recovery dead in production" },
-      "src/engine/seed.mjs":            { "lines": 45, "statements": 40, "functions": 40, "bytes": 30, "_reason": "range()/reseed dead in production; unit covers 100/100/100/100" },
-      "src/engine/sprite.mjs":          { "lines": 30, "statements": 50, "functions": 50, "branches": 20, "bytes": 35, "_reason": "createFrame/createAnimation dead in production; unit covers 100/100/100/100" },
       "src/game/hud.mjs":               { "branches": 70, "_reason": "trivial label-formatting branches; unit covers 91" },
       "src/game/invaders.mjs":          { "lines": 80, "branches": 75, "_reason": "consumeFireCadence external-clock branches reachable via API but production play scene uses internal fireAccumulatorMs; unit covers 91/74" },
       "src/game/player.mjs":            { "branches": 80, "_reason": "input-edge-case branches dead in current E2E; unit covers 79" },

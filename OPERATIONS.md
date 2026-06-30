@@ -2362,7 +2362,7 @@ There are two layers of enforcement:
    suite floor.
 2. **Per-file floors** — `scripts/coverage-perfile.mjs` runs after each
    suite (chained in the npm scripts) and fails the run when any single
-   file under `src/{engine,game}/*.mjs` drops below its per-file floor.
+   file under `src/game/**/*.mjs` drops below its per-file floor.
    New files automatically inherit the per-file defaults — they cannot
    land below threshold without an explicit, documented override.
 
@@ -2399,20 +2399,16 @@ independently. Per-file effective coverage (union of unit + E2E) is well
 above 90% for all production files — see overrides for the specific
 breakdown.
 
-**Per-file overrides (E2E):** these files have a documented lower floor in
+**Per-file overrides (E2E):** these **game** files have a documented lower floor in
 `coverage-thresholds.json` because the gap is dead-in-production code; the
-unit suite covers them. Each override carries a `_reason` field.
+unit suite covers them. Each override carries a `_reason` field. As of **CS13**
+the engine is the external `canvas-game-engine` package — it is no longer
+per-file gated here (its coverage is owned upstream), so the former
+`src/engine/*` E2E overrides were removed. The engine still ships inside the
+production bundle, so its bytes count toward the E2E suite-level aggregate.
 
 | File | Why exempted (E2E only) | Unit % (lines/branches) |
 |---|---|---:|
-| `src/engine/audio.mjs` | Not loaded by production code path; Web Audio mock in unit only. | 100 / 100 |
-| `src/engine/collision.mjs` | Polygon helpers dead in production. | 100 / 84 |
-| `src/engine/entity.mjs` | Factory variants dead in production. | 100 / 100 |
-| `src/engine/input.mjs` | Keyboard/touch fallback paths dead in headless E2E. | 99 / 94 |
-| `src/engine/loop.mjs` | rAF backoff branches dead under deterministic E2E clock. | 98 / 95 |
-| `src/engine/renderer.mjs` | Context-loss recovery dead in production. | 92 / 80 |
-| `src/engine/seed.mjs` | `range()` / reseed unused in production. | 100 / 100 |
-| `src/engine/sprite.mjs` | `createFrame` / `createAnimation` dead in production. | 100 / 100 |
 | `src/game/hud.mjs` | Trivial label-formatting branches. | 100 / 91 |
 | `src/game/invaders.mjs` | `consumeFireCadence` external-clock branches reachable via API but production play scene uses internal `fireAccumulatorMs`. | 91 / 74 |
 | `src/game/player.mjs` | Input-edge-case branches dead in current E2E. | 96 / 79 |
@@ -2424,9 +2420,9 @@ unit suite covers them. Each override carries a `_reason` field.
 **Per-file overrides (unit):** a small number of files carry per-file unit
 overrides where small public surfaces or defensive-only branches make 85%
 unrealistic; see `coverage-thresholds.json` for the full list and reasons
-(notably `engine/loop.mjs`, `game/main.mjs`, `game/scenes/{menu,gameover}.mjs`).
+(notably `game/main.mjs`, `game/scenes/{menu,gameover}.mjs`).
 
-**How to add a new file:** just write it under `src/{engine,game}/*.mjs`
+**How to add a new file:** just write it under `src/game/**/*.mjs`
 and ship tests. The default per-file floors apply automatically.
 
 **How to add an exception:** if a new file legitimately can't hit the

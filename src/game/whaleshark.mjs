@@ -1,5 +1,5 @@
-import { aabbOverlap } from '../engine/collision.mjs';
-import { Entity } from '../engine/entity.mjs';
+import { aabbOverlap } from 'canvas-game-engine/collision.mjs';
+import { Entity } from 'canvas-game-engine/entity.mjs';
 
 const DEFAULT_CANVAS_WIDTH = 800;
 const DEFAULT_CANVAS_HEIGHT = 600;

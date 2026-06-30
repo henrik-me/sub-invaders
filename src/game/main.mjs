@@ -1,9 +1,9 @@
-import { createInput } from '../engine/input.mjs';
-import { createLoop } from '../engine/loop.mjs';
-import { createRenderer } from '../engine/renderer.mjs';
-import { createSceneStack } from '../engine/scene.mjs';
-import { createRng } from '../engine/seed.mjs';
-import { loadSpriteSheet } from '../engine/sprite.mjs';
+import { createInput } from 'canvas-game-engine/input.mjs';
+import { createLoop } from 'canvas-game-engine/loop.mjs';
+import { createRenderer } from 'canvas-game-engine/renderer.mjs';
+import { createSceneStack } from 'canvas-game-engine/scene.mjs';
+import { createRng } from 'canvas-game-engine/seed.mjs';
+import { loadSpriteSheet } from 'canvas-game-engine/sprite.mjs';
 import { createApiClient } from './api.mjs';
 import { CANVAS, SPRITES } from './constants.mjs';
 import { fetchFlags as defaultFetchFlags, isDailyChallengeEnabled } from './flags.mjs';

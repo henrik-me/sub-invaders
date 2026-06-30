@@ -10,7 +10,7 @@ async function pressEscape(page) {
 // The input layer is edge-triggered: `pressedThisFrame` is cleared every
 // `endFrame()`, which runs from the loop's `render()` callback on every rAF
 // tick — INCLUDING render-only ticks where `consumeAccumulator()` performed
-// zero `update(fixedDt)` calls (see src/engine/loop.mjs `frame()`). An Escape
+// zero `update(fixedDt)` calls (see canvas-game-engine `loop.mjs` `frame()`). An Escape
 // edge fired between two such render-only ticks is therefore wiped before any
 // `handleInput()` ever observes it. Webkit's headless rAF cadence makes this
 // race more likely than chromium/firefox, producing the recurring nightly E2E

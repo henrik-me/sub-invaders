@@ -9,16 +9,16 @@
 
 ## Overview
 
-Sub Invaders is a tiny browser-based, sea-themed Space Invaders game built on a custom in-tree
-JavaScript engine, deployed to Azure Static Web Apps with a .NET 8 isolated Functions backend,
-a persistent leaderboard, and a daily-challenge mode. The project is public (MIT licensed) and
-governed by the `agent-harness` process model. CS01 ships the hardened repo skeleton and a first
-staging deploy; CS02–CS04 complete the playable game, backend persistence, and daily-challenge
-mode.
+Sub Invaders is a tiny browser-based, sea-themed Space Invaders game built on the external
+`canvas-game-engine` package (extracted from this repo in CS13, consumed at pinned tag `v0.1.0`),
+deployed to Azure Static Web Apps with a .NET 8 isolated Functions backend, a persistent
+leaderboard, and a daily-challenge mode. The project is public (MIT licensed) and governed by the
+`agent-harness` process model. CS01 ships the hardened repo skeleton and a first staging deploy;
+CS02–CS04 complete the playable game, backend persistence, and daily-challenge mode.
 
 | Characteristic | Detail |
 |---|---|
-| Runtime / language (client) | HTML5 Canvas + ES2022 ESM `.mjs` modules; no bundler, no transpiler |
+| Runtime / language (client) | HTML5 Canvas + ES2022 ESM `.mjs` modules, bundled by esbuild (CS14), no transpiler/TypeScript |
 | Runtime / language (backend) | .NET 8 isolated worker (C# 12); Azure Functions v4 |
 | Deployment target | Azure Static Web Apps managed Functions; RG `rg-sub-invaders-prod` |
 | Primary consumers | Browser end-users; future leaderboard API clients |
@@ -45,10 +45,13 @@ Static `index.html` plus game and engine modules. In CS01 only `src/index.html` 
 "coming soon" placeholder; no JS modules, no canvas, no engine imports. CS02 replaces the stub
 with the full game entrypoint.
 
-### Engine (`src/engine/`, added in CS02)
+### Engine (`canvas-game-engine`, extracted in CS13)
 
-Small custom canvas engine written as vanilla ES2022 `.mjs` modules. Contains only
-game-agnostic primitives; zero Sub Invaders–specific knowledge. Modules:
+Small custom Canvas 2D engine written as vanilla ES2022 `.mjs` modules. Contains only
+game-agnostic primitives; zero Sub Invaders–specific knowledge. As of CS13 the engine lives in
+the standalone public repo `henrik-me/canvas-game-engine` and sub-invaders consumes it as an
+external dependency (`github:henrik-me/canvas-game-engine#v0.1.0`); game code imports the
+bundler-resolved bare specifiers `canvas-game-engine/<module>.mjs`. The nine-module surface:
 
 | Module | Responsibility |
 |---|---|
@@ -62,14 +65,11 @@ game-agnostic primitives; zero Sub Invaders–specific knowledge. Modules:
 | `scene.mjs` | Scene stack: push / pop / replace / current / update / render |
 | `seed.mjs` | Mulberry32 seedable RNG: `seed(uint32)`, `next()`, `range(min, max)` |
 
-The engine is structured for future extraction to a standalone repo
-(placeholder: `henrik-me/canvas-game-engine`). The one-way dependency invariant is enforced
-by a CI linter (`scripts/check-engine-isolation.mjs`): **engine modules must never import from
-outside `src/engine/`.**
-
-`src/engine/README.md` documents the full API surface and extraction contract.
-
-Not present in CS01 — `src/engine/` contains only a `.gitkeep` sentinel.
+Through CS12 the engine was vendored in-tree and its one-way dependency invariant was enforced by
+an in-repo CI linter; CS13 extracted it to the standalone repo. That invariant — engine modules
+must never import from a consumer — is now owned and CI-enforced by the upstream
+`canvas-game-engine` repo. The full API surface and extraction contract live in the upstream
+README: [`canvas-game-engine` README](https://github.com/henrik-me/canvas-game-engine/blob/v0.1.0/README.md).
 
 ### Game (`src/game/`, added in CS02)
 
@@ -142,20 +142,26 @@ variables. Wired up in CS04 for the `dailyChallenge` flag.
 
 ## Engine vs. game split
 
-The engine (`src/engine/`) and game (`src/game/`) live in disjoint directories by design:
+The engine (external `canvas-game-engine` package) and the game (`src/game/`) are cleanly
+separated by design:
 
 - **Engine:** zero Sub Invaders–specific knowledge. Every module is game-agnostic and could
-  serve a Pong, Breakout, or twin-stick shooter without modification.
-- **Game:** imports engine modules freely; owns all gameplay state, scenes, and art references.
-- **No reverse imports:** the engine MUST NOT import from `src/game/` or any path outside
-  `src/engine/`. This invariant is the extraction contract. Violations are caught by
-  `scripts/check-engine-isolation.mjs` which runs in `ci.yml`.
+  serve a Pong, Breakout, or twin-stick shooter without modification. Extracted to
+  `henrik-me/canvas-game-engine` in CS13 and consumed at pinned tag `v0.1.0`.
+- **Game:** imports engine modules freely as `canvas-game-engine/<module>.mjs` bare specifiers;
+  owns all gameplay state, scenes, and art references.
+- **No reverse imports:** the engine MUST NOT import from any consumer (including `src/game/`).
+  This invariant is the extraction contract. As of CS13 it is owned and CI-enforced by the
+  upstream `canvas-game-engine` repo; sub-invaders consumes a pinned tag and no longer carries an
+  in-repo isolation linter.
 
-> **LRN candidate:** if a reverse import is ever introduced, file a learning immediately.
-> The invariant is the foundation of the engine's value as an extractable primitive.
+> **LRN candidate:** if a reverse import is ever introduced upstream, file a learning
+> immediately. The invariant is the foundation of the engine's value as a reusable primitive.
 
-Both layers are hand-authored ES2022 `.mjs` modules. No bundler is used in v1; the browser
-loads modules natively via `<script type="module">`. This matches C16-10 and C16-11.
+Both layers are hand-authored ES2022 `.mjs` modules. Since CS14, esbuild bundles the game
+entrypoint — resolving both the relative `src/` graph and the `canvas-game-engine` bare
+specifiers — into `src/dist/`, which the browser loads as an ES module (see LRN-025). This
+realises C16-11's extraction contract via the CS13 split.
 
 ---
 
@@ -464,3 +470,9 @@ The technology decisions most relevant to this document:
 | CS04-13 — Pin-bump retirement | Drop the `harness sync --mode=apply` pin-bump exercise from CS04 scope | CS10/CS11/PR#62 already validated harness pin lifecycle |
 | CS04-14 — Daily score payload contract | `submitScore({sessionId, score, finishedAt, period?, utcDate?})` and `getLeaderboard({period, date?})`. `period === 'daily'` requires `utcDate` matching `^\d{4}-\d{2}-\d{2}$`. Backend partition is `daily-YYYY-MM-DD`; all-time partition stays unchanged | Optional fields preserve CS03 back-compat bit-exact; explicit pattern guards bad input client-side |
 | CS04-15 — Validation commands | `npm run test:unit`, `npm run test:e2e`, `dotnet test api/`, `node scripts/verify-deploy.mjs` (run twice — once with `dailyChallenge=off`, once with `dailyChallenge=on`) | Two-state matrix proves CS03 behaviour preserved AND daily mode reachable; there is no `npm test` script |
+
+### CS13 decision (engine extraction, 2026-06-30)
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| CS13-1 — Engine extraction | Move the in-tree `src/engine/` engine (9 modules: loop, entity, collision, input, renderer, sprite, audio, scene, seed) to the standalone public repo `henrik-me/canvas-game-engine` at tag `v0.1.0`; consume it as a git-URL dependency (`github:henrik-me/canvas-game-engine#v0.1.0`) imported as bundler-resolved `canvas-game-engine/<module>.mjs` bare specifiers; delete the vendored directory and the in-repo `scripts/check-engine-isolation.mjs` linter | Realises the C16-11 extractability contract — the engine becomes reusable across games and the one-way isolation invariant is now owned and CI-enforced upstream. Accepted tradeoff: engine changes require an upstream PR + tag bump + dependency-pin bump (round-trip) |
