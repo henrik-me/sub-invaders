@@ -119,9 +119,9 @@ The CS08 orchestrator must use the standard agent-harness sub-agent dispatch pat
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Author `mode.mjs` + tests | planned | sub-agent #1 | Pure module foundation. |
-| Split high-score by mode | planned | sub-agent #2 | Backward compat for existing key. |
-| Practice = no-op API + pending-scores queue | planned | sub-agent #3 | Bounded, corruption-resilient. |
+| Author `mode.mjs` + tests | done | sub-agent #1 | agent-id=cs08-mode \| role=mode-module \| report-status=complete \| learnings=0 |
+| Split high-score by mode | done | sub-agent #2 | agent-id=cs08-score \| role=score-split \| report-status=complete \| learnings=0 |
+| Practice = no-op API + pending-scores queue | done | sub-agent #3 | agent-id=cs08-pending+cs08-api \| role=pending-queue+api-noop \| report-status=complete \| learnings=0 |
 | Mode badge in HUD + menu toggle | planned | sub-agent #4 | Canvas-only; no DOM. |
 | Wire badge + offline banner in play scene | planned | sub-agent #5 | Must not touch collision/wave logic. |
 | Service Worker + SHA-versioned cache | planned | sub-agent #6 | Allowlist + network-only `/api/*`. |
@@ -134,6 +134,19 @@ The CS08 orchestrator must use the standard agent-harness sub-agent dispatch pat
 ## Notes / Learnings
 
 Filled during execution. At minimum, record: SW rollout cadence, observed `__BUILD_SHA__` substitution health on first deploy, pending-scores queue depth observed in staging, and any user feedback on the ranked/practice toggle UX.
+
+**Progress (2026-06-30, branch `cs08/content`):** Logic layer complete and committed
+(40a10da foundation, f21f2ec api no-op): `mode.mjs`, mode-keyed `score.mjs`,
+`pending-scores.mjs`, and practice-no-op `api.mjs`, all unit-tested (node --test 345/345)
+with the unit coverage gate green. Implementer models materially used by the foundation
+sub-agents included gpt-5.5 (cs08-score, cs08-pending; cs08-mode/cs08-api not exposed by
+runtime) plus claude-opus-4.8 (orchestrator integration) — the close-out Model audit and
+the rubber-duck reviewer-model choice MUST reconcile against these (reviewer model must
+differ from every implementer model). Remaining: UI lanes (#4 HUD badge + menu toggle,
+#5 play-scene wireup), #6 Service Worker + `main.mjs`/`index.html` wiring (decide SW
+serve/scope — it is NOT covered by the single-entry esbuild build), #7 deploy SHA
+substitution + docs + e2e specs, then the content PR + rubber-duck review + plan-vs-impl
+review + close-out.
 
 ## Model audit
 
