@@ -1,4 +1,5 @@
 export const HIGH_SCORE_KEY = 'subInvadersHighScore';
+export const PRACTICE_HIGH_SCORE_KEY = 'subInvadersPracticeHighScore';
 
 function resolveStorage(storage) {
   if (storage !== undefined) {
@@ -41,7 +42,11 @@ function coerceWritableScore(value) {
   return Math.max(0, Math.floor(score));
 }
 
-export function getHighScore({ storage } = {}) {
+function highScoreKeyFor(mode) {
+  return mode === 'practice' ? PRACTICE_HIGH_SCORE_KEY : HIGH_SCORE_KEY;
+}
+
+export function getHighScoreFor(mode, { storage } = {}) {
   try {
     const target = resolveStorage(storage);
 
@@ -49,13 +54,13 @@ export function getHighScore({ storage } = {}) {
       return 0;
     }
 
-    return parseStoredScore(target.getItem(HIGH_SCORE_KEY)) ?? 0;
+    return parseStoredScore(target.getItem(highScoreKeyFor(mode))) ?? 0;
   } catch {
     return 0;
   }
 }
 
-export function setHighScore(value, { storage } = {}) {
+export function setHighScoreFor(mode, value, { storage } = {}) {
   try {
     const score = coerceWritableScore(value);
 
@@ -69,8 +74,16 @@ export function setHighScore(value, { storage } = {}) {
       return;
     }
 
-    target.setItem(HIGH_SCORE_KEY, String(score));
+    target.setItem(highScoreKeyFor(mode), String(score));
   } catch {
     // High-score persistence is best-effort only.
   }
+}
+
+export function getHighScore({ storage } = {}) {
+  return getHighScoreFor('ranked', { storage });
+}
+
+export function setHighScore(value, { storage } = {}) {
+  setHighScoreFor('ranked', value, { storage });
 }

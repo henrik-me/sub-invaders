@@ -1,25 +1,45 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getHighScore, HIGH_SCORE_KEY, setHighScore } from './score.mjs';
+import {
+  getHighScore,
+  getHighScoreFor,
+  HIGH_SCORE_KEY,
+  PRACTICE_HIGH_SCORE_KEY,
+  setHighScore,
+  setHighScoreFor,
+} from './score.mjs';
 
-function createStorage(initialValue = null) {
-  let value = initialValue;
+function createStorage(initialEntries = null) {
+  const values = new Map();
+
+  if (initialEntries instanceof Map) {
+    for (const [key, value] of initialEntries) {
+      values.set(key, value);
+    }
+  } else if (
+    initialEntries &&
+    typeof initialEntries === 'object' &&
+    !Array.isArray(initialEntries)
+  ) {
+    for (const [key, value] of Object.entries(initialEntries)) {
+      values.set(key, value);
+    }
+  } else if (initialEntries !== null && initialEntries !== undefined) {
+    values.set(HIGH_SCORE_KEY, initialEntries);
+  }
 
   return {
     getItem(key) {
-      assert.equal(key, HIGH_SCORE_KEY);
-      return value;
+      return values.has(key) ? values.get(key) : null;
     },
     setItem(key, nextValue) {
-      assert.equal(key, HIGH_SCORE_KEY);
-      value = String(nextValue);
+      values.set(key, String(nextValue));
     },
     removeItem(key) {
-      assert.equal(key, HIGH_SCORE_KEY);
-      value = null;
+      values.delete(key);
     },
-    value() {
-      return value;
+    value(key = HIGH_SCORE_KEY) {
+      return values.has(key) ? values.get(key) : null;
     },
   };
 }
@@ -31,6 +51,13 @@ test('getHighScore returns 0 when the key is missing', () => {
 test('getHighScore returns 0 for malformed stored values', () => {
   for (const value of ['NaN', 'abc', '', '-5', '{"score":42}', '3.14', 'Infinity']) {
     assert.equal(getHighScore({ storage: createStorage(value) }), 0, value);
+    assert.equal(
+      getHighScoreFor('practice', {
+        storage: createStorage({ [PRACTICE_HIGH_SCORE_KEY]: value }),
+      }),
+      0,
+      value,
+    );
   }
 });
 
@@ -86,4 +113,61 @@ test('setHighScore does not throw when storage setItem throws', () => {
   };
 
   assert.doesNotThrow(() => setHighScore(12, { storage }));
+});
+
+test('getHighScoreFor reads and writes the practice key', () => {
+  const storage = createStorage();
+
+  setHighScoreFor('practice', 77, { storage });
+
+  assert.equal(storage.value(PRACTICE_HIGH_SCORE_KEY), '77');
+  assert.equal(getHighScoreFor('practice', { storage }), 77);
+});
+
+test('getHighScoreFor ranked mode uses the legacy key', () => {
+  const storage = createStorage({ [HIGH_SCORE_KEY]: '51' });
+
+  assert.equal(getHighScoreFor('ranked', { storage }), 51);
+
+  setHighScoreFor('ranked', 52, { storage });
+
+  assert.equal(storage.value(HIGH_SCORE_KEY), '52');
+});
+
+test('ranked and practice high scores do not cross-pollinate', () => {
+  const storage = createStorage();
+
+  setHighScoreFor('practice', 88, { storage });
+
+  assert.equal(getHighScoreFor('practice', { storage }), 88);
+  assert.equal(getHighScoreFor('ranked', { storage }), 0);
+  assert.equal(storage.value(HIGH_SCORE_KEY), null);
+
+  setHighScoreFor('ranked', 99, { storage });
+
+  assert.equal(getHighScoreFor('ranked', { storage }), 99);
+  assert.equal(getHighScoreFor('practice', { storage }), 88);
+  assert.equal(storage.value(PRACTICE_HIGH_SCORE_KEY), '88');
+});
+
+test('unknown high-score modes fall back to ranked', () => {
+  const storage = createStorage({ [HIGH_SCORE_KEY]: '64', [PRACTICE_HIGH_SCORE_KEY]: '128' });
+
+  assert.equal(getHighScoreFor('arcade', { storage }), 64);
+
+  setHighScoreFor('arcade', 65, { storage });
+
+  assert.equal(getHighScoreFor('ranked', { storage }), 65);
+  assert.equal(getHighScoreFor('practice', { storage }), 128);
+});
+
+test('legacy high-score helpers continue targeting ranked only', () => {
+  const storage = createStorage();
+
+  setHighScore(31, { storage });
+
+  assert.equal(getHighScore({ storage }), 31);
+  assert.equal(getHighScoreFor('ranked', { storage }), 31);
+  assert.equal(getHighScoreFor('practice', { storage }), 0);
+  assert.equal(storage.value(PRACTICE_HIGH_SCORE_KEY), null);
 });
