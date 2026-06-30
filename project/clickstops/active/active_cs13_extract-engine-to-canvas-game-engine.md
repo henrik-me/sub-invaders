@@ -1,9 +1,9 @@
 # CS13 — Extract engine to canvas-game-engine v0.1.0 and migrate sub-invaders to consume it
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-si
+**Branch:** cs13/content
+**Started:** 2026-06-29
 **Closed:** —
 **Filed by:** yoga-si (Claude Opus 4.7) on 2026-06-10, in response to user request after engine readiness assessment confirmed the engine is in good shape for reuse (`src/engine/` 119/119 tests pass; isolation lint passes; 9 modules, 27–160 LOC each, zero npm deps). **Revised on 2026-06-10** after GPT-5.5 R1 plan review returned `Needs-Fix` (blocker: bare-specifier imports unresolvable in sub-invaders' no-bundler browser runtime, plus 7 quality findings). Revision adds CS14 (bundler intro) as prerequisite, fixes the import-specifier strategy, and addresses all 7 non-blocker findings. **Re-revised 2026-06-10** after GPT-5.5 R2 plan review returned `Needs-Fix` with 4 major + 1 minor findings (R4 mitigation still contradicted CS13-17; CONVENTIONS line 166 also stale; exports check not exact equality; coverage count wrong + `**/*.mjs` glob; stale hash literal). Re-revision addresses all 5 R2 findings. **Re-revised again 2026-06-10** after GPT-5.5 R3 plan review returned `Needs-Fix` with 2 major + 1 minor findings (upstream CI missed lifted lint/export-contract tests; bootstrap-PR plan-review accounting ambiguous; stale file counts + cross-refs). Re-revision adds bootstrap-time export-contract test, new-repo CS01 bootstrap clickstop pattern (CS13-10 corrected), and corrects all stale counts/cross-refs.
 **Depends on:** CS02 (engine + minimal game shipped — provides the `src/engine/` surface this CS extracts), **CS14 (introduce esbuild bundler — prerequisite for resolving non-relative ESM imports in the browser; CS14 MUST close before CS13 can claim).**
@@ -163,6 +163,15 @@ All other steps proceed autonomously per the user's explicit "do this without my
 ## Notes / Learnings
 
 Filled during execution. At minimum, record: harness-init friction with library-shaped consumer (per CS13-17), final lifted-file count vs. plan estimate (target ~20), any `exports`-map shape adjustments needed during Phase A step 14 integration verification, coverage-percentage delta in sub-invaders after engine deletion, and any post-tag `v0.1.1` patch required.
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-si |
+| Reviewer agent | rubber-duck |
 
 ## Plan review
 
