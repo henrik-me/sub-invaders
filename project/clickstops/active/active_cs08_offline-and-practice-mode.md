@@ -1,9 +1,9 @@
 # CS08 — Offline play + ranked vs practice modes
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-si
+**Branch:** cs08/content
+**Started:** 2026-06-30
 **Closed:** —
 **Depends on:** CS03 (Backend Function project + persistent leaderboard), CS04 (Daily challenge + v1 ship)
 
@@ -134,6 +134,15 @@ The CS08 orchestrator must use the standard agent-harness sub-agent dispatch pat
 ## Notes / Learnings
 
 Filled during execution. At minimum, record: SW rollout cadence, observed `__BUILD_SHA__` substitution health on first deploy, pending-scores queue depth observed in staging, and any user feedback on the ranked/practice toggle UX.
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-si |
+| Reviewer agent | rubber-duck |
 
 ## Plan review
 
