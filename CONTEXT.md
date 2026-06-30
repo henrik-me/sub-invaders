@@ -1,8 +1,29 @@
 # Project Context
 
-> **Last updated:** 2026-05-13 (post-CS02 close-out: engine + minimal playable game)
+> **Last updated:** 2026-06-30 (post-CS13 close-out: engine extracted to canvas-game-engine v0.1.0)
 
 ## Codebase state
+
+**CS13 complete** (merged 2026-06-30 as `78dcad0`) — the Canvas 2D engine was
+extracted from the in-tree `src/engine/` into the standalone public repo
+[`henrik-me/canvas-game-engine`](https://github.com/henrik-me/canvas-game-engine)
+at tag `v0.1.0`. sub-invaders now consumes it as a git-URL dependency
+(`github:henrik-me/canvas-game-engine#v0.1.0`), imports bundler-resolved bare
+specifiers (`canvas-game-engine/<module>.mjs`), and the vendored engine +
+in-repo isolation linter are deleted (the contract is now enforced by the
+upstream repo's CI). Production deploy on `78dcad0` is healthy
+(`/api/health` → `commit: 78dcad0`; the engine ships inside the esbuild bundle).
+Test counts on `main`: `npm run test:unit` 316/316, `dotnet test api/` 95/95,
+e2e 48 passing. **Known pre-existing issue:** main-push `swa-deploy` runs have
+been cancelling since `8a2c5bc` (2026-06-16) — the CS13 merge deploy had to be
+re-run manually to land; see LRN-028.
+
+Prior milestones (CS01–CS12, CS14, CS15) shipped repo hardening, the engine +
+game, backend leaderboard, daily challenge, E2E suite, coverage gates, the
+esbuild bundler, and the unit per-file coverage gate; see
+`project/clickstops/done/` for the authoritative history.
+
+**Historical detail (pre-CS13, may be stale):**
 
 **CS02 complete** (merged 2026-05-13) — engine slice + game skeleton + minimal
 playable Sub Invaders. Content shipped via PR #19 (squash-merged as `263aec0`)

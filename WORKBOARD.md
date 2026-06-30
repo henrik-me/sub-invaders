@@ -2,7 +2,7 @@
 
 Live coordination file for multi-agent work. Only orchestrating agents update this file.
 
-> **Last updated:** 2026-06-30T03:50Z
+> **Last updated:** 2026-06-30T06:30Z
 
 ## Orchestrators
 
@@ -11,13 +11,12 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 | Agent ID | Machine | Repo Folder | Status | Last Seen |
 |----------|---------|-------------|--------|-----------|
 | omni-si | HENRIKM-OMNI | C:\src\sub-invaders | 🟢 Active | 2026-06-16T16:06Z |
-| yoga-si | HENRIKM-YOGA | C:\src\sub-invaders | 🟢 Active | 2026-06-30T03:50Z |
+| yoga-si | HENRIKM-YOGA | C:\src\sub-invaders | 🟢 Active | 2026-06-30T06:30Z |
 
 ## Active Work
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
-| CS13 | Extract engine to canvas-game-engine v0.1.0 | 🟢 Active | yoga-si | cs13/content | 2026-06-30T03:50Z | — |
 
 > **Note:** Filesystem is the source of truth for queued and completed work.
 > See `project/clickstops/planned/` for the queue and `project/clickstops/done/`
