@@ -66,33 +66,6 @@ CLI sub-group. Pattern shipped in `infra/provision.sh` post-PR #13.
 
 ---
 
-### LRN-003
-
-```yaml
-id: LRN-003
-date: 2026-05-11
-category: architectural
-source_cs: CS01
-status: open
-tags: [github, actions, github-token, app, permissions]
-```
-
-**Problem:** Round-1 GPT-5.5 review of PR #3 caught that `workboard-auto-approve.yml`
-was attempting to do `gh pr review --approve` followed by `gh pr merge` using the
-built-in `GITHUB_TOKEN`. This would have failed in production with HTTP 422
-"GitHub Actions is not permitted to approve pull requests" — a hard GitHub platform
-restriction.
-
-**Finding:** `GITHUB_TOKEN` cannot create approving PR reviews under any
-circumstances; an installed GitHub App is the only mechanism for automated approval.
-The `workboard-auto-approve` workflow in this repo is therefore validation-only
-(actor allowlist + paths-changed allowlist + comment); the actual approve+merge is
-done by the `workboard-auto-approve` GitHub App after install (gate G3).
-
-**Disposition:** _(open; track G3 install as a CONTEXT.md blocker)_
-
----
-
 ### LRN-004
 
 ```yaml
@@ -116,36 +89,6 @@ example workflows must live outside that directory (e.g.,
 
 **Disposition:** _(open; pattern adopted in this repo as
 `.github/workflow-examples/verify-deploy.example.yml`)_
-
----
-
-### LRN-005
-
-```yaml
-id: LRN-005
-date: 2026-05-11
-category: process
-source_cs: CS01
-status: open
-tags: [harness, composed-blocks, prose]
-```
-
-**Problem:** During CS01 R2 review, a doc inconsistency was found in
-`OPERATIONS.md` and `REVIEWS.md` — but those passages turned out to live
-**outside** the `harness:local-*` markers, i.e., in harness-managed prose.
-Editing them from a consumer repo would be reverted on the next
-`harness sync --mode=apply`.
-
-**Finding:** Always check whether a target line is inside a `harness:local-*`
-marker before editing a composed file from a consumer repo. Composed-file local
-block boundaries in this repo: `OPERATIONS.md` lines 1079-1139 (id
-`operations.project-deploy`); `REVIEWS.md` lines 261-294 (id
-`reviews.project-gates`); `CONVENTIONS.md` id `conventions.project`. Anything
-outside those markers must be filed upstream as harness-feedback rather than
-patched locally.
-
-**Disposition:** _(open; one such item is currently open upstream — see
-CONTEXT.md "Blockers / open questions")_
 
 ---
 
@@ -239,37 +182,6 @@ on otherwise-passing PRs. Pattern shipped in `swa-deploy.yml` post-PR #15.
 
 ---
 
-### LRN-009
-
-```yaml
-id: LRN-009
-date: 2026-05-11
-category: process
-source_cs: CS01
-status: open
-tags: [dependabot, rebase, multi-bump]
-```
-
-**Problem:** During post-CS01 Dependabot triage, issuing
-`@dependabot rebase` on a multi-bump PR (#9: `Microsoft.Azure.Functions.Worker`
-+ 2 others) while another rebase was already in flight — and while the
-single-bump sibling PR (#10: `Microsoft.Azure.Functions.Worker.Sdk`) was
-still open — caused Dependabot to auto-close the multi-bump PR with
-`Looks like this PR is closed.` and not recreate it.
-
-**Finding:** Don't pile `@dependabot rebase` commands on the same PR or
-on overlapping multi/single PRs in quick succession. If a multi-bump PR
-gets auto-closed in this race, Dependabot will not always recreate it
-(at least not until the next scheduled run); fall back to a manual PR
-that bumps the same set of packages so main doesn't get stuck on a mixed
-major-version configuration. Pattern: branch off `main`, edit the
-`.csproj`, commit + push + open PR with title noting the auto-closed
-Dependabot PR being replaced.
-
-**Disposition:** _(open)_
-
----
-
 ### LRN-010
 
 ```yaml
@@ -331,84 +243,6 @@ upstream.
 
 ---
 
-### LRN-012
-
-```yaml
-id: LRN-012
-date: 2026-05-13
-category: process
-source_cs: CS02
-status: open
-tags: [engine, input, integration-seam, allowlist, sub-agent-fanout]
-```
-
-**Problem:** During CS02 Wave 2 the orchestrator dispatched lane 5 (player + invaders)
-and lane 6 (HUD + scenes + constants) in parallel. Lane 2 (engine `input.mjs`) had
-already shipped a defensive `recognizedCodes` allowlist that filtered everything other
-than the movement and fire keys (`ArrowLeft/Right`, `KeyA/D`, `Space`, `KeyW`,
-`ArrowUp`). Lane 6's `scenes/play.mjs` (pause on `Escape`) and `scenes/gameover.mjs`
-(menu return on `KeyM`) compiled and tested fine because lane 6's tests did not exercise
-the live `createInput` factory — they covered scene logic with hand-built input
-snapshots. The integration gap surfaced only at orchestrator-side disk verification.
-
-**Finding:** Engine modules with a defensive allowlist are a **silent integration seam**
-when game lanes are dispatched in parallel. Two complementary mitigations:
-
-1. The orchestrator-owned post-wave verification must include an exit code that runs
-   each scene's `handleInput` against a real `createInput()` snapshot for every key the
-   scene's source code references. This catches future filter gaps without requiring
-   either lane to know about the other's keymap.
-2. Engine `recognizedCodes` should be an **opt-out allowlist** (allow all `Key*` /
-   `Arrow*` codes by default; deny only known noisy codes) rather than an opt-in one.
-
-CS02 absorbed the immediate fix as an orchestrator integration edit (added `Escape` +
-`KeyM` to the allowlist + matching test in `src/engine/input.test.mjs`, commit
-`ac47542`). The opt-out-allowlist refactor is left as a future engine improvement when
-the engine is extracted to `henrik-me/canvas-game-engine`.
-
-**Disposition:** _(open until orchestrator post-wave verification is extended to cover
-scene-input integration, or the engine input adapter is refactored to opt-out allowlist
-semantics)_
-
----
-
-### LRN-013
-
-```yaml
-id: LRN-013
-date: 2026-05-13
-category: process
-source_cs: CS02
-status: open
-tags: [orchestrator, sub-agent-fanout, preflight, sha-invariant, wave-discipline]
-```
-
-**Problem:** CS02 lane 7 (`cs02-bootstrap-glue-and-score`) reported `STATUS: partial`
-even though every owned-file deliverable was correct, every test passed, and encoding
-was clean. The reason: the dispatch text said "preflight HEAD must equal `ac47542` and
-final HEAD must equal preflight HEAD". Between dispatch and the agent's preflight check,
-the orchestrator committed `2df7297` (`git mv public src/public` for the SWA upload
-fix). The agent observed `2df7297` at preflight, recorded that as preflight (still
-self-consistent — preflight == final), but flagged `STATUS: partial` defensively because
-the dispatch text named a different SHA.
-
-**Finding:** Orchestrator commits **inside** a wave's dispatch-to-completion window
-violate the preflight-SHA invariant from a sub-agent's perspective even when the
-orchestrator's commit doesn't touch any of the lane's owned files. **Rule:** orchestrator
-commits belong **only between waves**, never inside a wave. If an integration fix is
-discovered mid-wave (e.g. a deploy gap surfaces), the orchestrator should let the
-in-flight wave finish, then commit the integration fix in the post-wave window before
-dispatching the next wave.
-
-The lane 7 deliverables turned out fine, but the false-positive `STATUS: partial`
-costs trust in the report and forces the orchestrator to manually re-verify the work.
-
-**Disposition:** _(open until reflected in OPERATIONS.md § "Sub-agent dispatch" as an
-explicit "no orchestrator commits inside a wave" rule, or the dispatch preamble is
-amended to allow the agent to record the actual preflight SHA without flagging partial)_
-
----
-
 ### LRN-014
 
 ```yaml
@@ -444,90 +278,6 @@ plan author's assumption. CS02 absorbed the fix as `git mv public src/public` (`
 
 **Disposition:** _(open until either the harness scaffold lints upload-tree exclusion,
 or CS plans are updated to derive asset paths from `app_location`)_
-
----
-
-### LRN-015
-
-```yaml
-id: LRN-015
-date: 2026-05-13
-category: process
-source_cs: CS02
-status: open
-tags: [workboard, auto-merge, branch-protection, g3-app, harness-feedback, harness-issue-138]
-```
-
-**Upstream issue:** `henrik-me/agent-harness#138` (filed during CS02; P0 / `bug`).
-
-**Problem:** CS02's claim PR (#18) and content PR (#19) both passed all 5 required CI
-status checks but the branch protection ruleset on `main` requires `≥1 approving
-review` even for workboard-only PRs. The `workboard-auto-approve.yml` workflow shipped
-in CS01 is **validation-only** — the actual approve + merge is done by the
-`workboard-auto-approve` GitHub App (gate G3), which is **not yet installed** on
-`henrik-me/sub-invaders`. Without G3, no automated path can produce an approving review,
-so workboard-only PRs sit indefinitely in `BLOCKED` state. The orchestrator had to fall
-back to `gh pr merge --admin --squash --delete-branch` for every workboard-only PR.
-
-**Finding:** Two distinct items:
-
-1. **Filed upstream as `henrik-me/agent-harness#138` (P0 / `bug`):** The harness
-   workboard-only ceremony documented in OPERATIONS.md does not specify a fallback for
-   the no-G3 case. The fix is either (a) a documented `--admin` ceremony, (b) an
-   alternative GitHub Actions step that `gh pr merge --admin`s when the App is absent,
-   or (c) a `--no-required-reviews` rule branch carve-out for workboard-only labelled
-   PRs. The user must choose; CS02 surfaced 4 secondary friction items in the same
-   issue (`harness lint --quiet` swallows per-check error detail, claim PR title
-   regex case sensitivity, etc.).
-
-2. **G3 install is now on the critical path for CS03+.** CS03 will introduce a new CS
-   with the same three-PR shape. Without G3, every workboard-only PR (claim +
-   close-out) requires manual admin-merge ceremony, which is friction the harness
-   process should have eliminated. CONTEXT.md already lists G3 install as an open
-   blocker.
-
-**Disposition:** _(open until either harness#138 lands an admin-bypass fallback, or G3
-is installed on `henrik-me/sub-invaders`)_
-
----
-
-### LRN-016
-
-```yaml
-id: LRN-016
-date: 2026-05-13
-category: process
-source_cs: CS02
-status: open
-tags: [sub-agent-fanout, chicken-and-egg, factory-pattern, injected-options]
-```
-
-**Problem:** CS02 Wave 2 had a circular ownership: lane 5 (`player.mjs`,
-`invaders.mjs`) needed numeric tunables (`PLAYER.speed`, `FORMATION.rows`,
-`SCORING.waveBonusMultiplier`, etc.) that lane 6 (`constants.mjs`) owned. The naïve
-fix of "lane 5 reads constants.mjs, lane 6 owns it" doesn't work in parallel: at
-preflight, neither file exists yet, and at completion they may have inconsistent
-shape. Adding a rendezvous between lanes destroys the disjoint-write-set invariant
-that makes parallel fan-out safe in the first place.
-
-**Finding:** The pattern that unblocked Wave 2 without rendezvous:
-
-- Every game module exposes a **factory** (`createPlayer({ opts })`,
-  `createFormation({ opts })`) that accepts an `opts` object.
-- Each factory bakes **its own sensible defaults** for every tunable, so the lane's
-  own tests (which don't import constants.mjs) work end-to-end.
-- Lane 6 supplies the **canonical** constants (frozen `PLAYER`, `FORMATION`, etc.).
-- Lane 7's `main.mjs` is the **only** module that wires the canonical constants into
-  the factories: `createPlayer({ opts: PLAYER })`. If lane 7 doesn't pass anything,
-  the factory's bake-in defaults are still production-quality.
-
-This pattern resolves the chicken-and-egg cleanly: lanes 5 and 6 have zero file
-overlap, no rendezvous, and their tests don't depend on each other. The pattern
-generalises to any parallel fan-out where one lane "owns the canonical config" and
-other lanes "consume it".
-
-**Disposition:** _(open as a recommended sub-agent dispatch pattern; consider
-documenting in OPERATIONS.md § "Sub-agent dispatch" or a new "Patterns" section)_
 
 ---
 
@@ -612,452 +362,6 @@ non-admins; the gate was a no-op.
 CONVENTIONS.md or harness-level guidance the next time we work on shared CI
 templates. Already tracked at the harness level under enforcement-gap inventory
 issue henrik-me/agent-harness#145.)_
-
----
-
-### LRN-019
-
-```yaml
-id: LRN-019
-date: 2026-05-13
-category: process
-source_cs: CS09
-status: open
-tags: [coverage, c8, monocart, per-file, gating, single-source-of-truth, negative-test]
-```
-
-**Problem:** CS09 originally enforced only suite-level coverage totals. A new file
-shipped with 0% coverage would only move the suite total down a few tenths of a
-percent and slip silently through the gate. The phrase "ensure new code adheres
-to these limits and is included in the calculations" required a per-file gate,
-not just a suite-level one.
-
-**Finding:** Both c8 and monocart-coverage-reports emit per-file summaries in JSON.
-A small post-process script (`scripts/coverage-perfile.mjs`, ~120 lines) reads
-either format, normalises file keys to repo-relative `src/...` paths, and applies
-per-file thresholds with two layers:
-
-1. **Per-file defaults** — apply automatically to every file under
-   `src/{engine,game}/*.mjs`. New files inherit defaults.
-2. **Per-file overrides** — explicit lower floors for specific files where dead-
-   in-production code can't realistically reach the default. Each override
-   carries a `_reason` string so the deviation is documented in code.
-
-The combination keeps the gate honest without gold-plating: defaults catch
-regressions and undertested new files; overrides require a deliberate, reviewable
-decision for any documented exception. Suite-level totals stay enforced
-*alongside* per-file (defense in depth: a uniform 1% drop across all files
-would pass per-file but trip the suite total).
-
-**Single source of truth:** `coverage-thresholds.json` at repo root holds the
-suite floors, per-file defaults, and per-file overrides for both suites. The
-c8 CLI flags in `package.json` and the monocart `coverage.thresholds` /
-`onEnd` literal in `playwright.coverage.config.mjs` are duplicates that must
-be hand-synced; the OPERATIONS.md "Coverage policy" how-to-ratchet section
-lists all four locations.
-
-**Negative-test discipline:** before declaring any new gate "enforced", run a
-negative test (temporarily raise a threshold past the current value) and
-confirm `rc=1` with the expected list of misses. CS09 originally skipped this
-step and shipped a no-op gate (see LRN-018).
-
-**Disposition:** _(open as a recommended pattern for any future
-threshold-style gate; the per-file-with-overrides shape generalises beyond
-coverage to perf budgets, bundle size, type-check error counts, etc.)_
-
----
-
-### LRN-020
-
-```yaml
-id: LRN-020
-date: 2026-05-13
-category: architectural
-source_cs: CS03
-status: open
-tags: [azure, swa, functions, timer-trigger, scheduling, deploy-gate]
-```
-
-**Problem:** CS03 originally shipped `SessionsCleanupFunction` as a
-`[TimerTrigger("0 0 * * * *")]` (NCRONTAB hourly cron), per the CS03 plan
-decision CS03-10. All local gates passed (dotnet 42/42, unit, e2e, lint,
-sync) but the SWA `Azure/static-web-apps-deploy@v1` action failed in CI on
-PR #47 with `Error in processing api build artifacts: the file
-'functions.metadata' has specified an invalid trigger of type 'timerTrigger'
-and direction 'In'. Currently, only httpTriggers are supported.` SWA
-**managed Functions** (the in-platform Functions runtime that piggybacks
-on the SWA App Service plan) is HTTP-only — `timerTrigger`, `queueTrigger`,
-`blobTrigger`, etc. are rejected at the build-and-deploy step. The
-generated `functions.metadata` file is the SWA action's input, so this is
-a hard build-time gate, not a runtime soft-fail.
-
-**Finding:** Any Functions code intended to ship under SWA managed
-Functions **must** be `[HttpTrigger]`. For workloads that need a schedule
-(cron cleanup, daily rollover, retention policies), expose the work as an
-admin HTTP endpoint with `AuthorizationLevel.Function` (function-key
-guard) and drive the cadence from outside SWA: Azure Logic App / Azure
-Scheduler / GitHub Actions cron `workflow_dispatch`-able job that POSTs
-with the function key (`x-functions-key` header or `?code=` query). This
-matches Microsoft's own docs and is how `SessionsCleanupFunction` ships
-post-fix as `POST /api/admin/sessions-cleanup`. Excluded from rate-limit
-allow-list so the scheduler is not throttled. **Local validation:** `dotnet
-build -c Release` then grep `bin/Release/net8.0/functions.metadata` for
-`timerTrigger`/`queueTrigger`/`blobTrigger` — if any non-`httpTrigger`
-appears, the SWA build will fail. Alternative if a future CS truly needs
-a non-HTTP trigger: deploy that Function out-of-band as a separate
-Premium / Consumption Functions app (NOT under SWA), which doubles the
-infra surface but unlocks the full trigger set.
-
-**Disposition:** _(open as a structural constraint for all future
-backend work in this repo. Future `clickstop` plans must call out the
-HTTP-only constraint explicitly when planning Functions, and any 'cron /
-periodic' deliverable should default to admin-HTTP-endpoint + external
-scheduler unless a separate Functions app is also in scope.)_
-
----
-
-### LRN-021
-
-```yaml
-id: LRN-021
-date: 2026-05-13
-category: architectural
-source_cs: CS03
-status: open
-tags: [azure, swa, functions, app-settings, reserved-names, storage, deploy-gate]
-```
-
-**Problem:** SWA managed Functions reserves a set of app-setting names for
-its own platform configuration and rejects any user attempt to set them
-with HTTP 400 (`InvalidAppSettings`). `AzureWebJobsStorage` is one of
-those reserved names — the SWA platform manages it for the Functions
-runtime's internal storage account (the SWA-internal one, not the
-operator's storage account). CS03 originally followed the standard
-Functions pattern where the user code reads `AzureWebJobsStorage` to
-reach the operator-controlled Storage Tables, but this design **silently
-breaks under SWA**: `/api/health` returns 200 (the DI factory is lazy
-and Health doesn't touch Tables), but the moment any Function tries to
-resolve `ITableClientFactory`, the connection string points at the
-SWA-internal storage account where our `Sessions` and `Leaderboard`
-tables don't exist, and every request returns 500. The failure mode is
-particularly bad because it passes all unit tests, all E2E tests against
-a stubbed `http-server`, and the SWA build-and-deploy step (which
-verifies that triggers are HTTP-only — see LRN-020 — but does not
-exercise the runtime). It only fails when a real probe hits the deployed
-endpoint.
-
-**Finding:** Functions code on SWA must read its storage connection
-string from a **non-reserved** app-setting name (we use
-`SUB_INVADERS_STORAGE`). Three pieces have to line up:
-
-1. `api/Program.cs` reads the custom name first, with a fallback to
-   `AzureWebJobsStorage` so local dev (where the Functions runtime
-   variable is genuinely the dev-storage emulator connection string) is
-   not penalised.
-2. `infra/provision.sh` Phase 3.5 sets the SWA app setting idempotently
-   via `az staticwebapp appsettings set --setting-names
-   "SUB_INVADERS_STORAGE=$(az storage account show-connection-string …
-   -o tsv)"`.
-3. `local.settings.json.example` sets BOTH names to
-   `UseDevelopmentStorage=true` so contributors don't have to know the
-   indirection until they read it.
-
-The full reserved-name list is at
-[learn.microsoft.com `2161641` — managed Functions reserved app
-settings](https://go.microsoft.com/fwlink/?linkid=2161641); the relevant
-operational tell when planning is *"if Azure Functions itself uses the
-setting name, SWA managed Functions probably reserves it"*. The same
-pattern applies to any future user-facing connection string (Service
-Bus, Key Vault references, etc.) — pick a project-prefixed name from
-day one. **Verification:** the only reliable check is to hit the live
-endpoint after deploy. A `verify-deploy` probe that actually calls
-`/api/leaderboard` against the SWA preview slot is the cheapest
-guardrail; CS03's `leaderboard-sequence` check would have caught this
-before merge if it had been wired into a deploy gate (it currently has
-to be invoked manually).
-
-**Disposition:** _(open. Recommend (a) folding a smoke probe of any
-new `/api/*` endpoint into the deploy gate so this class of issue
-fails before merge, and (b) updating any future plans that add
-SWA-managed-Functions app settings to require a project-prefixed name
-in the plan deliverables list, not the Azure-reserved equivalent.)_
-
----
-
-### LRN-022
-
-```yaml
-id: LRN-022
-date: 2026-05-14
-category: architectural
-source_cs: CS03
-status: open
-tags: [azure, swa, oryx, dotnet, msbuild, sourcelink, build-time-injection, observability, issue-52]
-```
-
-**Problem:** Issue #52 needed `/api/health` to surface the deployed commit
-SHA. The original plan was a post-deploy `az staticwebapp appsettings set`
-mutation: create an Azure Service Principal scoped to the prod RG, store its
-JSON as `AZURE_CREDENTIALS` repo secret, add four workflow steps
-(creds-check → login → appsettings set → logout), accept a Function host
-cold restart on every `push:main`, and maintain a 70-line OPERATIONS.md
-runbook for one-time setup. Net cost: ongoing SP rotation, GH secret
-maintenance, and a non-atomic deploy (the artifact says "1.0.0" until the
-appsettings call lands and the host restarts).
-
-**Finding:** The same observability requirement is satisfiable with **zero
-secrets, zero post-deploy mutation, and atomicity with the deploy artifact**
-by baking the SHA into `AssemblyInformationalVersionAttribute` at build
-time. Three lines glue the chain end-to-end:
-
-1. `api/Sub-invaders.Api.csproj` PropertyGroup:
-
-   ```xml
-   <InformationalVersion Condition="'$(BUILD_COMMIT)' != ''">$(BUILD_COMMIT)</InformationalVersion>
-   ```
-
-2. `.github/workflows/swa-deploy.yml` job-level `env`:
-
-   ```yaml
-   env:
-     BUILD_COMMIT: ${{ github.sha }}
-   ```
-
-3. `BuildInfoProvider` reads the attribute via reflection at startup and
-   returns `info[..7]` after splitting on SourceLink's `+<sha>` suffix and
-   validating `^[0-9a-fA-F]{7,40}$` shape.
-
-The **load-bearing assumption** is that Oryx (SWA's build engine) forwards
-GitHub-Actions job-level `env:` to the `dotnet build` it invokes
-internally, AND that the .NET SDK auto-promotes env vars to MSBuild
-properties so `$(BUILD_COMMIT)` resolves. Both are documented behaviour but
-had not been observed end-to-end in this specific SWA-managed-Functions
-configuration before. **Verified empirically** on PR #72: staging preview
-returned `{"commit":"8b9b149"}` (a real 7-char hex prefix, not "unknown");
-prod after merge returned `{"commit":"a575829"}` matching the merge SHA
-exactly. The pattern is now production-proven.
-
-**Sub-finding (SourceLink suffix):** With the .NET 8 SDK used here, Source
-Link ships in-box and the SDK appends `+<SourceRevisionId>` (the source
-git SHA) to `AssemblyInformationalVersionAttribute` by default. Opt out by
-setting `<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>`
-in the csproj. Reflection-based parsers must split on `'+'` *before* doing
-shape validation; otherwise a BUILD_COMMIT of e.g.
-`abc1234567890fedcba0987654321abcdef01234` reads back at runtime as
-`abc1234567890fedcba0987654321abcdef01234+<sha>` and a naïve length/format
-check produces nonsense.
-
-**Reusability:** This pattern generalises to any string the build pipeline
-needs to surface at runtime (build number, branch name, release channel,
-deploy timestamp). The MSBuild auto-promotion contract is `env-var-name`
-→ `$(env-var-name)` in MSBuild — no `-p:` flag required, no Oryx-specific
-configuration. Use one MSBuild property per piece of metadata to keep the
-parsing trivial; avoid encoding multiple values into one
-`InformationalVersion` string.
-
-**Disposition:** _(open as the recommended pattern for build-metadata
-injection on SWA-managed Functions. Future tasks needing similar
-observability — release channel, build number, deploy timestamp — should
-follow this template instead of post-deploy app-setting mutation. The
-post-deploy mutation path is only justified when the value isn't known at
-build time, e.g. an external feature-flag toggled per environment.)_
-
----
-
-### LRN-023
-
-```yaml
-id: LRN-023
-date: 2026-05-14
-category: process
-source_cs: CS03
-status: open
-tags: [agent-harness, sync, lock-file, parallel-sessions, drift, regression, issue-52]
-```
-
-**Problem:** During PR #72 implementation, `harness sync --mode=apply`
-absorbed ~175 lines of OPERATIONS.md prose and ~41 lines of REVIEWS.md
-prose from `docs/file-planned-cs47` (an unreleased feature branch in
-`agent-harness`) into the consumer repo, even though the consumer's
-declared pin was `v0.5.1`. The drift was committed as part of `41136e0`
-on the fix branch and only caught in PvI R2 by an outside-eye review that
-noticed `.harness-lock.json:2` recorded `harness_ref: "docs/file-planned-cs47"`
-instead of `v0.5.1`. Backing it out required a second commit (`40e81a8`)
-that re-pinned the local harness clone to v0.5.1 and re-ran sync, which
-correctly removed the future-branch content.
-
-**Finding:** Two compounding factors:
-
-1. **C:\src\agent-harness gets clobbered by parallel sessions.** Other
-   agents working in parallel sessions checkout different branches in the
-   shared harness clone for their own purposes. There is no per-session
-   isolation. By the time `harness sync` runs, the clone may be on any
-   branch.
-2. **`harness sync --mode=apply` writes file content based on the harness
-   clone's current HEAD, regardless of the consumer's declared pin.** The
-   consumer's `harness.config.json` `version` field is informational; the
-   sync engine reads from the local clone's working tree. There is no
-   safeguard that compares the lock-recorded ref to the clone's HEAD before
-   writing.
-
-**Mitigation:** Always re-pin the local clone *immediately* before any
-`sync --mode=apply` invocation:
-
-```powershell
-cd C:\src\agent-harness; git stash push -u; git checkout v0.5.1
-cd <consumer-worktree>; node C:\src\agent-harness\bin\harness.mjs sync --mode=apply
-```
-
-Re-pinning before only `lint` or `sync --mode=check` is *not* sufficient —
-those operations don't write file content, but a follow-up `apply` against
-a stale clone will. The trap is that `apply` may report "0 changes
-applied" on the first call (when the consumer happens to match whatever
-branch the clone is on) and then later report drift against the
-correctly-pinned ref, leading to revert-and-re-sync churn.
-
-**Detection:** Always verify post-sync that `.harness-lock.json:2`
-`harness_ref` equals the intended pin (e.g. `v0.5.1`), not a branch name
-or `unknown`. PvI reviewers should treat any `harness_ref` value that is
-not a tag as a F-001-class blocking finding.
-
-**Disposition:** _(open. Recommend filing this upstream as an
-agent-harness feature request: `harness sync` should refuse to run if the
-local clone HEAD doesn't match `harness.config.json:version`, with an
-opt-out flag for maintainers experimenting with unreleased templates.
-Until then, the re-pin-before-apply discipline is the only safeguard.)_
-
----
-
-### LRN-024
-
-```yaml
-id: LRN-024
-date: 2026-05-14
-category: process
-source_cs: CS03
-status: open
-tags: [github, copilot, pr-review, engagement, status-checks, a5-a16, graphql, issue-52]
-```
-
-**Problem:** This repo's read-only-gates A5+A16 check requires
-`copilot-pull-request-reviewer[bot]` to have submitted a review against
-the *current* PR HEAD. After every push that updates HEAD, Copilot must
-re-review or A5+A16 stays red even when all substantive review feedback
-is addressed. A previously-stored memory implied Copilot review on this
-repo must be requested via the GitHub web UI because both
-`gh pr edit --add-reviewer Copilot` and the REST `requested_reviewers`
-endpoint return 422 ("Copilot is not a collaborator").
-
-**Finding:** Empirical evidence from PR #72 timeline:
-
-| time (UTC) | event | source |
-|---|---|---|
-| 03:03:39 | `review_requested` event for `Copilot` | issued by `harness copilot-engage 72` (GraphQL `requestCopilotReview` mutation against the PR node) |
-| 03:07:19 | `copilot-pull-request-reviewer[bot]` posted COMMENTED review on `40e81a8` | triggered by the 03:03:39 request |
-| 03:13:05 | `gh pr comment 72 --body "@copilot review"` posted (after a push to `c73ba62`) | did NOT trigger another review within 10+ min observation window |
-
-**Confirmed engagement path:** `harness copilot-engage <pr>` from
-agent-harness v0.5.0+. Internally it issues a GraphQL
-`requestCopilotReview` mutation via `lib/github-graphql.mjs` against the
-PR node ID. This bypasses the REST 422 — REST `/requested_reviewers`
-expects a collaborator login string and Copilot is not a collaborator
-user, but the GraphQL mutation accepts the Copilot bot via its node ID
-resolved through the PR's `suggestedReviewers`/`reviewerNodeId` fields.
-
-**Refuted engagement paths:**
-
-- `gh pr edit --add-reviewer Copilot` → 422 "Could not resolve user with
-  login 'copilot'" (still verified on PR #72; old memory accurate on
-  this point).
-- `gh api -X POST /repos/{owner}/{repo}/pulls/{pr}/requested_reviewers
-  -f 'reviewers[]=copilot-pull-request-reviewer'` → 422 "not a
-  collaborator" (still verified on PR #72).
-- `gh pr comment <pr> --body "@copilot review"` → on PR #72, this comment
-  posted at 03:13:05 by the PR author (`henrik-me`, `OWNER` association)
-  did not trigger `copilot-pull-request-reviewer[bot]` to deliver a
-  follow-up review against the new HEAD (no further review submitted
-  within 10+ minutes despite the bot still being responsive elsewhere).
-  This contradicts a common cargo-culted assumption; `@copilot review`
-  comments may be intercepted by the cloud SWE agent or simply silently
-  ignored by the review bot.
-
-**Important caveats observed on PR #72:**
-
-- Copilot delivers `COMMENTED`, never `APPROVED` — A5+A16 accepts a
-  COMMENTED review as satisfying the gate.
-- Copilot reviews are HEAD-stale: a review attached to commit `X` does
-  not satisfy A5+A16 once the PR is updated to commit `Y`. Re-engagement
-  requires another `harness copilot-engage <pr>` invocation (which fires
-  a fresh GraphQL mutation), not a `@copilot review` comment.
-- Copilot may not re-engage within a reasonable window (>10 min)
-  for trivial doc-only deltas (CHANGELOG-only fix following a
-  substantive review). When all substantive feedback is addressed and
-  the post-review delta is verifiably trivial, admin-merge via
-  `gh pr merge --squash --admin` is the user-pre-authorized path
-  (CS11 precedent).
-- Inline review comments from Copilot may be **stale relative to the
-  committed code** — Copilot occasionally flags an issue that was
-  already fixed in the same commit it's reviewing (PR #72 had this
-  exact case: F-003 NIT was already addressed in `40e81a8`, but Copilot
-  reviewing `40e81a8` still flagged the pre-fix line). Always verify by
-  reading the current file before treating a Copilot comment as
-  actionable.
-
-**Disposition:** _(open. Until the read-only-gates A5+A16 check is
-taught to recognise a "previously-reviewed-and-substantively-unchanged"
-state, admin-merge is the documented escape hatch for trivial
-post-review deltas. `harness copilot-engage <pr>` is the
-documented-and-verified engagement path; do not rely on
-`gh pr comment "@copilot review"` or `gh pr edit --add-reviewer` paths,
-which were both refuted on PR #72.)_
-
----
-
-### LRN-025
-
-```yaml
-id: LRN-025
-date: 2026-06-10
-category: architectural
-source_cs: CS14
-status: open
-tags: [esbuild, bundler, frontend-build, swa-deploy, coverage, sourcemap]
-```
-
-**Problem:** Consuming external/extracted ESM packages (immediately: CS13's
-`canvas-game-engine`) requires resolving bare-package specifiers
-(`from 'canvas-game-engine/loop.mjs'`) that browsers cannot resolve from a raw
-`src/` tree, and `node_modules` is not deployed to SWA. The v1 "no bundler"
-shortcut blocked any external dependency.
-
-**Finding:** esbuild (exact-pinned `0.28.0`) as a single-entry bundler
-(`src/game/main.mjs` → `src/dist/main.mjs`; ESM; ES2022; external sourcemap; no
-minify) cleanly resolves the existing relative `.mjs` graph and unblocks
-bare-specifier deps. Integration facts proven end-to-end on prod `368eb56`:
-
-- **SWA/Oryx:** `app_location:"src"` with no `src/package.json` meant Oryx never
-  built the frontend (it shipped raw static assets). Adding workflow-level
-  `npm ci && npm run build` before the `static-web-apps-deploy` action produces a
-  byte-identical bundle in production (`/dist/main.mjs` = 106,559 B) — no
-  `skip_app_build: true` needed, `api_location:"api"` untouched.
-- **Coverage:** the bundle must be excluded from c8 (`--exclude "src/dist/**"`)
-  in BOTH `package.json` and `ci.yml`; `scripts/coverage-perfile.mjs` `normalize()`
-  collapses leading `../` so the per-file gate attests sources, not the bundle
-  (esbuild sourcemap `sources` are `../game/…`/`../engine/…`, though monocart
-  already resolves them — the strip is regression-tested defensive insurance).
-  E2E per-file gate passed with 29 source files.
-- **Freshness:** `pretest:e2e[:coverage]` hooks + `webServer.command:
-  "npm run build && npm run serve"` + explicit CI build steps each guarantee a
-  fresh bundle; the hook specifically covers the local `reuseExistingServer` path
-  where Playwright skips the webServer build.
-- **Baseline (R7):** 104.1 KB raw / 191 KB map; esbuild build ~180 ms. No
-  bundle-size budget yet.
-
-**Disposition:** _(open as the standard frontend-build pattern. Enables but does
-not adopt TypeScript / a bundle-size budget (R7), both out of CS14 scope. The
-Node-24-local vs Node-20-CI `test:unit:coverage` V8 branch-count skew on
-`src/game/{flags,whaleshark}.mjs` is a separate pre-existing item, not a CS14
-regression.)_
 
 ---
 
@@ -1181,13 +485,665 @@ landed; (2) **main-push `swa-deploy` runs have been cancelling since `8a2c5bc`
 CS13 merge deploy (`78dcad0`) landed it, but the recurring cancellation needs a root-cause
 fix to the workflow concurrency/triggers. Recommend filing a maintenance CS for both.)_
 
+## Applied
+
+### LRN-003
+
+```yaml
+id: LRN-003
+date: 2026-05-11
+category: architectural
+source_cs: CS01
+status: applied
+tags: [github, actions, github-token, app, permissions]
+```
+
+**Problem:** Round-1 GPT-5.5 review of PR #3 caught that `workboard-auto-approve.yml`
+was attempting to do `gh pr review --approve` followed by `gh pr merge` using the
+built-in `GITHUB_TOKEN`. This would have failed in production with HTTP 422
+"GitHub Actions is not permitted to approve pull requests" — a hard GitHub platform
+restriction.
+
+**Finding:** `GITHUB_TOKEN` cannot create approving PR reviews under any
+circumstances; an installed GitHub App is the only mechanism for automated approval.
+The `workboard-auto-approve` workflow in this repo is therefore validation-only
+(actor allowlist + paths-changed allowlist + comment); the actual approve+merge is
+done by the `workboard-auto-approve` GitHub App after install (gate G3).
+
+**Disposition:** _(applied 2026-06-30 — the GITHUB_TOKEN-cannot-approve constraint is fully absorbed: `workboard-auto-approve.yml` ships validation-only, automated approval is handled by the GitHub App when installed, and OPERATIONS.md § "Workboard-only PR admin-bypass fallback" documents the `gh pr merge --admin` path otherwise.)_
+
 ---
 
-_(no entries yet)_
+### LRN-005
+
+```yaml
+id: LRN-005
+date: 2026-05-11
+category: process
+source_cs: CS01
+status: applied
+tags: [harness, composed-blocks, prose]
+```
+
+**Problem:** During CS01 R2 review, a doc inconsistency was found in
+`OPERATIONS.md` and `REVIEWS.md` — but those passages turned out to live
+**outside** the `harness:local-*` markers, i.e., in harness-managed prose.
+Editing them from a consumer repo would be reverted on the next
+`harness sync --mode=apply`.
+
+**Finding:** Always check whether a target line is inside a `harness:local-*`
+marker before editing a composed file from a consumer repo. Composed-file local
+block boundaries in this repo: `OPERATIONS.md` lines 1079-1139 (id
+`operations.project-deploy`); `REVIEWS.md` lines 261-294 (id
+`reviews.project-gates`); `CONVENTIONS.md` id `conventions.project`. Anything
+outside those markers must be filed upstream as harness-feedback rather than
+patched locally.
+
+**Disposition:** _(applied 2026-06-30 — institutionalized in OPERATIONS.md § "Composed-block edits — consumer vs harness-repo paths": always check `harness:local-*` marker boundaries before editing a composed file; out-of-marker prose is filed upstream as harness-feedback, not patched locally.)_
+
+---
+
+### LRN-009
+
+```yaml
+id: LRN-009
+date: 2026-05-11
+category: process
+source_cs: CS01
+status: applied
+tags: [dependabot, rebase, multi-bump]
+```
+
+**Problem:** During post-CS01 Dependabot triage, issuing
+`@dependabot rebase` on a multi-bump PR (#9: `Microsoft.Azure.Functions.Worker`
++ 2 others) while another rebase was already in flight — and while the
+single-bump sibling PR (#10: `Microsoft.Azure.Functions.Worker.Sdk`) was
+still open — caused Dependabot to auto-close the multi-bump PR with
+`Looks like this PR is closed.` and not recreate it.
+
+**Finding:** Don't pile `@dependabot rebase` commands on the same PR or
+on overlapping multi/single PRs in quick succession. If a multi-bump PR
+gets auto-closed in this race, Dependabot will not always recreate it
+(at least not until the next scheduled run); fall back to a manual PR
+that bumps the same set of packages so main doesn't get stuck on a mixed
+major-version configuration. Pattern: branch off `main`, edit the
+`.csproj`, commit + push + open PR with title noting the auto-closed
+Dependabot PR being replaced.
+
+**Disposition:** _(applied 2026-06-30 — adopted practice: avoid piling `@dependabot rebase` on overlapping multi/single PRs; for independent green bumps, admin-squash-merge each, and replace any auto-closed multi-bump with a manual PR. Re-confirmed this session merging six independent Dependabot bumps via admin squash.)_
+
+---
+
+### LRN-013
+
+```yaml
+id: LRN-013
+date: 2026-05-13
+category: process
+source_cs: CS02
+status: applied
+tags: [orchestrator, sub-agent-fanout, preflight, sha-invariant, wave-discipline]
+```
+
+**Problem:** CS02 lane 7 (`cs02-bootstrap-glue-and-score`) reported `STATUS: partial`
+even though every owned-file deliverable was correct, every test passed, and encoding
+was clean. The reason: the dispatch text said "preflight HEAD must equal `ac47542` and
+final HEAD must equal preflight HEAD". Between dispatch and the agent's preflight check,
+the orchestrator committed `2df7297` (`git mv public src/public` for the SWA upload
+fix). The agent observed `2df7297` at preflight, recorded that as preflight (still
+self-consistent — preflight == final), but flagged `STATUS: partial` defensively because
+the dispatch text named a different SHA.
+
+**Finding:** Orchestrator commits **inside** a wave's dispatch-to-completion window
+violate the preflight-SHA invariant from a sub-agent's perspective even when the
+orchestrator's commit doesn't touch any of the lane's owned files. **Rule:** orchestrator
+commits belong **only between waves**, never inside a wave. If an integration fix is
+discovered mid-wave (e.g. a deploy gap surfaces), the orchestrator should let the
+in-flight wave finish, then commit the integration fix in the post-wave window before
+dispatching the next wave.
+
+The lane 7 deliverables turned out fine, but the false-positive `STATUS: partial`
+costs trust in the report and forces the orchestrator to manually re-verify the work.
+
+**Disposition:** _(applied 2026-06-30 — reflected in OPERATIONS.md § "CRITICAL PREFLIGHT" and the dispatch model: orchestrator commits land only between waves / at CS end, never inside a wave, and sub-agents assert preflight SHA == final SHA.)_
+
+---
+
+### LRN-015
+
+```yaml
+id: LRN-015
+date: 2026-05-13
+category: process
+source_cs: CS02
+status: applied
+tags: [workboard, auto-merge, branch-protection, g3-app, harness-feedback, harness-issue-138]
+```
+
+**Upstream issue:** `henrik-me/agent-harness#138` (filed during CS02; P0 / `bug`).
+
+**Problem:** CS02's claim PR (#18) and content PR (#19) both passed all 5 required CI
+status checks but the branch protection ruleset on `main` requires `≥1 approving
+review` even for workboard-only PRs. The `workboard-auto-approve.yml` workflow shipped
+in CS01 is **validation-only** — the actual approve + merge is done by the
+`workboard-auto-approve` GitHub App (gate G3), which is **not yet installed** on
+`henrik-me/sub-invaders`. Without G3, no automated path can produce an approving review,
+so workboard-only PRs sit indefinitely in `BLOCKED` state. The orchestrator had to fall
+back to `gh pr merge --admin --squash --delete-branch` for every workboard-only PR.
+
+**Finding:** Two distinct items:
+
+1. **Filed upstream as `henrik-me/agent-harness#138` (P0 / `bug`):** The harness
+   workboard-only ceremony documented in OPERATIONS.md does not specify a fallback for
+   the no-G3 case. The fix is either (a) a documented `--admin` ceremony, (b) an
+   alternative GitHub Actions step that `gh pr merge --admin`s when the App is absent,
+   or (c) a `--no-required-reviews` rule branch carve-out for workboard-only labelled
+   PRs. The user must choose; CS02 surfaced 4 secondary friction items in the same
+   issue (`harness lint --quiet` swallows per-check error detail, claim PR title
+   regex case sensitivity, etc.).
+
+2. **G3 install is now on the critical path for CS03+.** CS03 will introduce a new CS
+   with the same three-PR shape. Without G3, every workboard-only PR (claim +
+   close-out) requires manual admin-merge ceremony, which is friction the harness
+   process should have eliminated. CONTEXT.md already lists G3 install as an open
+   blocker.
+
+**Disposition:** _(applied 2026-06-30 — OPERATIONS.md § "Workboard-only PR admin-bypass fallback" documents the no-G3 `gh pr merge --admin` ceremony (and the App path when installed); the harness#138 friction items are addressed upstream. The constraint is absorbed into process.)_
+
+---
+
+### LRN-016
+
+```yaml
+id: LRN-016
+date: 2026-05-13
+category: process
+source_cs: CS02
+status: applied
+tags: [sub-agent-fanout, chicken-and-egg, factory-pattern, injected-options]
+```
+
+**Problem:** CS02 Wave 2 had a circular ownership: lane 5 (`player.mjs`,
+`invaders.mjs`) needed numeric tunables (`PLAYER.speed`, `FORMATION.rows`,
+`SCORING.waveBonusMultiplier`, etc.) that lane 6 (`constants.mjs`) owned. The naïve
+fix of "lane 5 reads constants.mjs, lane 6 owns it" doesn't work in parallel: at
+preflight, neither file exists yet, and at completion they may have inconsistent
+shape. Adding a rendezvous between lanes destroys the disjoint-write-set invariant
+that makes parallel fan-out safe in the first place.
+
+**Finding:** The pattern that unblocked Wave 2 without rendezvous:
+
+- Every game module exposes a **factory** (`createPlayer({ opts })`,
+  `createFormation({ opts })`) that accepts an `opts` object.
+- Each factory bakes **its own sensible defaults** for every tunable, so the lane's
+  own tests (which don't import constants.mjs) work end-to-end.
+- Lane 6 supplies the **canonical** constants (frozen `PLAYER`, `FORMATION`, etc.).
+- Lane 7's `main.mjs` is the **only** module that wires the canonical constants into
+  the factories: `createPlayer({ opts: PLAYER })`. If lane 7 doesn't pass anything,
+  the factory's bake-in defaults are still production-quality.
+
+This pattern resolves the chicken-and-egg cleanly: lanes 5 and 6 have zero file
+overlap, no rendezvous, and their tests don't depend on each other. The pattern
+generalises to any parallel fan-out where one lane "owns the canonical config" and
+other lanes "consume it".
+
+**Disposition:** _(applied 2026-06-30 — the factory-with-baked-defaults pattern for disjoint parallel fan-out is established practice and is referenced from OPERATIONS.md § "File ownership (LRN-016)".)_
+
+---
+
+### LRN-019
+
+```yaml
+id: LRN-019
+date: 2026-05-13
+category: process
+source_cs: CS09
+status: applied
+tags: [coverage, c8, monocart, per-file, gating, single-source-of-truth, negative-test]
+```
+
+**Problem:** CS09 originally enforced only suite-level coverage totals. A new file
+shipped with 0% coverage would only move the suite total down a few tenths of a
+percent and slip silently through the gate. The phrase "ensure new code adheres
+to these limits and is included in the calculations" required a per-file gate,
+not just a suite-level one.
+
+**Finding:** Both c8 and monocart-coverage-reports emit per-file summaries in JSON.
+A small post-process script (`scripts/coverage-perfile.mjs`, ~120 lines) reads
+either format, normalises file keys to repo-relative `src/...` paths, and applies
+per-file thresholds with two layers:
+
+1. **Per-file defaults** — apply automatically to every file under
+   `src/{engine,game}/*.mjs`. New files inherit defaults.
+2. **Per-file overrides** — explicit lower floors for specific files where dead-
+   in-production code can't realistically reach the default. Each override
+   carries a `_reason` string so the deviation is documented in code.
+
+The combination keeps the gate honest without gold-plating: defaults catch
+regressions and undertested new files; overrides require a deliberate, reviewable
+decision for any documented exception. Suite-level totals stay enforced
+*alongside* per-file (defense in depth: a uniform 1% drop across all files
+would pass per-file but trip the suite total).
+
+**Single source of truth:** `coverage-thresholds.json` at repo root holds the
+suite floors, per-file defaults, and per-file overrides for both suites. The
+c8 CLI flags in `package.json` and the monocart `coverage.thresholds` /
+`onEnd` literal in `playwright.coverage.config.mjs` are duplicates that must
+be hand-synced; the OPERATIONS.md "Coverage policy" how-to-ratchet section
+lists all four locations.
+
+**Negative-test discipline:** before declaring any new gate "enforced", run a
+negative test (temporarily raise a threshold past the current value) and
+confirm `rc=1` with the expected list of misses. CS09 originally skipped this
+step and shipped a no-op gate (see LRN-018).
+
+**Disposition:** _(applied 2026-06-30 — CS15 wired the per-file unit coverage gate into CI; `scripts/coverage-perfile.mjs` + `coverage-thresholds.json` enforce per-file floors (with documented `_reason` overrides) for both the unit and e2e suites alongside suite totals.)_
+
+---
+
+### LRN-020
+
+```yaml
+id: LRN-020
+date: 2026-05-13
+category: architectural
+source_cs: CS03
+status: applied
+tags: [azure, swa, functions, timer-trigger, scheduling, deploy-gate]
+```
+
+**Problem:** CS03 originally shipped `SessionsCleanupFunction` as a
+`[TimerTrigger("0 0 * * * *")]` (NCRONTAB hourly cron), per the CS03 plan
+decision CS03-10. All local gates passed (dotnet 42/42, unit, e2e, lint,
+sync) but the SWA `Azure/static-web-apps-deploy@v1` action failed in CI on
+PR #47 with `Error in processing api build artifacts: the file
+'functions.metadata' has specified an invalid trigger of type 'timerTrigger'
+and direction 'In'. Currently, only httpTriggers are supported.` SWA
+**managed Functions** (the in-platform Functions runtime that piggybacks
+on the SWA App Service plan) is HTTP-only — `timerTrigger`, `queueTrigger`,
+`blobTrigger`, etc. are rejected at the build-and-deploy step. The
+generated `functions.metadata` file is the SWA action's input, so this is
+a hard build-time gate, not a runtime soft-fail.
+
+**Finding:** Any Functions code intended to ship under SWA managed
+Functions **must** be `[HttpTrigger]`. For workloads that need a schedule
+(cron cleanup, daily rollover, retention policies), expose the work as an
+admin HTTP endpoint with `AuthorizationLevel.Function` (function-key
+guard) and drive the cadence from outside SWA: Azure Logic App / Azure
+Scheduler / GitHub Actions cron `workflow_dispatch`-able job that POSTs
+with the function key (`x-functions-key` header or `?code=` query). This
+matches Microsoft's own docs and is how `SessionsCleanupFunction` ships
+post-fix as `POST /api/admin/sessions-cleanup`. Excluded from rate-limit
+allow-list so the scheduler is not throttled. **Local validation:** `dotnet
+build -c Release` then grep `bin/Release/net8.0/functions.metadata` for
+`timerTrigger`/`queueTrigger`/`blobTrigger` — if any non-`httpTrigger`
+appears, the SWA build will fail. Alternative if a future CS truly needs
+a non-HTTP trigger: deploy that Function out-of-band as a separate
+Premium / Consumption Functions app (NOT under SWA), which doubles the
+infra surface but unlocks the full trigger set.
+
+**Disposition:** _(applied 2026-06-30 — structural constraint absorbed: SWA managed Functions are HTTP-only, and `SessionsCleanupFunction` ships as `POST /api/admin/sessions-cleanup` driven by an external scheduler. Future Functions plans must call out the HTTP-only constraint and default any cron/periodic deliverable to an admin-HTTP endpoint + external scheduler unless a separate Functions app is in scope.)_
+
+---
+
+### LRN-021
+
+```yaml
+id: LRN-021
+date: 2026-05-13
+category: architectural
+source_cs: CS03
+status: applied
+tags: [azure, swa, functions, app-settings, reserved-names, storage, deploy-gate]
+```
+
+**Problem:** SWA managed Functions reserves a set of app-setting names for
+its own platform configuration and rejects any user attempt to set them
+with HTTP 400 (`InvalidAppSettings`). `AzureWebJobsStorage` is one of
+those reserved names — the SWA platform manages it for the Functions
+runtime's internal storage account (the SWA-internal one, not the
+operator's storage account). CS03 originally followed the standard
+Functions pattern where the user code reads `AzureWebJobsStorage` to
+reach the operator-controlled Storage Tables, but this design **silently
+breaks under SWA**: `/api/health` returns 200 (the DI factory is lazy
+and Health doesn't touch Tables), but the moment any Function tries to
+resolve `ITableClientFactory`, the connection string points at the
+SWA-internal storage account where our `Sessions` and `Leaderboard`
+tables don't exist, and every request returns 500. The failure mode is
+particularly bad because it passes all unit tests, all E2E tests against
+a stubbed `http-server`, and the SWA build-and-deploy step (which
+verifies that triggers are HTTP-only — see LRN-020 — but does not
+exercise the runtime). It only fails when a real probe hits the deployed
+endpoint.
+
+**Finding:** Functions code on SWA must read its storage connection
+string from a **non-reserved** app-setting name (we use
+`SUB_INVADERS_STORAGE`). Three pieces have to line up:
+
+1. `api/Program.cs` reads the custom name first, with a fallback to
+   `AzureWebJobsStorage` so local dev (where the Functions runtime
+   variable is genuinely the dev-storage emulator connection string) is
+   not penalised.
+2. `infra/provision.sh` Phase 3.5 sets the SWA app setting idempotently
+   via `az staticwebapp appsettings set --setting-names
+   "SUB_INVADERS_STORAGE=$(az storage account show-connection-string …
+   -o tsv)"`.
+3. `local.settings.json.example` sets BOTH names to
+   `UseDevelopmentStorage=true` so contributors don't have to know the
+   indirection until they read it.
+
+The full reserved-name list is at
+[learn.microsoft.com `2161641` — managed Functions reserved app
+settings](https://go.microsoft.com/fwlink/?linkid=2161641); the relevant
+operational tell when planning is *"if Azure Functions itself uses the
+setting name, SWA managed Functions probably reserves it"*. The same
+pattern applies to any future user-facing connection string (Service
+Bus, Key Vault references, etc.) — pick a project-prefixed name from
+day one. **Verification:** the only reliable check is to hit the live
+endpoint after deploy. A `verify-deploy` probe that actually calls
+`/api/leaderboard` against the SWA preview slot is the cheapest
+guardrail; CS03's `leaderboard-sequence` check would have caught this
+before merge if it had been wired into a deploy gate (it currently has
+to be invoked manually).
+
+**Disposition:** _(applied 2026-06-30 — Functions read storage from the non-reserved `SUB_INVADERS_STORAGE` app setting (Program.cs with an `AzureWebJobsStorage` dev fallback, provisioning, and the local.settings example). A live `/api/*` smoke probe in the deploy gate remains the recommended guardrail for this class of runtime-only failure.)_
+
+---
+
+### LRN-022
+
+```yaml
+id: LRN-022
+date: 2026-05-14
+category: architectural
+source_cs: CS03
+status: applied
+tags: [azure, swa, oryx, dotnet, msbuild, sourcelink, build-time-injection, observability, issue-52]
+```
+
+**Problem:** Issue #52 needed `/api/health` to surface the deployed commit
+SHA. The original plan was a post-deploy `az staticwebapp appsettings set`
+mutation: create an Azure Service Principal scoped to the prod RG, store its
+JSON as `AZURE_CREDENTIALS` repo secret, add four workflow steps
+(creds-check → login → appsettings set → logout), accept a Function host
+cold restart on every `push:main`, and maintain a 70-line OPERATIONS.md
+runbook for one-time setup. Net cost: ongoing SP rotation, GH secret
+maintenance, and a non-atomic deploy (the artifact says "1.0.0" until the
+appsettings call lands and the host restarts).
+
+**Finding:** The same observability requirement is satisfiable with **zero
+secrets, zero post-deploy mutation, and atomicity with the deploy artifact**
+by baking the SHA into `AssemblyInformationalVersionAttribute` at build
+time. Three lines glue the chain end-to-end:
+
+1. `api/Sub-invaders.Api.csproj` PropertyGroup:
+
+   ```xml
+   <InformationalVersion Condition="'$(BUILD_COMMIT)' != ''">$(BUILD_COMMIT)</InformationalVersion>
+   ```
+
+2. `.github/workflows/swa-deploy.yml` job-level `env`:
+
+   ```yaml
+   env:
+     BUILD_COMMIT: ${{ github.sha }}
+   ```
+
+3. `BuildInfoProvider` reads the attribute via reflection at startup and
+   returns `info[..7]` after splitting on SourceLink's `+<sha>` suffix and
+   validating `^[0-9a-fA-F]{7,40}$` shape.
+
+The **load-bearing assumption** is that Oryx (SWA's build engine) forwards
+GitHub-Actions job-level `env:` to the `dotnet build` it invokes
+internally, AND that the .NET SDK auto-promotes env vars to MSBuild
+properties so `$(BUILD_COMMIT)` resolves. Both are documented behaviour but
+had not been observed end-to-end in this specific SWA-managed-Functions
+configuration before. **Verified empirically** on PR #72: staging preview
+returned `{"commit":"8b9b149"}` (a real 7-char hex prefix, not "unknown");
+prod after merge returned `{"commit":"a575829"}` matching the merge SHA
+exactly. The pattern is now production-proven.
+
+**Sub-finding (SourceLink suffix):** With the .NET 8 SDK used here, Source
+Link ships in-box and the SDK appends `+<SourceRevisionId>` (the source
+git SHA) to `AssemblyInformationalVersionAttribute` by default. Opt out by
+setting `<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>`
+in the csproj. Reflection-based parsers must split on `'+'` *before* doing
+shape validation; otherwise a BUILD_COMMIT of e.g.
+`abc1234567890fedcba0987654321abcdef01234` reads back at runtime as
+`abc1234567890fedcba0987654321abcdef01234+<sha>` and a naïve length/format
+check produces nonsense.
+
+**Reusability:** This pattern generalises to any string the build pipeline
+needs to surface at runtime (build number, branch name, release channel,
+deploy timestamp). The MSBuild auto-promotion contract is `env-var-name`
+→ `$(env-var-name)` in MSBuild — no `-p:` flag required, no Oryx-specific
+configuration. Use one MSBuild property per piece of metadata to keep the
+parsing trivial; avoid encoding multiple values into one
+`InformationalVersion` string.
+
+**Disposition:** _(applied 2026-06-30 — build-time SHA injection via `InformationalVersion`/`BUILD_COMMIT` is the production-proven pattern for build-metadata observability; `/api/health` surfaces the deployed commit (verified `be8a412` this session). Future metadata (release channel, build number, deploy timestamp) should follow this template rather than post-deploy app-setting mutation.)_
+
+---
+
+### LRN-023
+
+```yaml
+id: LRN-023
+date: 2026-05-14
+category: process
+source_cs: CS03
+status: applied
+tags: [agent-harness, sync, lock-file, parallel-sessions, drift, regression, issue-52]
+```
+
+**Problem:** During PR #72 implementation, `harness sync --mode=apply`
+absorbed ~175 lines of OPERATIONS.md prose and ~41 lines of REVIEWS.md
+prose from `docs/file-planned-cs47` (an unreleased feature branch in
+`agent-harness`) into the consumer repo, even though the consumer's
+declared pin was `v0.5.1`. The drift was committed as part of `41136e0`
+on the fix branch and only caught in PvI R2 by an outside-eye review that
+noticed `.harness-lock.json:2` recorded `harness_ref: "docs/file-planned-cs47"`
+instead of `v0.5.1`. Backing it out required a second commit (`40e81a8`)
+that re-pinned the local harness clone to v0.5.1 and re-ran sync, which
+correctly removed the future-branch content.
+
+**Finding:** Two compounding factors:
+
+1. **C:\src\agent-harness gets clobbered by parallel sessions.** Other
+   agents working in parallel sessions checkout different branches in the
+   shared harness clone for their own purposes. There is no per-session
+   isolation. By the time `harness sync` runs, the clone may be on any
+   branch.
+2. **`harness sync --mode=apply` writes file content based on the harness
+   clone's current HEAD, regardless of the consumer's declared pin.** The
+   consumer's `harness.config.json` `version` field is informational; the
+   sync engine reads from the local clone's working tree. There is no
+   safeguard that compares the lock-recorded ref to the clone's HEAD before
+   writing.
+
+**Mitigation:** Always re-pin the local clone *immediately* before any
+`sync --mode=apply` invocation:
+
+```powershell
+cd C:\src\agent-harness; git stash push -u; git checkout v0.5.1
+cd <consumer-worktree>; node C:\src\agent-harness\bin\harness.mjs sync --mode=apply
+```
+
+Re-pinning before only `lint` or `sync --mode=check` is *not* sufficient —
+those operations don't write file content, but a follow-up `apply` against
+a stale clone will. The trap is that `apply` may report "0 changes
+applied" on the first call (when the consumer happens to match whatever
+branch the clone is on) and then later report drift against the
+correctly-pinned ref, leading to revert-and-re-sync churn.
+
+**Detection:** Always verify post-sync that `.harness-lock.json:2`
+`harness_ref` equals the intended pin (e.g. `v0.5.1`), not a branch name
+or `unknown`. PvI reviewers should treat any `harness_ref` value that is
+not a tag as a F-001-class blocking finding.
+
+**Disposition:** _(applied 2026-06-30 — adopted discipline: run `harness sync`/`apply` from a clone/worktree checked out at the pinned tag (re-pin before apply), and verify `.harness-lock.json` `harness_ref` equals the tag (never a branch or `unknown`). `harness upgrade <ref>` (v0.8.0) is the supported preview-before-apply path. The upstream HEAD-vs-pin guard remains a nice-to-have.)_
+
+---
+
+### LRN-024
+
+```yaml
+id: LRN-024
+date: 2026-05-14
+category: process
+source_cs: CS03
+status: applied
+tags: [github, copilot, pr-review, engagement, status-checks, a5-a16, graphql, issue-52]
+```
+
+**Problem:** This repo's read-only-gates A5+A16 check requires
+`copilot-pull-request-reviewer[bot]` to have submitted a review against
+the *current* PR HEAD. After every push that updates HEAD, Copilot must
+re-review or A5+A16 stays red even when all substantive review feedback
+is addressed. A previously-stored memory implied Copilot review on this
+repo must be requested via the GitHub web UI because both
+`gh pr edit --add-reviewer Copilot` and the REST `requested_reviewers`
+endpoint return 422 ("Copilot is not a collaborator").
+
+**Finding:** Empirical evidence from PR #72 timeline:
+
+| time (UTC) | event | source |
+|---|---|---|
+| 03:03:39 | `review_requested` event for `Copilot` | issued by `harness copilot-engage 72` (GraphQL `requestCopilotReview` mutation against the PR node) |
+| 03:07:19 | `copilot-pull-request-reviewer[bot]` posted COMMENTED review on `40e81a8` | triggered by the 03:03:39 request |
+| 03:13:05 | `gh pr comment 72 --body "@copilot review"` posted (after a push to `c73ba62`) | did NOT trigger another review within 10+ min observation window |
+
+**Confirmed engagement path:** `harness copilot-engage <pr>` from
+agent-harness v0.5.0+. Internally it issues a GraphQL
+`requestCopilotReview` mutation via `lib/github-graphql.mjs` against the
+PR node ID. This bypasses the REST 422 — REST `/requested_reviewers`
+expects a collaborator login string and Copilot is not a collaborator
+user, but the GraphQL mutation accepts the Copilot bot via its node ID
+resolved through the PR's `suggestedReviewers`/`reviewerNodeId` fields.
+
+**Refuted engagement paths:**
+
+- `gh pr edit --add-reviewer Copilot` → 422 "Could not resolve user with
+  login 'copilot'" (still verified on PR #72; old memory accurate on
+  this point).
+- `gh api -X POST /repos/{owner}/{repo}/pulls/{pr}/requested_reviewers
+  -f 'reviewers[]=copilot-pull-request-reviewer'` → 422 "not a
+  collaborator" (still verified on PR #72).
+- `gh pr comment <pr> --body "@copilot review"` → on PR #72, this comment
+  posted at 03:13:05 by the PR author (`henrik-me`, `OWNER` association)
+  did not trigger `copilot-pull-request-reviewer[bot]` to deliver a
+  follow-up review against the new HEAD (no further review submitted
+  within 10+ minutes despite the bot still being responsive elsewhere).
+  This contradicts a common cargo-culted assumption; `@copilot review`
+  comments may be intercepted by the cloud SWE agent or simply silently
+  ignored by the review bot.
+
+**Important caveats observed on PR #72:**
+
+- Copilot delivers `COMMENTED`, never `APPROVED` — A5+A16 accepts a
+  COMMENTED review as satisfying the gate.
+- Copilot reviews are HEAD-stale: a review attached to commit `X` does
+  not satisfy A5+A16 once the PR is updated to commit `Y`. Re-engagement
+  requires another `harness copilot-engage <pr>` invocation (which fires
+  a fresh GraphQL mutation), not a `@copilot review` comment.
+- Copilot may not re-engage within a reasonable window (>10 min)
+  for trivial doc-only deltas (CHANGELOG-only fix following a
+  substantive review). When all substantive feedback is addressed and
+  the post-review delta is verifiably trivial, admin-merge via
+  `gh pr merge --squash --admin` is the user-pre-authorized path
+  (CS11 precedent).
+- Inline review comments from Copilot may be **stale relative to the
+  committed code** — Copilot occasionally flags an issue that was
+  already fixed in the same commit it's reviewing (PR #72 had this
+  exact case: F-003 NIT was already addressed in `40e81a8`, but Copilot
+  reviewing `40e81a8` still flagged the pre-fix line). Always verify by
+  reading the current file before treating a Copilot comment as
+  actionable.
+
+**Disposition:** _(applied 2026-06-30 — `harness copilot-engage <pr>` is the documented-and-verified Copilot engagement path; do not rely on `gh pr comment "@copilot review"` or `gh pr edit --add-reviewer` (both refuted on PR #72). Admin-merge via `gh pr merge --squash --admin` is the pre-authorized escape hatch for verifiably-trivial post-review deltas. Copilot reviews are HEAD-stale and arrive as COMMENTED, which satisfies A5+A16.)_
+
+---
+
+### LRN-025
+
+```yaml
+id: LRN-025
+date: 2026-06-10
+category: architectural
+source_cs: CS14
+status: applied
+tags: [esbuild, bundler, frontend-build, swa-deploy, coverage, sourcemap]
+```
+
+**Problem:** Consuming external/extracted ESM packages (immediately: CS13's
+`canvas-game-engine`) requires resolving bare-package specifiers
+(`from 'canvas-game-engine/loop.mjs'`) that browsers cannot resolve from a raw
+`src/` tree, and `node_modules` is not deployed to SWA. The v1 "no bundler"
+shortcut blocked any external dependency.
+
+**Finding:** esbuild (exact-pinned `0.28.0`) as a single-entry bundler
+(`src/game/main.mjs` → `src/dist/main.mjs`; ESM; ES2022; external sourcemap; no
+minify) cleanly resolves the existing relative `.mjs` graph and unblocks
+bare-specifier deps. Integration facts proven end-to-end on prod `368eb56`:
+
+- **SWA/Oryx:** `app_location:"src"` with no `src/package.json` meant Oryx never
+  built the frontend (it shipped raw static assets). Adding workflow-level
+  `npm ci && npm run build` before the `static-web-apps-deploy` action produces a
+  byte-identical bundle in production (`/dist/main.mjs` = 106,559 B) — no
+  `skip_app_build: true` needed, `api_location:"api"` untouched.
+- **Coverage:** the bundle must be excluded from c8 (`--exclude "src/dist/**"`)
+  in BOTH `package.json` and `ci.yml`; `scripts/coverage-perfile.mjs` `normalize()`
+  collapses leading `../` so the per-file gate attests sources, not the bundle
+  (esbuild sourcemap `sources` are `../game/…`/`../engine/…`, though monocart
+  already resolves them — the strip is regression-tested defensive insurance).
+  E2E per-file gate passed with 29 source files.
+- **Freshness:** `pretest:e2e[:coverage]` hooks + `webServer.command:
+  "npm run build && npm run serve"` + explicit CI build steps each guarantee a
+  fresh bundle; the hook specifically covers the local `reuseExistingServer` path
+  where Playwright skips the webServer build.
+- **Baseline (R7):** 104.1 KB raw / 191 KB map; esbuild build ~180 ms. No
+  bundle-size budget yet.
+
+**Disposition:** _(applied 2026-06-30 — esbuild single-entry bundling is the standard frontend-build pattern (CS14) and unblocked consuming the external `canvas-game-engine` package in CS13; the bundle is excluded from coverage and rebuilt fresh in CI/e2e. TypeScript adoption and a bundle-size budget (R7) remain deliberately out of scope.)_
 
 ## Obsolete
 
-_(no entries yet)_
+### LRN-012
+
+```yaml
+id: LRN-012
+date: 2026-05-13
+category: process
+source_cs: CS02
+status: obsolete
+tags: [engine, input, integration-seam, allowlist, sub-agent-fanout]
+```
+
+**Problem:** During CS02 Wave 2 the orchestrator dispatched lane 5 (player + invaders)
+and lane 6 (HUD + scenes + constants) in parallel. Lane 2 (engine `input.mjs`) had
+already shipped a defensive `recognizedCodes` allowlist that filtered everything other
+than the movement and fire keys (`ArrowLeft/Right`, `KeyA/D`, `Space`, `KeyW`,
+`ArrowUp`). Lane 6's `scenes/play.mjs` (pause on `Escape`) and `scenes/gameover.mjs`
+(menu return on `KeyM`) compiled and tested fine because lane 6's tests did not exercise
+the live `createInput` factory — they covered scene logic with hand-built input
+snapshots. The integration gap surfaced only at orchestrator-side disk verification.
+
+**Finding:** Engine modules with a defensive allowlist are a **silent integration seam**
+when game lanes are dispatched in parallel. Two complementary mitigations:
+
+1. The orchestrator-owned post-wave verification must include an exit code that runs
+   each scene's `handleInput` against a real `createInput()` snapshot for every key the
+   scene's source code references. This catches future filter gaps without requiring
+   either lane to know about the other's keymap.
+2. Engine `recognizedCodes` should be an **opt-out allowlist** (allow all `Key*` /
+   `Arrow*` codes by default; deny only known noisy codes) rather than an opt-in one.
+
+CS02 absorbed the immediate fix as an orchestrator integration edit (added `Escape` +
+`KeyM` to the allowlist + matching test in `src/engine/input.test.mjs`, commit
+`ac47542`). The opt-out-allowlist refactor is left as a future engine improvement when
+the engine is extracted to `henrik-me/canvas-game-engine`.
+
+**Disposition:** _(obsolete 2026-06-30 — CS13 extracted the engine to the external `canvas-game-engine` package and deleted the in-tree `src/engine/input.mjs`, so this specific allowlist integration seam no longer exists in this repo; the opt-out-allowlist refactor is now an upstream concern. The general parallel-fan-out integration-verification lesson is retained via LRN-013 and LRN-016.)_
 
 ## Deferred
 
