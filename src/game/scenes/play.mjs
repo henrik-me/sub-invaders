@@ -1,5 +1,5 @@
-import { groupCollisions } from '../../engine/collision.mjs';
-import { createRng as defaultCreateRng } from '../../engine/seed.mjs';
+import { groupCollisions } from 'canvas-game-engine/collision.mjs';
+import { createRng as defaultCreateRng } from 'canvas-game-engine/seed.mjs';
 import {
   CANVAS,
   ENEMY_SHOT,

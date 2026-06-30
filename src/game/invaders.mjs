@@ -1,4 +1,4 @@
-import { Entity } from '../engine/entity.mjs';
+import { Entity } from 'canvas-game-engine/entity.mjs';
 
 const DEFAULT_ROWS = 5;
 const DEFAULT_COLS = 11;

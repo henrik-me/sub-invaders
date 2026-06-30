@@ -1,4 +1,4 @@
-import { Entity } from '../engine/entity.mjs';
+import { Entity } from 'canvas-game-engine/entity.mjs';
 
 const DEFAULT_CANVAS_WIDTH = 800;
 const DEFAULT_PLAYER_Y = 560;

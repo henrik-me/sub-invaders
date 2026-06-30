@@ -66,8 +66,10 @@ Highlights:
   on `src/` + `scripts/` reports **134 tests passing** (was 0 at end of CS01;
   CS02 added 117, CS02 follow-up PR #20 added another 17 — `constants.test.mjs`
   + `verify-deploy.checks.test.mjs`).
-- Engine isolation: `node scripts/check-engine-isolation.mjs --dir src/engine
-  --quiet` exits 0 over 18 `.mjs` files. Engine remains game-agnostic.
+- Engine isolation: the engine is now consumed as the external `canvas-game-engine`
+  dependency (`github:henrik-me/canvas-game-engine#v0.1.0`), extracted in CS13; the one-way
+  isolation invariant is enforced by the upstream repo's CI and the former in-repo
+  `check-engine-isolation` linter has been removed. Engine remains game-agnostic.
 - `verify-deploy` scaffold wired (CS02 PR #20): `scripts/verify-deploy.checks.mjs`
   defines frontend-root (HTML body must contain `#game-canvas` + "Sub Invaders"),
   health (`/api/health` 200 + non-empty body), sprites (`/public/sprites.png`

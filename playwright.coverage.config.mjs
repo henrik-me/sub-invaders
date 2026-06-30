@@ -84,10 +84,14 @@ export default defineConfig({
             if (!sourcePath.endsWith('.mjs')) return false;
             // Mirror the entryFilter exclusion for game/api.mjs (see comment above).
             if (sourcePath.endsWith('/game/api.mjs') || sourcePath === 'game/api.mjs') return false;
-            return sourcePath.includes('/engine/')
-              || sourcePath.includes('/game/')
-              || sourcePath.startsWith('engine/')
-              || sourcePath.startsWith('game/');
+            // Include this repo's game sources AND the bundled canvas-game-engine
+            // package (CS13): the engine ships inside the production bundle, so its
+            // integration coverage legitimately counts toward the e2e aggregate.
+            // The external engine is NOT per-file gated here — that is the upstream
+            // repo's responsibility (coverage-perfile.mjs drops node_modules paths).
+            return sourcePath.includes('/game/')
+              || sourcePath.startsWith('game/')
+              || sourcePath.includes('canvas-game-engine');
           },
           // CS09 Phase 3: locked-in floors after Phase 2 test-writing.
           // Targets were >=90/85 across all four metrics (matched in the unit

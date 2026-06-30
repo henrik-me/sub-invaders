@@ -1,4 +1,4 @@
-import { createRng } from '../../engine/seed.mjs';
+import { createRng } from 'canvas-game-engine/seed.mjs';
 import { createPlayScene as defaultCreatePlayScene } from './play.mjs';
 import * as bossRush from '../modifiers/boss-rush.mjs';
 import * as fogOfWar from '../modifiers/fog-of-war.mjs';

@@ -164,8 +164,9 @@ accounted for.
 - ES2022 modules (`.mjs` extension), strict mode by default. Source files are hand-authored
   ES2022 `.mjs`, bundled by esbuild (`npm run build`) into `src/dist/` (gitignored) and
   browser-loaded as ES modules. See CS14 for the bundler rationale.
-- Engine code in `src/engine/` MUST NOT import from `src/game/`. Game code may import engine.
-  Cyclic or reverse imports are an error and a learning candidate.
+- Game code (`src/game/`) consumes reusable engine APIs from the external `canvas-game-engine`
+  package (`github:henrik-me/canvas-game-engine#v0.1.0`); the engine isolation contract is owned
+  and enforced upstream, not in sub-invaders' CI.
 - Use `const` by default; `let` only when reassignment is necessary; never `var`.
 - Tests live next to modules with `.test.mjs` suffix; run with
   `node --test src/**/*.test.mjs`.
@@ -180,9 +181,13 @@ accounted for.
 
 ### Engine isolation invariant
 
-Engine code (`src/engine/`) is a candidate for extraction into a separate package. Keep its
-surface API stable and game-agnostic. The no-reverse-imports rule (engine MUST NOT import
-from `src/game/`) is repeated here explicitly so it survives a future repo split.
+The engine is now the external package `canvas-game-engine`
+(`github:henrik-me/canvas-game-engine#v0.1.0`), extracted from this repo in CS13. Keep its
+surface API stable and game-agnostic. The no-reverse-imports rule — engine code MUST NOT import
+from `src/game/` or any consumer — is restated here explicitly so it survives the repo split.
+That contract is now owned and CI-enforced by the upstream `canvas-game-engine` repo, not by
+sub-invaders' CI; the full API surface is documented in the
+[upstream `canvas-game-engine` README](https://github.com/henrik-me/canvas-game-engine/blob/v0.1.0/README.md).
 
 ### Sprite sheet & assets (CS02+)
 

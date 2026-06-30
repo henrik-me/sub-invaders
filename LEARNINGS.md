@@ -1102,6 +1102,40 @@ out of CS15 scope.)_
 
 ---
 
+### LRN-027
+
+```yaml
+id: LRN-027
+date: 2026-06-30
+category: architectural
+source_cs: CS13
+status: open
+tags: [engine-extraction, canvas-game-engine, git-url-dependency, bare-specifier, upstream-ci, dependency-pinning]
+```
+
+**Problem:** The Canvas 2D engine (nine modules: `loop`, `entity`, `collision`,
+`input`, `renderer`, `sprite`, `audio`, `scene`, `seed`) was vendored in-tree at
+`src/engine/`, and its one-way isolation invariant (engine never imports game
+code) was enforced by an in-repo linter `scripts/check-engine-isolation.mjs`.
+Keeping the engine in-tree blocked reuse by other games and coupled the engine's
+release cycle to sub-invaders' own.
+
+**Finding:** CS13 extracted the engine to the standalone public repo
+`henrik-me/canvas-game-engine`, tagged `v0.1.0`. sub-invaders now consumes it as a
+git-URL dependency (`github:henrik-me/canvas-game-engine#v0.1.0`) and imports
+bundler/Node-resolved bare specifiers (`canvas-game-engine/<module>.mjs`) instead
+of relative `src/engine/...` paths. The vendored directory and
+`scripts/check-engine-isolation.mjs` were deleted; the no-reverse-imports contract
+and its CI enforcement now live in the upstream repo, and the API surface is
+documented in the upstream README.
+
+**Disposition:** _(open. Accepted tradeoff: engine bugfixes/features now require an
+upstream round-trip — a PR + new tag in `canvas-game-engine`, then a dependency-pin
+bump in sub-invaders — rather than an in-tree edit. The pinned tag gives
+reproducible builds at the cost of manual dep bumps to pick up upstream changes.)_
+
+---
+
 _(no entries yet)_
 
 ## Obsolete
