@@ -6,7 +6,10 @@
  * Error subclasses so game scenes can surface predictable messages.
  */
 
+import { isPractice as defaultIsPractice } from './mode.mjs';
+
 const DEFAULT_BASE = '/api';
+const PRACTICE_SKIP = Object.freeze({ skipped: true, reason: 'practice' });
 
 export class ApiError extends Error {
   constructor(message, { status = 0, code = 'unknown', cause } = {}) {
@@ -82,8 +85,13 @@ export function createApiClient(opts = {}) {
     throw new Error('createApiClient: fetch is not available');
   }
   const baseUrl = normalizeBase(opts.baseUrl);
+  const isPractice = opts.isPractice ?? (() => defaultIsPractice());
 
   async function startSession() {
+    if (isPractice()) {
+      return PRACTICE_SKIP;
+    }
+
     const body = await request(fetchFn, baseUrl, '/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -101,6 +109,10 @@ export function createApiClient(opts = {}) {
   }
 
   async function submitScore({ sessionId, score, finishedAt, period, utcDate } = {}) {
+    if (isPractice()) {
+      return PRACTICE_SKIP;
+    }
+
     if (typeof sessionId !== 'string' || sessionId.length === 0) {
       throw new ApiError('submitScore: sessionId is required', { code: 'invalid_argument' });
     }
