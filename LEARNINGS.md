@@ -1136,6 +1136,53 @@ reproducible builds at the cost of manual dep bumps to pick up upstream changes.
 
 ---
 
+### LRN-028
+
+```yaml
+id: LRN-028
+date: 2026-06-30
+category: process
+source_cs: CS13
+status: open
+tags: [harness-init, coverage, e2e, ci, swa-deploy, extraction, follow-up]
+```
+
+**Problem:** Executing the CS13 extraction surfaced several mechanics the plan
+did not anticipate, and exposed one pre-existing production-deploy issue.
+
+**Finding:**
+- **`harness init` scaffolds are opt-IN** (`--with-scaffold`), not opt-out. A
+  library-shaped consumer gets a clean tree by simply omitting them — no
+  deploy dirs (`flags/`, `health/`, `seeds/`, `api/`) are created, so the
+  anticipated "prune irrelevant dirs" step (CS13 Risk R4) was a no-op. Fresh
+  `init` also leaves `REPLACE_ME`/`my-project`/`mp` placeholders in
+  `harness.config.json`, defaults `review_gates` ON, and (when run via
+  `npx github:…#tag`) records `harness_ref: "unknown"` in the lock; fix the
+  config + re-`sync`, and set the lock ref manually. (CS13-17: in-repo
+  learning, no upstream issue filed.)
+- **Externalizing the engine interacts with the E2E per-file coverage gate.**
+  Once the engine lives in `node_modules/canvas-game-engine/src/`, the bundle
+  sourcemap paths are `../../node_modules/canvas-game-engine/src/<m>.mjs`;
+  `coverage-perfile.mjs normalize()` collapsed them to `src/<m>.mjs` and would
+  have gated the dependency as local source. Fix: drop `node_modules` paths
+  from the per-file gate, while keeping the bundled engine in the e2e
+  suite-level aggregate (it ships in the production bundle) via the monocart
+  `sourceFilter`. The external engine's per-file coverage is owned upstream.
+- **CI `js-tests` needed `npm ci`.** Once unit tests import the
+  `canvas-game-engine` package (vs. relative `../engine/...`), the `node --test`
+  job must install dependencies; other jobs already did.
+
+**Disposition:** _(open — FOLLOW-UP. Two pre-existing, non-CS13 issues to track
+separately: (1) the E2E suite-level aggregate floor check (`playwright.coverage.config.mjs`
+`onEnd`) is **non-fatal** — `process.exitCode=1` does not fail the Playwright run —
+and has been printing a ❌ regression on `main` since low-coverage `game/modifiers/*`
+landed; (2) **main-push `swa-deploy` runs have been cancelling since `8a2c5bc`
+(2026-06-16)**, leaving production stale across CS14/CS15/CS13-claim; re-running the
+CS13 merge deploy (`78dcad0`) landed it, but the recurring cancellation needs a root-cause
+fix to the workflow concurrency/triggers. Recommend filing a maintenance CS for both.)_
+
+---
+
 _(no entries yet)_
 
 ## Obsolete

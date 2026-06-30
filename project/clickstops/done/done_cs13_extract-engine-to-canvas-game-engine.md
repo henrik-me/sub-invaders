@@ -1,10 +1,10 @@
 # CS13 — Extract engine to canvas-game-engine v0.1.0 and migrate sub-invaders to consume it
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-si
 **Branch:** cs13/content
 **Started:** 2026-06-29
-**Closed:** —
+**Closed:** 2026-06-30
 **Filed by:** yoga-si (Claude Opus 4.7) on 2026-06-10, in response to user request after engine readiness assessment confirmed the engine is in good shape for reuse (`src/engine/` 119/119 tests pass; isolation lint passes; 9 modules, 27–160 LOC each, zero npm deps). **Revised on 2026-06-10** after GPT-5.5 R1 plan review returned `Needs-Fix` (blocker: bare-specifier imports unresolvable in sub-invaders' no-bundler browser runtime, plus 7 quality findings). Revision adds CS14 (bundler intro) as prerequisite, fixes the import-specifier strategy, and addresses all 7 non-blocker findings. **Re-revised 2026-06-10** after GPT-5.5 R2 plan review returned `Needs-Fix` with 4 major + 1 minor findings (R4 mitigation still contradicted CS13-17; CONVENTIONS line 166 also stale; exports check not exact equality; coverage count wrong + `**/*.mjs` glob; stale hash literal). Re-revision addresses all 5 R2 findings. **Re-revised again 2026-06-10** after GPT-5.5 R3 plan review returned `Needs-Fix` with 2 major + 1 minor findings (upstream CI missed lifted lint/export-contract tests; bootstrap-PR plan-review accounting ambiguous; stale file counts + cross-refs). Re-revision adds bootstrap-time export-contract test, new-repo CS01 bootstrap clickstop pattern (CS13-10 corrected), and corrects all stale counts/cross-refs.
 **Depends on:** CS02 (engine + minimal game shipped — provides the `src/engine/` surface this CS extracts), **CS14 (introduce esbuild bundler — prerequisite for resolving non-relative ESM imports in the browser; CS14 MUST close before CS13 can claim).**
 
@@ -185,4 +185,33 @@ Filled during execution. At minimum, record: harness-init friction with library-
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate — required only when this file lives in `active/` or `done/`)_
+**Reviewer:** gpt-5.5 (rubber-duck, dispatched by orchestrator yoga-si)
+**Date:** 2026-06-30T06:30:00Z
+**Outcome:** GO
+
+Holistic close-out review of the complete Phase A + Phase B arc against all
+Deliverables and the 8 Exit criteria. All exit criteria pass: (1) `henrik-me/canvas-game-engine`
+is public, has `main` + `v0.1.0` tag/release (tag → bootstrap merge `dafea8a`),
+engine CI green; (2) the installed package's named exports match the contract
+exactly for all 9 modules; (3) `src/engine/`, `scripts/check-engine-isolation.mjs`
+and its test are gone from sub-invaders `main`; (4) `package.json` pins
+`github:henrik-me/canvas-game-engine#v0.1.0`; (5) `npm run test:unit` 316/316 +
+`coverage`/`dotnet`/`harness-lint`/`ci` PR checks all green; (6) production
+`/api/health` returns 200 with `commit: 78dcad0`, the root serves `#game-canvas`
++ loads `dist/main.mjs`; (7) this file moves to `done/` with this GO row; (8)
+`CONVENTIONS.md` has no `src/engine` reference.
+
+| Deliverable group | Outcome | Notes |
+|---|---|---|
+| Phase A — repo + bootstrap | match | Public repo, main, bootstrap PR merged, harness/clickstop artifacts present. |
+| Phase A — engine lift + JSDoc | match | 9 modules + tests lifted; CHANGELOG documents extraction from `sub-invaders@714a356`; CI green. |
+| Phase A — package + exports + contract test | diverged | Functionally OK; `package.json` `test` uses `node --test` default discovery rather than the plan's explicit globs (Node 20 does not glob `--test` args). CI proves all test trees run. Non-blocking. |
+| Phase A — tag + release | match | `v0.1.0` tag + non-draft release point at `dafea8a`. |
+| Phase B — dependency + imports | match | Git-URL dep pinned; all `src/game/**` imports use `canvas-game-engine/<module>.mjs`; no relative `../engine` imports remain. |
+| Phase B — deletion | match | `src/engine/` + the in-repo isolation linter + test removed. |
+| Phase B — coverage cleanup | match | Engine override keys removed; per-file scope retargeted to `src/game/**/*.mjs`; coverage PR check passed. |
+| Phase B — docs | match | CONVENTIONS/ARCHITECTURE/CONTEXT/LEARNINGS describe the external-package boundary + upstream ownership. |
+| Close-out coverage/CI fixes | added (justified) | e2e `sourceFilter` keeps the bundled engine in the aggregate while `coverage-perfile` excludes `node_modules` from the per-file gate; `ci.yml` adds `npm ci` before the js-tests job so the git dependency installs. |
+| Pre-existing CI/deploy quirks | non-CS13 | The non-fatal e2e suite-level aggregate-floor warning and the main-push deploy cancellations both pre-date CS13 (prod was stuck at `8a2c5bc` from 2026-06-16); flagged as follow-ups, not introduced here. |
+
+**Test-coverage assessment:** sufficient — engine behaviour + exact export contract are owned by upstream `canvas-game-engine` CI; sub-invaders keeps game-only per-file coverage plus integration coverage of the bundled dependency. No material untested CS13 scenario remains.
