@@ -1,30 +1,30 @@
 {
-  "harness_ref": "v0.8.0",
-  "resolved_sha": "2352d38b3ea7dff3147bc0c70c29cb0d5c4815b2",
+  "harness_ref": "v0.10.0",
+  "resolved_sha": "6ccc28428f4795cc986a30bf5d0178dacdf070c9",
   "config_schema_version": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
-  "synced_at": "2026-06-10T06:12:06.365Z",
+  "synced_at": "2026-07-01T21:14:09.831Z",
   "files": [
     {
       "target": ".github/workflows/pr-evidence-lint.yml",
       "source_template": "template/managed/.github/workflows/pr-evidence-lint.yml",
       "class": "managed",
       "rendered_hash": "7ec3e619969cf1915794bd14df99cb1359dd1fca508049e0251d15249020dad4",
-      "action": "updated"
+      "action": "skipped"
     },
     {
       "target": "CONVENTIONS.md",
       "source_template": "template/composed/CONVENTIONS.md",
       "class": "composed",
-      "rendered_hash": "a2fe888628ff8f563098bfab15554b9f39546d979e32f3e5c6ea9d4a402998d9",
+      "rendered_hash": "75e884c55c254d7d6d1534a53c920a3536740aa6dd57295210d74c4e18d32cfd",
       "action": "skipped",
       "blocks": [
         {
           "id": "conventions.project",
           "source_line_range": {
             "start": 160,
-            "end": 191
+            "end": 197
           },
-          "body_hash": "caa9543e98d87a3b3555ee6348fccf8ae7923dabda26c8d72168f3d9fea464cf",
+          "body_hash": "0cee03d414de087df9a3bfc86e043bc85786d2a167d35a7066a97f70c30ebb4f",
           "template_marker_hash": "d6d8dcea1d31794b2b9a755a199b5c0b76cc2c34e513164718e917c4945f1b92",
           "provenance": "user-authored"
         }
@@ -35,63 +35,63 @@
       "target": "OPERATIONS.md",
       "source_template": "template/composed/OPERATIONS.md",
       "class": "composed",
-      "rendered_hash": "003c7ac03073403491d0fd9ebcb726ba32c7f24de8b370b7e93c90c34679a8fe",
-      "action": "updated",
+      "rendered_hash": "c6de1156684816c46587b1bbbe0d6586573b142de03f3fee8153d58847f0d53c",
+      "action": "skipped",
       "blocks": [
         {
           "id": "operations.project-deploy",
           "source_line_range": {
-            "start": 2224,
-            "end": 2454
+            "start": 2688,
+            "end": 2930
           },
-          "body_hash": "c49347d7648a0a63e99038332089ce49ddfe9c50c1d5c50c4cc3d37a619a9f2d",
+          "body_hash": "99ee9ac92c4d36b3b8aed9f04b14fb0236eec7cffbc52c589b4813435c68ecf7",
           "template_marker_hash": "c538812699662e1747082864f419826b433df6e5164cdd28e870df72fcc559e5",
           "provenance": "user-authored"
         }
       ],
-      "template_prose_hash": "94303d464b650f57bbeba95bc2a085dd87f531928400b34e428e8665d698fafb"
+      "template_prose_hash": "17db268640514e67a139e17de93cd1f35bd8ef39162dc10026e58fb1670ab81b"
     },
     {
       "target": "REVIEWS.md",
       "source_template": "template/composed/REVIEWS.md",
       "class": "composed",
-      "rendered_hash": "7c484eecbaebb2ab562190ab5703892eda460be1a3054ee599aac8fc6d4ebb20",
-      "action": "updated",
+      "rendered_hash": "4264663c174e20318736d27cb3edf790886bfcba835ecf7ab318f0bc01418a85",
+      "action": "skipped",
       "blocks": [
         {
           "id": "reviews.project-gates",
           "source_line_range": {
-            "start": 611,
-            "end": 653
+            "start": 737,
+            "end": 779
           },
           "body_hash": "464f711b20a4a7f037588e173d498c9c88f4943d1b09e62e607daf5d86636241",
           "template_marker_hash": "5e1b41d3287a93df32706fff5619c8aa4fd7cfacd0f601fd1d23489010a4319e",
           "provenance": "user-authored"
         }
       ],
-      "template_prose_hash": "b1d31f63ca7338a3c164667d4a60686c03e2c0c305159f480413ef4e7db09eff"
+      "template_prose_hash": "73a8bd6998ebd2558232be39d20ff06a3aeb31559abaf3112971494795d6272d"
     }
   ],
   "scaffolds": [
     {
       "name": "feature-flags",
-      "version": "v0.8.0"
+      "version": "v0.10.0"
     },
     {
       "name": "verify-deploy",
-      "version": "v0.8.0"
+      "version": "v0.10.0"
     },
     {
       "name": "container-validate",
-      "version": "v0.8.0"
+      "version": "v0.10.0"
     },
     {
       "name": "seed",
-      "version": "v0.8.0"
+      "version": "v0.10.0"
     },
     {
       "name": "health-check",
-      "version": "v0.8.0"
+      "version": "v0.10.0"
     }
   ],
   "excluded": []

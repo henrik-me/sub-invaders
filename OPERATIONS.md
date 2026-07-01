@@ -116,9 +116,10 @@ computed over their bodies.
 ## Claim
 
 The claim workflow moves a planned Clickstop (CS) into flight and establishes
-a content PR on the repo. **One CS active at a time** — the WORKBOARD's
-Active Work table is the live lock. No new CS may be claimed while an
-existing CS has `state = Active`.
+a content PR on the repo. **One CS active per orchestrator** — the WORKBOARD's
+Active Work table is the live lock, keyed on the Owner. An orchestrator may not
+claim a second CS while it already owns an Active row, but different
+orchestrators run concurrently and may each hold their own Active CS.
 
 ### Three-PR shape
 
@@ -153,7 +154,33 @@ Every active/done CS file must include explicit `## Tasks` rows for:
 `check-clickstop.mjs` enforces these rows for active CS files and for done CS
 files closed on or after CS15a's close-out enforcement date.
 
+**Directory-form CS close-out — `git mv` the whole directory (CS70 / LRN-A).** When a CS
+plan lives in **directory form** (`<state>/<state>_cs<NN>_<slug>/<state>_cs<NN>_<slug>.md` —
+the plan file sits inside a per-CS directory that may hold sibling artifacts), the
+`active → done` rename in the close-out PR MUST be a **directory-level** rename of the entire
+CS directory, never a per-file rename of just the plan file:
+
+```bash
+git mv project/clickstops/active/active_cs<NN>_<slug>/ \
+        project/clickstops/done/done_cs<NN>_<slug>/
+```
+
+A per-file rename silently drops every sibling file in the directory — the failure that lost
+`sub-invaders-bootstrap-summary.md` during the CS16 close-out
+([agent-harness#290](https://github.com/henrik-me/agent-harness/issues/290)). This is
+mechanically guarded: `check-clickstop.mjs` fails if any file ever seen under
+`active_cs<NN>_<slug>/` is absent under `done_cs<NN>_<slug>/` once the CS reaches `done/`,
+unless its basename is declared in an optional `.harness-closeout-allow-drop` file inside the
+`done_cs<NN>_<slug>/` directory (one basename per line; `#` comments and blank lines ignored).
+
 ### Claim steps
+
+`harness claim CS<NN>` (CS64) mechanizes this entire sequence: it runs the
+preflight + harvest gate, renders the claim plan as a dry-run by default,
+and on `--apply` cuts the branch, performs the `git mv`, and edits
+`WORKBOARD.md`. It NEVER commits and NEVER pushes — you own the commit
+message and the PR. The manual procedure below is preserved for triage and
+for environments where the verb is not yet installed.
 
 1. `git pull origin main --rebase` — sync with upstream.
 2. `git checkout -b cs<NN>/claim` — create claim branch.
@@ -171,9 +198,9 @@ files closed on or after CS15a's close-out enforcement date.
 
 ### Pre-claim harvest gate (CS04+)
 
-Run `harness harvest` before claiming (a future `harness claim` command will
-run it automatically — tracked in CS64). It surfaces stale `open` learnings
-tagged `process` or `architectural`, or learnings tagged with the
+Run `harness harvest` before claiming. `harness claim CS<NN>` (CS64) invokes
+it automatically as part of the preflight gate. It surfaces stale `open`
+learnings tagged `process` or `architectural`, or learnings tagged with the
 `claim_area` metadata for the current CS area. Resolve stale learnings
 before the workboard-claim PR lands.
 
@@ -205,6 +232,14 @@ the canonical `project/clickstops/{planned,active,done}/**` arc:
    labeled `harness-orchestrator` per cross-repo workstream.
 
 ### Plan-vs-implementation review (close-out gate)
+
+`harness close-out CS<NN>` (CS64) enforces this gate as Phase 1 of its
+preflight: it refuses to proceed unless the active CS file's
+`## Plan-vs-implementation review` section is populated with **Reviewer:**,
+**Date:**, and **Outcome:** GO. `--apply` then performs the `active → done`
+rename and the WORKBOARD row removal, and refuses to mark the close-out
+PR-ready until `CONTEXT.md` has also been updated (freshness gate). The
+verb NEVER commits — you own the commit message and the PR.
 
 This gate is **mandatory** before opening the close-out PR and before
 the `active → done` rename. Run it against the merged content HEAD (or the
@@ -280,6 +315,56 @@ the row's `Plan author model(s)` column or in any earlier row's
 - The full plan file: Background, Decisions, Deliverables, Sub-agent fan-out,
   Exit criteria, Risks + open questions.
 - Any cross-CS dependencies the plan declares.
+
+**Required verifications (per [REVIEWS.md § 2.6c](REVIEWS.md#26c-plan-review-scope--fact-claim-verification-lrn-139--lrn-158)):**
+
+Before recording a `Go` (or `Go-with-amendments`) verdict, the reviewer
+MUST have affirmatively verified every factual claim the plan makes about
+the repository at the analyzed HEAD — across **all** reviewer-consumed
+sections enumerated above (Background, Decisions, Deliverables,
+Sub-agent fan-out, Exit criteria, Risks + open questions, and any
+cross-CS dependencies), not only the hashed Decisions+Deliverables. The
+plan-review hash attests only that the reviewer saw a particular
+Decisions+Deliverables body; F1–F6 attest that the reviewer verified the
+plan's factual premises across the whole reviewer-consumed surface.
+Specifically:
+
+- **F1** every `--flag` named in the plan exists in the CLI surface (or
+  is explicitly described as not-yet-existing — for plans whose
+  deliverables include adding a new flag);
+- **F2** every `path:line` citation actually contains what the plan asserts
+  at the analyzed HEAD (line numbers drift across snapshots/syncs/edits);
+- **F3** doctrine-strength claims (`required`, `mandatory`, `enforces`,
+  `recommended`, `optional`) match the cited source verbatim or via a
+  documented synonym;
+- **F4** LRN/CS scope summaries stay within the source entry's
+  Problem/Finding scope;
+- **F5** cross-doc claims are mutually consistent;
+- **F6** every **state-of-the-world claim** (release/tag/PR/issue/label
+  state, branch protection, ruleset config, etc.) is verified at
+  plan-review time via a non-mutating CLI probe — `gh release list --repo <owner>/<repo> --limit N`,
+  `gh api repos/<owner>/<repo>/releases --jq 'map(select(.tag_name=="<tag>"))'`
+  (both published AND draft), `git ls-remote origin refs/tags/<tag>`,
+  `gh pr view <num> --repo <owner>/<repo>`, `gh issue view <num> --repo <owner>/<repo>`,
+  `gh label list --repo <owner>/<repo>`, etc. — and the probe is recorded in
+  the plan's Background or Constraints so subsequent reviewers can audit
+  the same premise.
+
+Inherited findings (line numbers from another snapshot, tag/release state
+assumed from prior CS plans, Copilot citations from a sibling-repo PR)
+MUST be re-verified against the current HEAD before being accepted as a
+plan premise. Returning `Go` on an unverified inherited citation is a
+process bug — see REVIEWS.md § 2.6c for the CS54-T1 and CS70 source
+incidents and the full F1–F6 table.
+
+**Reviewer-prompt requirement.** Every plan-review dispatch MUST include
+language equivalent to the F1–F6 verification clause carried in the
+canonical reviewer preamble below (`## Reviewer dispatch — canonical
+preamble`), which references § 2.6c. The orchestrator MUST NOT issue a
+plan-review dispatch that omits this clause; if a returned `Go` verdict
+shows no evidence the reviewer ran F1–F6 (no CLI-probe output for any
+state-of-the-world claim, no file-open for any `path:line` citation), the
+orchestrator MUST re-dispatch.
 
 **Required outputs the reviewer must produce:**
 
@@ -471,12 +556,16 @@ for the full briefing and reporting model.
 
 If you need to leave a CS mid-flight:
 
-1. Update `WORKBOARD.md`: set `state = ⏸ Paused` (or `🔴 Blocked`) with a
+1. Run `harness status` (CS64) and capture its one-screen snapshot in the
+   handoff note — it lists the current active CS, the WORKBOARD Active Work
+   rows, and the in-flight `planned`/`active` arc, which is the exact context
+   another orchestrator (or a future you) needs to resume.
+2. Update `WORKBOARD.md`: set `state = ⏸ Paused` (or `🔴 Blocked`) with a
    brief reason and the `last-updated` timestamp.
-2. Commit on the content branch and push: "WIP: <brief reason>" (this commit
+3. Commit on the content branch and push: "WIP: <brief reason>" (this commit
    will be squash-merged later; it exists only to preserve work-in-progress
    state).
-3. Note the `reclaimable` threshold in the WORKBOARD row (default: 7 days
+4. Note the `reclaimable` threshold in the WORKBOARD row (default: 7 days
    with no update). After that threshold, another orchestrator may pick it up
    by updating the WORKBOARD row with the new agent ID.
 
@@ -497,6 +586,20 @@ The orchestrator files a GitHub issue and lets the consumer-repo agent
 own the PR, validation, and merge. There is no escape hatch — even
 urgent cross-repo work routes through an issue. (The human user can
 still act directly outside the orchestrator at any time.)
+
+**Pre-flight — verify the target artifact exists before filing an "update file X"
+issue (CS70 / LRN-B).** Before filing a cross-repo issue whose deliverable is
+"update / annotate / add file `X` in consumer repo `Y`", the orchestrator MUST first
+verify **either** (a) that file `X` already exists in `Y` (e.g.
+`gh api repos/Y/contents/<path>`, `git ls-remote`, or a clone check), **or** (b) that a
+harness contract produces it in consumers (a `seeded` / `managed` / `composed` file under
+`template/**`, or a scaffold emitted by `harness init` / `harness sync`). If **neither**
+holds, `X` is a phantom target: the work does **not** belong in a cross-repo issue — it
+belongs in a **harness-side CS**. Filing a consumer issue to "update a file that does not
+exist and that no harness contract emits" routes work against a phantom artifact — exactly
+the `sub-invaders-bootstrap-summary.md` misrouting
+([sub-invaders#91](https://github.com/henrik-me/sub-invaders/issues/91) →
+[agent-harness#290](https://github.com/henrik-me/agent-harness/issues/290); see LRN-B).
 
 **Status questions (e.g. "is SI updated to v0.6.0?"):**
 
@@ -773,6 +876,14 @@ sub-tasks per the parallelisation table in the active CS plan. Sub-agents
 must be **briefed with structured context** and must **report back with a
 structured report**. Both requirements are non-negotiable — without them the
 orchestrator loses observability and the work loses traceability.
+
+`harness dispatch` (CS64) emits the canonical sub-agent briefing preamble
+verbatim from this document's [§ Mandatory briefing preamble](#mandatory-briefing-preamble-copy-verbatim-into-every-dispatch)
+fence (the CRITICAL PREFLIGHT block + File ownership + Required reading +
+Conventions + Self-checks + Reporting independence + Mandatory report shape).
+Paste its output as the first thing in every sub-agent prompt to satisfy the
+"verbatim paste, not reference" discipline that LRN-068 captures. The verb is
+deterministic and read-only.
 
 ### Models
 
@@ -1176,7 +1287,31 @@ schema reader, you MUST ALSO perform schema-conformance verification per
 REVIEWS.md § 2.6b: (S1) the reader requires no field the schema marks
 optional/defaulted; (S2) each default-when-absent matches the schema's
 declared `default` (or a documented divergence); (S3) present-but-malformed
-values fail closed against the schema's `type`/`pattern`/`enum`.
+values fail closed against the schema's `type`/`pattern`/`enum`. For
+**plan reviews** of planned/active CS files (per
+[Plan review attestation procedure (CS35b)](#plan-review-attestation-procedure-cs35b)),
+you MUST ALSO perform plan-side fact-claim verification per REVIEWS.md
+§ 2.6c across **all** reviewer-consumed plan sections (Background,
+Decisions, Deliverables, Sub-agent fan-out, Exit criteria, Risks +
+open questions, and any cross-CS dependencies the plan declares —
+not only the hashed Decisions+Deliverables): (F1) every named `--flag`
+exists (or is explicitly described as not-yet-existing — for plans
+whose deliverables include adding a new flag); (F2) every
+`path:line` citation actually contains what the plan asserts at the
+analyzed HEAD (open the file — line numbers drift across snapshots and
+syncs); (F3) doctrine-strength claims match the cited source verbatim;
+(F4) LRN/CS scope summaries stay within the source entry's scope;
+(F5) cross-doc claims are mutually consistent; (F6) every
+state-of-the-world claim (release/tag/PR/issue/label state) is verified
+via a non-mutating CLI probe (`gh release list --repo <owner>/<repo> --limit N`,
+`gh api repos/<owner>/<repo>/releases --jq 'map(select(.tag_name=="<tag>"))'`
+covering BOTH published and draft, `git ls-remote origin refs/tags/<tag>`,
+`gh pr view <num> --repo <owner>/<repo>`, `gh issue view <num> --repo <owner>/<repo>`,
+`gh label list --repo <owner>/<repo>`) and the probe is recorded
+in the plan's Background or Constraints. Inherited findings (citations
+from other repos, prior snapshots, or earlier CS plans) MUST be
+re-verified against the current HEAD. Do NOT issue a Go verdict on a plan
+based on prose-internal coherence alone.
 
 **independence-invariant:** Your model MUST NOT appear in the active CS file's
 `## Model audit` `Implementer models` field. If it does, refuse the dispatch
@@ -1713,9 +1848,9 @@ with a previewable upgrade.
 
 | Invocation | Behaviour |
 |---|---|
-| `harness sync` | Apply mode (default): writes updates to disk. |
-| `harness sync --check` | Check mode: exits non-zero if any file is out of sync; writes nothing. Suitable for CI. |
-| `harness sync --dry-run` | Dry-run mode: prints what would change; writes nothing. |
+| `harness sync` (or `harness check`) | Check mode (**default**): reports drift and exits non-zero if any file is out of sync; writes nothing. Suitable for CI. |
+| `harness sync --mode=apply` | Apply mode: writes updates to disk. |
+| `harness sync --mode=dry-run` | Dry-run mode: prints what would change; writes nothing. |
 
 ### Flags
 
@@ -1737,6 +1872,26 @@ with a previewable upgrade.
   the actual content commit. The override is rejected (exit 2) in
   `--mode=check` / `--mode=dry-run` (only apply writes the lock) and
   rejected if the value is not 40-char lowercase hex.
+- **`--apply-new`** (CS64b C64b-3) — in apply mode, adopt every harness
+  `template/managed/` file absent from the consumer's `managed.files`
+  (membership, not disk presence; sentinels such as `.gitkeep` are excluded):
+  add the `managed.files` entry and materialize the rendered file. In
+  `--mode=check` / `--mode=dry-run` it is detection-only (never mutates, never
+  changes the exit code).
+- **`--quiet`** (CS64b C64b-3) — suppress the new-managed-file advisory (below);
+  errors still go to stderr. (Net-new on `sync` in CS64b — before then
+  `harness sync --quiet` errored.)
+
+### New-managed-file reconciliation (CS64b)
+
+`harness sync` (check and default paths) surfaces, alongside drift detection,
+every consumer-deliverable `template/managed/` file absent from the consumer's
+`managed.files` — closing the [LRN-155](LEARNINGS.md#lrn-155) asymmetry where
+sync noticed *changed* managed files but never *new* ones. The advisory is
+report-only: it does not change `driftDetected` or the exit code.
+`sync --mode=apply --apply-new` adopts the surfaced files (adds each
+`managed.files` entry + materializes the rendered file); `--quiet` suppresses the
+advisory.
 
 ### File-class behaviour
 
@@ -1781,6 +1936,26 @@ by a `legacy_composed_mapping.json` entry, sync exits non-zero and writes
 nothing (fail-closed per ADR 0001 § Legacy-content fail-closed invariant).
 Use `harness composed-audit --from-existing-harness` to generate the initial
 mapping when migrating an existing file onto the harness.
+
+### Consumer-template genericity invariant
+
+The core onboarding docs shipped to consumers — `INSTRUCTIONS.md`,
+`.github/copilot-instructions.md`, `TRACKING.md`, `RETROSPECTIVES.md`,
+`READMEGUIDE.md` — must be **repo-agnostic**. Their generic locations
+(`template/composed/<doc>` bases and `template/managed/<doc>`) must NOT
+contain a harness-internal reference: a bare `LRN-<digits>` or `CS<digits>`
+token, a `LEARNINGS.md#lrn-` anchor link, or the (case-insensitive)
+`henrik-me/agent-harness` slug. A repo that adopts the harness receives basic,
+generic instructions — not references that dangle back into the harness's own
+institutional memory. The composed bases are scanned **in full**, including the
+default `harness:local-*` block bodies (those ship to consumers verbatim on
+first init). The harness self-host keeps its own institutional cross-anchors in
+the **rendered repo-root** docs (`INSTRUCTIONS.md`,
+`.github/copilot-instructions.md`), which the linter does not target — it scans
+only the `template/**` generic sources and is package-name self-host gated. The
+`check-consumer-template-genericity` linter (registered in `harness lint`)
+enforces this invariant so the genericity cannot silently regress, as it did
+when those docs first reached consumers carrying dead harness anchors.
 
 ### Integration testing for templated outputs (LRN-057)
 
@@ -1930,8 +2105,8 @@ harness package is not published to npm. Always use
 
 - **Weekly:** Monday morning, run `harness harvest` (CS04+) and review
   `LEARNINGS.md`. Disposition any `open` entries.
-- **Before-claim (CS04+):** run `harness harvest` before claiming (a future
-  `harness claim` command will run it automatically — tracked in CS64). It
+- **Before-claim (CS04+):** run `harness harvest` before claiming
+  (`harness claim CS<NN>` runs it automatically per CS64). It
   surfaces stale `open` learnings tagged `process` or `architectural`, or
   tagged with `claim_area` metadata matching the current CS. Resolve before
   the workboard-claim PR lands.
@@ -2035,6 +2210,281 @@ worked" from "this was never implemented". Exit codes:
 | `1` | Runtime error |
 | `2` | Bad invocation (unknown flag or missing required argument) |
 | `3` | Planned but not yet implemented |
+
+---
+
+## Release process
+
+The mechanical procedure for cutting a harness release (tag + GitHub Release +
+consumer notification). Read [`§ SemVer policy`](#semver-policy) first to pick
+the bump size; this section assumes that decision is made. A release is its
+own CS — file a `planned_cs<NN>_release-v<x.y.z>` plan and follow the standard
+3-PR shape (claim → content → close-out).
+
+> **Mechanized by `harness release` (CS67).** The verb turns the Cut +
+> Post-merge steps below into a previewable, two-phase, dry-run-first command.
+> **Phase A** — `harness release --version <x.y.z>` (or `--bump <level>`)
+> previews the version bump (`package.json` + `package-lock.json`), the CHANGELOG
+> `[Unreleased] → [x.y.z]` promotion, and the README pin sweep; `--apply` writes
+> the files but never commits/tags/pushes. It refuses a SemVer-inconsistent bump.
+> **Phase B** — `harness release --publish --version <x.y.z> --sha <squash-sha>`
+> verifies `<squash-sha>`: by default it must be the current `origin/main` HEAD
+> (a stale/arbitrary SHA fails); passing `--pr <n>` **switches** the check so
+> `<squash-sha>` must instead equal that release PR's squash `mergeCommit.oid`
+> (authoritative even if `origin/main` has since advanced) and must not be the PR
+> branch head. Then `--apply` creates an **annotated** tag
+> (`git tag -a v<x.y.z> <sha> -m "Release v<x.y.z>"` then `git push origin v<x.y.z>`,
+> matching § Release process step 9) and the GitHub Release on it (a **draft**
+> by default; `--no-draft` to publish immediately) via
+> `gh release create <tag> --verify-tag` (release-only, no `--target`),
+> idempotently, and files issue-only consumer
+> notifications (`--consumer`). Run `harness release --help` for the full flag
+> list. The steps below remain the canonical spec and the manual fallback;
+> commits, the content PR, and the merge stay explicit orchestrator actions.
+> Because a verb-created tag can also trigger `release.yml` (which drafts), use
+> the verb **or** the manual tag-push flow and re-check for stale duplicate
+> drafts before publishing.
+
+### Inputs
+
+- Current pinned version (`package.json` `version` field).
+- Target version chosen per `§ SemVer policy` (e.g. `0.8.0`).
+- A clean `main` (bootstrap sanity-check passes per `INSTRUCTIONS.md`).
+
+### Pre-release audit ([LRN-101](LEARNINGS.md#lrn-101))
+
+Before touching version files, audit that `CHANGELOG.md` `[Unreleased]`
+matches what actually shipped since the previous tag. The cheap form (per
+LRN-101's recommended fix) is a diff-check, not a rebuild:
+
+```bash
+git log v<prev>..main --oneline                  # commits since last tag
+gh pr list --state merged --base main --limit 30 # PR-level granularity
+```
+
+For every distributed-surface CS since `v<prev>` (anything that touched
+`lib/`, `bin/`, `schemas/`, `template/managed/`, or `template/composed/`),
+confirm a corresponding `[Unreleased]` bullet exists. If `[Unreleased]` is
+empty or stale, populate it from the close-out CS files before continuing.
+Per CS24, the convention is to add `[Unreleased]` bullets at each CS's
+close-out PR, not retroactively at release-cut time — anchor drift between
+audit-time HEAD and tag-time HEAD is the failure mode LRN-101 catches.
+
+### State-of-the-world probes ([REVIEWS.md § 2.6c F6](REVIEWS.md))
+
+Before the plan-review verdict on the release CS plan, **probe and record**
+the current release state — every plan claim about released/draft tag state
+is an F6 fact-claim. The canonical probes:
+
+```bash
+# Published AND draft releases (covers stale duplicate drafts — LRN-159):
+gh api repos/<owner>/<repo>/releases --jq 'map(select(.tag_name=="v<x.y.z>"))'
+gh release list --repo <owner>/<repo> --limit 5
+git ls-remote origin refs/tags/v<x.y.z>
+```
+
+Stale duplicate drafts (e.g. an auto-draft from `release.yml` left behind by
+a prior partial cut) MUST be deleted **before** the cut starts:
+
+```bash
+gh api -X DELETE repos/<owner>/<repo>/releases/<draft-release-id>
+```
+
+Record the probes + their output verbatim in the release CS plan's
+`## Background` (or `## Constraints`) so the plan-review attestation has the
+F6 evidence subsequent reviewers can audit.
+
+### Cut (content PR)
+
+All file edits land on the `cs<NN>/content` branch:
+
+1. **Bump version files.** Use `npm version` (do **not** edit `package.json`
+   by hand — `package-lock.json` must stay in sync):
+
+   ```bash
+   npm version <x.y.z> --no-git-tag-version
+   ```
+
+   `--no-git-tag-version` is required — the tag is created post-merge on the
+   squash SHA (step 8 below), not on the pre-merge branch.
+
+2. **Promote the CHANGELOG.** In `CHANGELOG.md`:
+   - Rename `## [Unreleased]` → `## [<x.y.z>] — YYYY-MM-DD` (em-dash, not
+     hyphen — repo convention).
+   - Prepend a fresh `## [Unreleased]` block with the canonical
+     `### Added` / `### Changed` / `### Documentation` / `### Fixed`
+     skeleton (sections may be empty).
+   - Add the new link reference at the bottom:
+     `[<x.y.z>]: https://github.com/<owner>/<repo>/compare/v<prev>...v<x.y.z>`.
+   - Update the `[Unreleased]` link reference to compare from the new tag:
+     `[Unreleased]: https://github.com/<owner>/<repo>/compare/v<x.y.z>...HEAD`.
+
+3. **Sweep README pins.** In `README.md`, update every `v<prev>` install /
+   quickstart example pin to `v<x.y.z>` (the Status paragraph at the top,
+   install Option B examples, Quickstart block, and any `LRN-121`-style
+   notes that reference the current version). Historical narrative paragraphs
+   that document *prior* releases retrospectively are intentionally left at
+   their original versions.
+
+4. **Validate.** From the repo root:
+
+   ```bash
+   node bin/harness.mjs lint --quiet   # expect: 0 failed
+   node --test tests/*.test.mjs        # expect: 0 failed
+   ```
+
+5. **Local review.** GPT-5.5 rubber-duck mandatory per
+   [§ Plan-vs-implementation review (close-out gate)](#plan-vs-implementation-review-close-out-gate)
+   and `INSTRUCTIONS.md § Every CS`. Record model + timestamp + verdict in
+   the PR body's `## Model audit` + `## Review log` sections.
+
+6. **Open the content PR.** Use the standard `pull_request_template.md`.
+
+7. **Engage Copilot + pass CI.** Run `harness copilot-engage <pr>` per
+   [§ Copilot engagement procedure](#copilot-engagement-procedure-cs35-c35-10-updated-cs37--cs41).
+   Wait for Copilot's review, address every Blocking finding, and re-engage
+   on any new HEAD per the A5 ordering doctrine. All required status checks
+   must be green before merge.
+
+8. **Squash-merge.** Solo-orchestrator content PRs typically need the
+   admin-merge path (next subsection) because the author cannot self-approve
+   and Copilot only ever submits `COMMENTED`, never `APPROVED`.
+
+### Post-merge
+
+After the content PR squash-merges to `main`:
+
+9. **Tag the squash SHA.** Capture the squash commit SHA from the merged
+   PR (`gh pr view <pr> --json mergeCommit -q .mergeCommit.oid`) and tag it:
+
+   ```bash
+   git fetch origin main
+   git tag -a v<x.y.z> <squash-sha> -m "Release v<x.y.z>"
+   git push origin v<x.y.z>
+   ```
+
+   Tag the **squash SHA**, not pre-merge branch HEAD — LRN-101's anchor-drift
+   case. The `v*.*.*` tag push triggers `.github/workflows/release.yml`.
+
+10. **Publish the draft Release.** `release.yml` creates a **draft** GitHub
+    Release with notes extracted from `CHANGELOG.md` `[<x.y.z>]`. The draft
+    is intentional ([LRN-121](LEARNINGS.md#lrn-121)) — you review then
+    publish, then re-probe for stale duplicate drafts that `release.yml`
+    may have left behind ([LRN-159](LEARNINGS.md#lrn-159)):
+
+    ```bash
+    gh release view v<x.y.z>                 # confirm notes match CHANGELOG
+    gh release edit v<x.y.z> --draft=false   # publish
+    gh release list --limit 5                # verify Latest = v<x.y.z>
+    gh api repos/<owner>/<repo>/releases \
+        --jq 'map(select(.tag_name=="v<x.y.z>"))'   # confirm exactly one release for this tag
+    ```
+
+    If the API returns more than one release for `v<x.y.z>` (typically a
+    stale auto-draft from an earlier partial cut), delete the duplicate per
+    `§ State-of-the-world probes` above.
+
+11. **Notify consumers.** Use the issue-only handoff per
+    [§ Cross-repo procedures](#cross-repo-procedures) and
+    [§ Cross-repo pin-bump PR body checklist (CS54)](#cross-repo-pin-bump-pr-body-checklist-cs54).
+    For each known consumer repo, file a tracking issue:
+
+    ```bash
+    harness cross-repo open-issue \
+        --repo <owner>/<consumer-repo> \
+        --title "[harness:cs<NN>] bump pinned harness to v<x.y.z>" \
+        --body-file <pin-bump-issue-body.md>
+    ```
+
+    The body MUST include the verbatim consumer-side PR body checklist from
+    `§ Cross-repo pin-bump PR body checklist`. The CLI is idempotent (matches
+    an existing open issue by exact title) and always applies the
+    `harness-orchestrator` label.
+
+### Content/release-PR admin-merge (solo-orchestrator reality)
+
+The `main` ruleset (CS15a, [LRN-080](LEARNINGS.md#lrn-080)) requires one
+approving review on every content PR. For a solo-orchestrator release the
+review-of-record paths are:
+
+- The PR author cannot self-approve.
+- The Copilot PR reviewer is engaged per the documented mechanics in
+  [ADR-0004](docs/adr/0004-copilot-graphql-spike.md) (accepted review states
+  `{APPROVED, COMMENTED, CHANGES_REQUESTED}` per the CS37 spike). In observed
+  harness-repo history, Copilot reviews on content/release PRs have
+  consistently landed as `COMMENTED` — not `APPROVED` — so the Copilot
+  review attached at HEAD does not satisfy the `required_approving_review_count`
+  on its own.
+
+The only merge path is therefore `gh pr merge --admin --squash <pr>`,
+exercising the admin-bypass actor configured in the ruleset. This is the
+content-PR analogue of the workboard-only admin-bypass fallback documented
+above — both rely on the same admin bypass but apply to different surfaces.
+
+**Scope (narrow, by design).** The admin merge on a content/release PR is
+permitted **only** when **all** of the following hold:
+
+1. The orchestrator is operating solo (no human co-maintainer is available
+   to submit an approving review).
+2. The mandatory GPT-5.5 rubber-duck review returned `Go` (or
+   `Conditional Go` with all conditions met) at the current HEAD, recorded
+   verbatim in the PR body's `## Review log`.
+3. The Copilot review is attached at the current HEAD per the A5 ordering
+   doctrine — every Blocking finding has been addressed, and the PR's
+   `copilot-review-attached` status check is green — but the Copilot review
+   did **not** itself produce an `APPROVED` verdict that would clear the
+   `required_approving_review_count` on its own.
+4. All other required status checks (`review-log-evidence`,
+   `independence-invariant`, `review-threads-resolved`, CI build/test) are
+   green.
+
+This is **not a general bypass license.** When a human reviewer is
+available, the approving review path is mandatory; the admin merge is the
+documented escape valve for the structural reality that the Copilot review
+attached at HEAD does not satisfy the `required_approving_review_count`
+ruleset requirement on its own.
+
+Contrast with the workboard-only admin-bypass fallback
+([§ Workboard-only PR admin-bypass fallback](#workboard-only-pr-admin-bypass-fallback)):
+that path is bot-automated against an exact path allowlist (CS63 C63-7);
+this path is manual and scoped to a single PR after both substantive
+reviews have passed.
+
+### Quick-reference cheat sheet
+
+```bash
+# 0. Audit (LRN-101 + REVIEWS.md § 2.6c F6)
+git log v<prev>..main --oneline
+gh api repos/<owner>/<repo>/releases --jq 'map(select(.tag_name=="v<x.y.z>"))'
+gh release list --repo <owner>/<repo> --limit 5
+
+# 1-3. Bump (on cs<NN>/content branch)
+npm version <x.y.z> --no-git-tag-version
+#   then: edit CHANGELOG.md (promote [Unreleased] → [<x.y.z>], new [Unreleased] skeleton, link refs)
+#   then: sweep README pins v<prev> → v<x.y.z>
+
+# 4. Validate
+node bin/harness.mjs lint --quiet
+node --test tests/*.test.mjs
+
+# 5-7. Review + engage Copilot + merge
+gh pr create --base main --head cs<NN>/content --title ... --body-file ...
+harness copilot-engage <pr>
+gh pr merge --admin --squash <pr>          # solo-orchestrator path; see scope above
+
+# 8-10. Tag + publish
+SQUASH_SHA=$(gh pr view <pr> --json mergeCommit -q .mergeCommit.oid)
+git fetch origin main
+git tag -a v<x.y.z> "$SQUASH_SHA" -m "Release v<x.y.z>"
+git push origin v<x.y.z>
+gh release edit v<x.y.z> --draft=false
+
+# 11. Notify consumers
+harness cross-repo open-issue \
+    --repo <owner>/<consumer-repo> \
+    --title "[harness:cs<NN>] bump pinned harness to v<x.y.z>" \
+    --body-file <pin-bump-issue-body.md>
+```
 
 ---
 
@@ -2210,6 +2660,20 @@ the **substance** of the requirement, not just its surface presence. A flag
 named `--redact-required` must verify that the applicable redaction rule
 exists and is non-empty — not merely that some config object was loaded. Check
 the deepest invariant the flag implies.
+
+### Temp-dir/clone disposer pattern ([LRN-157](LEARNINGS.md#lrn-157), CS64b)
+
+Any new verb (or `lib/` module) that allocates a temp directory or a `git clone`
+MUST do so through the shared `lib/disposers.mjs` primitives — `makeTempDir()` /
+`withTempDir()` for the provenance-safe paired allocation + idempotent cleanup
+(remove only the path you allocated; never path-prefix-guess), and
+`assertSafeRef(ref)` for any `--ref` / branch / tag argument before it reaches
+`git` (rejects empty, leading-dash, and out-of-allowlist refs — an
+argv-injection guard). Never hand-roll an inline `fs.mkdtempSync` + best-effort
+`rmSync`. The `tests/cs64b-disposer-pattern.test.mjs` guard fails the build if a
+`lib/` module allocates a raw temp dir outside `lib/disposers.mjs`. Reviewers:
+flag any new temp-dir/clone allocation or unguarded `git` ref argument that
+bypasses these helpers.
 
 ---
 
