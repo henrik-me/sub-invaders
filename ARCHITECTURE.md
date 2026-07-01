@@ -366,6 +366,39 @@ Weekly cadence for `npm`, `nuget`, and `github-actions` (CS01-4).
 
 ---
 
+## Offline + modes (CS08)
+
+CS08 adds offline play as a progressive enhancement and splits play into ranked
+and practice modes. The Service Worker uses a small explicit static-asset
+allowlist: `/`, `/index.html`, `/dist/main.mjs`, `/dist/main.mjs.map`,
+`/public/sprites.png`, and `/public/sprites.licence`. Requests under `/api/*` are always network-only so
+sessions, score submissions, health, and leaderboard reads never come from a
+stale cache.
+
+The deploy workflow injects the short commit SHA into the uploaded assets, and
+`src/sw.mjs` names its cache `sub-invaders-<build-sha>`. On install the worker
+calls `self.skipWaiting()`; on activation it deletes older `sub-invaders-*`
+caches and claims clients with `clients.claim()` so a reload moves players onto
+the newest asset set.
+
+Ranked mode is the default data flow: it starts a `/api/session`, submits game
+over scores to `/api/score`, and reads the leaderboard. Practice mode can be
+selected with `?mode=practice` or the menu toggle; it never calls
+`/api/session` or `/api/score`, keeps its best score in
+`subInvadersPracticeHighScore`, and may still read the leaderboard as read-only
+context.
+
+Ranked submissions that fail due to network loss are queued in
+`localStorage.subInvadersPendingScores`. The queue is a bounded FIFO with a cap
+of 20 entries; draining retries the original submission and drops entries that
+the backend rejects as `409` session-consumed or `400` expired, matching the
+server replay-window contract instead of silently fabricating success.
+
+Daily challenge and practice are mutually exclusive per CS08-14: daily implies
+ranked, and switching to practice disables daily selection.
+
+---
+
 ## Repository hardening
 
 - **Ruleset `main-protection`** (`infra/main-protection-ruleset.json`): pull request required,
@@ -470,6 +503,13 @@ The technology decisions most relevant to this document:
 | CS04-13 — Pin-bump retirement | Drop the `harness sync --mode=apply` pin-bump exercise from CS04 scope | CS10/CS11/PR#62 already validated harness pin lifecycle |
 | CS04-14 — Daily score payload contract | `submitScore({sessionId, score, finishedAt, period?, utcDate?})` and `getLeaderboard({period, date?})`. `period === 'daily'` requires `utcDate` matching `^\d{4}-\d{2}-\d{2}$`. Backend partition is `daily-YYYY-MM-DD`; all-time partition stays unchanged | Optional fields preserve CS03 back-compat bit-exact; explicit pattern guards bad input client-side |
 | CS04-15 — Validation commands | `npm run test:unit`, `npm run test:e2e`, `dotnet test api/`, `node scripts/verify-deploy.mjs` (run twice — once with `dailyChallenge=off`, once with `dailyChallenge=on`) | Two-state matrix proves CS03 behaviour preserved AND daily mode reachable; there is no `npm test` script |
+
+### CS08 decisions (offline play + modes, 2026-06-30)
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| CS08-9..CS08-13 — Offline asset cache | Service Worker caches only explicit static assets, keeps `/api/*` network-only, uses SHA-versioned `sub-invaders-<build-sha>` caches, deletes old caches on activate, and supports `?nosw=1` / localhost bypass | Keeps offline play predictable, makes deploy invalidation atomic, and avoids stale API data |
+| CS08-14 — Practice + daily challenge | Practice and daily challenge are mutually exclusive; daily implies ranked | Daily fairness depends on a single official run per day |
 
 ### CS13 decision (engine extraction, 2026-06-30)
 

@@ -13,11 +13,14 @@ import {
 } from '../constants.mjs';
 import { createHud } from '../hud.mjs';
 import { createDailyHudOverlay as defaultCreateDailyHudOverlay } from '../hud-daily.mjs';
+import { createModeBadgeOverlay as defaultCreateModeBadgeOverlay } from '../hud-mode.mjs';
+import { getMode as defaultGetMode } from '../mode.mjs';
 import * as bossRush from '../modifiers/boss-rush.mjs';
 import * as fogOfWar from '../modifiers/fog-of-war.mjs';
 import * as invertedControls from '../modifiers/inverted-controls.mjs';
 import * as oneShot from '../modifiers/one-shot.mjs';
 import * as speedRun from '../modifiers/speed-run.mjs';
+import { enqueue as defaultEnqueue } from '../pending-scores.mjs';
 import { createWhaleShark as defaultCreateWhaleShark } from '../whaleshark.mjs';
 
 const MODIFIER_REGISTRY = Object.freeze({
@@ -348,6 +351,11 @@ export function createPlayScene(opts = {}) {
   const hud = createHud(opts.hud ?? {});
   const apiClient = opts.apiClient ?? null;
   const now = typeof opts.now === 'function' ? opts.now : () => new Date();
+  const getMode = typeof opts.getMode === 'function' ? opts.getMode : defaultGetMode;
+  const createModeBadgeOverlayFn = opts.createModeBadgeOverlay ?? defaultCreateModeBadgeOverlay;
+  const enqueuePendingScore = typeof opts.enqueuePendingScore === 'function'
+    ? opts.enqueuePendingScore
+    : ((entry) => defaultEnqueue(entry, { storage: opts.storage }));
   // CS04 daily-mode wiring (PvI R1 fixes for PVI-CS04-001/002/003):
   // `daily` carries the leaderboard partition (utcDate) AND the date-seeded
   // modifier name + params drawn by daily.mjs. The modifier's apply(state)
@@ -359,6 +367,8 @@ export function createPlayScene(opts = {}) {
   const modifierState = resolveModifierState(daily);
   const createWhaleSharkFn = opts.createWhaleShark ?? defaultCreateWhaleShark;
   const createDailyHudOverlayFn = opts.createDailyHudOverlay ?? defaultCreateDailyHudOverlay;
+  const modeBadge = createModeBadgeOverlayFn({ getMode });
+  const isPractice = () => getMode() === 'practice';
   const fogOfWarHaloRadius = modifierState?.modifiers?.fogOfWar?.haloRadius ?? null;
   const invertControls = Boolean(modifierState?.invertHorizontalControls);
   const scoreMultiplier = Number.isFinite(modifierState?.scoreMultiplier)
@@ -407,6 +417,7 @@ export function createPlayScene(opts = {}) {
   let sessionId = null;
   let sessionStartedAt = null;
   let sessionError = null;
+  let sessionOffline = false;
   let submission = { attempted: false, status: 'idle', error: null };
   let pendingSessionPromise = null;
   let pendingSubmissionPromise = null;
@@ -474,6 +485,7 @@ export function createPlayScene(opts = {}) {
     sessionId = null;
     sessionStartedAt = null;
     sessionError = null;
+    sessionOffline = false;
     submission = { attempted: false, status: 'idle', error: null };
     pendingSessionPromise = null;
     pendingSubmissionPromise = null;
@@ -493,11 +505,18 @@ export function createPlayScene(opts = {}) {
         sessionId = typeof result?.sessionId === 'string' ? result.sessionId : null;
         sessionStartedAt = typeof result?.startedAt === 'string' ? result.startedAt : null;
         sessionError = null;
+        sessionOffline = false;
       })
       .catch((err) => {
         sessionId = null;
         sessionStartedAt = null;
         sessionError = err?.message ?? String(err);
+        // Only surface the OFFLINE banner for genuine network failures (same
+        // predicate as the pending-score enqueue) — not for backend/response
+        // errors like 500s or malformed responses.
+        if (!isPractice() && (err?.code === 'network_error' || err?.status === 0)) {
+          sessionOffline = true;
+        }
       });
     return pendingSessionPromise;
   }
@@ -516,6 +535,13 @@ export function createPlayScene(opts = {}) {
       })
       .catch((err) => {
         submission = { attempted: true, status: 'error', error: err?.message ?? String(err) };
+        if (!isPractice() && (err?.code === 'network_error' || err?.status === 0)) {
+          try {
+            enqueuePendingScore({ sessionId: sid, score: finalScore, finishedAt });
+          } catch {
+            // Pending persistence is best-effort; gameplay and game-over state must survive it.
+          }
+        }
       });
     return pendingSubmissionPromise;
   }
@@ -833,9 +859,19 @@ export function createPlayScene(opts = {}) {
 
       updateHud();
       hud.render(renderer, sprites);
+      modeBadge.render(renderer);
 
       if (dailyHud) {
         dailyHud.render(renderer);
+      }
+
+      if (sessionOffline) {
+        renderer.drawText('OFFLINE — ranked score will submit when back online', width / 2, height - 24, {
+          font: '16px monospace',
+          fill: PALETTE.ui,
+          align: 'center',
+          baseline: 'bottom',
+        });
       }
     },
 

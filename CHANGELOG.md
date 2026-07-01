@@ -9,6 +9,21 @@ once a tagged release exists.
 ## [Unreleased]
 
 
+### Added (SI-CS08 — 2026-06-30) — Offline play + ranked/practice modes
+
+- **Offline play.** Added the CS08 Service Worker contract for an explicit
+  static-asset cache, SHA-versioned deploy invalidation, old-cache cleanup,
+  and network-only `/api/*` requests.
+- **Ranked vs practice.** Ranked remains the default and submits eligible
+  scores; practice is available through `?mode=practice` or the menu toggle,
+  never submits scores, and stores its local best in
+  `subInvadersPracticeHighScore`. The HUD shows the active `RANKED` or
+  `PRACTICE` badge.
+- **Pending ranked scores.** Offline ranked submissions queue in
+  `subInvadersPendingScores`, retry on the next online round-trip, and are
+  dropped honestly when the backend rejects an expired or already-consumed
+  session.
+
 ### Fixed (SI-CS12 — 2026-06-04) — Leaderboard & score-integrity hardening
 
 - **Calendar-date validation hardened (#67).** Frontend daily leaderboard/score calls and backend daily partition routing now reject impossible `YYYY-MM-DD` values such as `2026-02-30`, while accepting real dates including `2024-02-29`.

@@ -84,6 +84,28 @@ test('new gameplay surface works', async ({ gamePage }) => {
 });
 ```
 
+## Offline play and modes
+
+Sub Invaders starts in ranked mode by default. Ranked games use the normal
+`/api/session` and `/api/score` flow, submit eligible scores to the global
+leaderboard, and persist the local ranked high score in `subInvadersHighScore`.
+The in-game HUD badge always shows `RANKED` so the active mode is visible while
+playing.
+
+Practice mode is available from the menu toggle or by opening the game with
+`?mode=practice`. Practice games never submit scores and keep their local best
+score only in `subInvadersPracticeHighScore`; they can still read the
+leaderboard for comparison. The HUD badge switches to `PRACTICE` in this mode.
+
+If a ranked score is earned while offline, the browser queues it in
+`subInvadersPendingScores` and retries on the next successful online round-trip.
+The queue is honest: if the backend's replay window has already expired, the
+score is dropped instead of being submitted late.
+
+The Service Worker is a progressive enhancement for deployed builds and is
+disabled on `localhost`. To force a fresh fetch while diagnosing stale assets,
+use `?nosw=1` or perform a hard reload.
+
 ## Architecture
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for an overview of the system design,

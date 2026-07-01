@@ -72,3 +72,21 @@ test('menu-daily-option: handleInput tolerates missing input shape', () => {
   assert.equal(opt.handleInput({}), false);
   assert.equal(opt.handleInput({ pressed: null }), false);
 });
+
+test('menu-daily-option: disabled in practice mode, re-enabled in ranked (CS08-14)', () => {
+  let mode = 'practice';
+  const opt = createDailyMenuOption({
+    flags: { dailyChallenge: 'on' },
+    onDaily: () => {},
+    getMode: () => mode,
+  });
+
+  assert.equal(opt.enabled, false);
+  assert.equal(opt.promptText(), null);
+  assert.equal(opt.handleInput(makeInput(new Set(['KeyD']))), false);
+
+  // Live re-evaluation: a menu toggle back to ranked re-enables the option.
+  mode = 'ranked';
+  assert.equal(opt.enabled, true);
+  assert.equal(opt.promptText(), DAILY_OPTION_LABEL);
+});

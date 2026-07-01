@@ -58,6 +58,26 @@ test('startSession returns sessionId/nonce/startedAt', async () => {
   assert.equal(fetch.calls[0].init.method, 'POST');
 });
 
+test('practice startSession skips network and returns sentinel', async () => {
+  const fetch = fakeFetch(() => {
+    throw new Error('practice startSession must not fetch');
+  });
+  const client = createApiClient({ fetch, isPractice: () => true });
+  const out = await client.startSession();
+  assert.deepEqual(out, { skipped: true, reason: 'practice' });
+  assert.equal(fetch.calls.length, 0);
+});
+
+test('createApiClient coerces a boolean isPractice into a predicate without throwing', async () => {
+  const fetch = fakeFetch(() => {
+    throw new Error('practice must not fetch');
+  });
+  const client = createApiClient({ fetch, isPractice: true });
+  const out = await client.startSession();
+  assert.deepEqual(out, { skipped: true, reason: 'practice' });
+  assert.equal(fetch.calls.length, 0);
+});
+
 test('startSession throws ApiError when response is malformed', async () => {
   const fetch = fakeFetch(() => jsonResponse(200, { nope: true }));
   const client = createApiClient({ fetch });
@@ -81,6 +101,26 @@ test('submitScore POSTs JSON body', async () => {
   assert.equal(fetch.calls[0].init.headers['Content-Type'], 'application/json');
   const sent = JSON.parse(fetch.calls[0].init.body);
   assert.deepEqual(sent, { sessionId: 'abc', score: 100, finishedAt: '2026-05-13T00:00:00Z' });
+});
+
+test('practice submitScore skips validation, skips network, and returns sentinel', async () => {
+  const fetch = fakeFetch(() => {
+    throw new Error('practice submitScore must not fetch');
+  });
+  const client = createApiClient({ fetch, isPractice: () => true });
+  const out = await client.submitScore();
+  assert.deepEqual(out, { skipped: true, reason: 'practice' });
+  assert.equal(fetch.calls.length, 0);
+});
+
+test('submitScore submits in practice mode when bypassPracticeSkip is set (drain path)', async () => {
+  const fetch = fakeFetch(() => jsonResponse(200, { status: 'accepted' }));
+  const client = createApiClient({ fetch, isPractice: () => true });
+  await client.submitScore(
+    { sessionId: 'abc', score: 5, finishedAt: '2026-05-13T00:00:00Z' },
+    { bypassPracticeSkip: true },
+  );
+  assert.equal(fetch.calls.length, 1);
 });
 
 test('submitScore surfaces backend error code and message', async () => {
@@ -115,6 +155,36 @@ test('getLeaderboard returns normalized entries', async () => {
   assert.equal(result.entries.length, 2);
   assert.equal(result.entries[0].rank, 1);
   assert.equal(fetch.calls[0].url, '/api/leaderboard?period=all');
+});
+
+test('getLeaderboard calls fetch in ranked and practice modes', async () => {
+  const rankedFetch = fakeFetch(() => jsonResponse(200, { period: 'all', entries: [] }));
+  const practiceFetch = fakeFetch(() => jsonResponse(200, { period: 'all', entries: [] }));
+  await createApiClient({ fetch: rankedFetch, isPractice: () => false }).getLeaderboard();
+  await createApiClient({ fetch: practiceFetch, isPractice: () => true }).getLeaderboard();
+  assert.equal(rankedFetch.calls.length, 1);
+  assert.equal(practiceFetch.calls.length, 1);
+  assert.equal(rankedFetch.calls[0].url, '/api/leaderboard?period=all');
+  assert.equal(practiceFetch.calls[0].url, '/api/leaderboard?period=all');
+});
+
+test('practice predicate is evaluated at call time', async () => {
+  let practice = true;
+  const fetch = fakeFetch(() => jsonResponse(200, {
+    sessionId: 'runtime-ranked',
+    nonce: 'flip',
+    startedAt: '2026-05-13T00:00:00Z',
+  }));
+  const client = createApiClient({ fetch, isPractice: () => practice });
+  assert.deepEqual(await client.startSession(), { skipped: true, reason: 'practice' });
+  assert.equal(fetch.calls.length, 0);
+  practice = false;
+  assert.deepEqual(await client.startSession(), {
+    sessionId: 'runtime-ranked',
+    nonce: 'flip',
+    startedAt: '2026-05-13T00:00:00Z',
+  });
+  assert.equal(fetch.calls.length, 1);
 });
 
 test('getLeaderboard rejects malformed response', async () => {

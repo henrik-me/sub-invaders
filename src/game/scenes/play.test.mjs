@@ -107,6 +107,9 @@ function createScene(opts = {}) {
     apiClient: opts.apiClient,
     now: opts.now,
     daily: opts.daily,
+    getMode: opts.getMode,
+    createModeBadgeOverlay: opts.createModeBadgeOverlay,
+    enqueuePendingScore: opts.enqueuePendingScore,
   };
   const scene = createPlayScene(sceneOpts);
   return { scene, player, formation, sprites };
@@ -560,6 +563,26 @@ test('render uses formation.render when provided', () => {
   assert.equal(formationRenderCalls, 1);
 });
 
+test('CS08: render draws the injected mode badge overlay each frame', () => {
+  let badgeRenderCalls = 0;
+  const { scene } = createScene({
+    createModeBadgeOverlay: ({ getMode }) => ({
+      render(renderer) {
+        badgeRenderCalls += 1;
+        renderer.drawText(`BADGE:${getMode()}`, 0, 0, {});
+      },
+    }),
+    getMode: () => 'practice',
+  });
+  scene.enter();
+
+  const renderer = createFakeRenderer();
+  scene.render(renderer);
+
+  assert.equal(badgeRenderCalls, 1);
+  assert.ok(renderer.calls.some((call) => call.args?.[0] === 'BADGE:practice'));
+});
+
 test('render renders torpedoes and enemy shots in flight', () => {
   const torpedo = { x: 400, y: 500, w: 4, h: 10, alive: true, sprite: 'torpedo', update() {} };
   const enemyShot = { x: 100, y: 100, w: 4, h: 10, alive: true, sprite: 'enemyShot', update() {} };
@@ -976,6 +999,48 @@ test('CS03/D9: startSession failure leaves sessionId null and records sessionErr
   assert.equal(state.ready, true); // game still loaded
 });
 
+test('CS08: ranked startSession failure draws a non-blocking offline banner', async () => {
+  const api = fakeApiClient();
+  api.setStartSessionError(Object.assign(new Error('network down'), { code: 'network_error' }));
+  const { scene, player } = createScene({ apiClient: api, getMode: () => 'ranked' });
+  scene.enter();
+  await flushMicrotasks();
+
+  scene.update(0.016);
+  const renderer = createFakeRenderer();
+  scene.render(renderer);
+
+  assert.equal(player.updateCalls, 1);
+  assert.ok(renderer.calls.some((call) => call.args?.[0] === 'OFFLINE — ranked score will submit when back online'));
+});
+
+test('CS08: practice startSession failure never draws the offline banner', async () => {
+  const api = fakeApiClient();
+  api.setStartSessionError(Object.assign(new Error('network down'), { code: 'network_error' }));
+  const { scene } = createScene({ apiClient: api, getMode: () => 'practice' });
+  scene.enter();
+  await flushMicrotasks();
+
+  const renderer = createFakeRenderer();
+  scene.render(renderer);
+
+  assert.equal(renderer.calls.some((call) => String(call.args?.[0]).startsWith('OFFLINE')), false);
+});
+
+test('CS08: ranked startSession failure from a non-network error does not draw the offline banner', async () => {
+  const api = fakeApiClient();
+  api.setStartSessionError(Object.assign(new Error('server error'), { status: 500, code: 'http_500' }));
+  const { scene } = createScene({ apiClient: api, getMode: () => 'ranked' });
+  scene.enter();
+  await flushMicrotasks();
+
+  scene.update(0.016);
+  const renderer = createFakeRenderer();
+  scene.render(renderer);
+
+  assert.equal(renderer.calls.some((call) => String(call.args?.[0]).startsWith('OFFLINE')), false);
+});
+
 test('CS03/D9: finishGame submits the final score with apiClient.submitScore(sessionId, score, finishedAt)', async () => {
   const api = fakeApiClient();
   const fixedTime = new Date('2026-05-13T00:01:00.000Z');
@@ -1028,6 +1093,94 @@ test('CS03/D9: submitScore failure is captured in state.submission.error without
   assert.equal(state.submission.attempted, true);
   assert.equal(state.submission.status, 'error');
   assert.equal(state.submission.error, 'rate limited');
+});
+
+test('CS08: ranked network submit failure enqueues the pending score once', async () => {
+  const api = fakeApiClient();
+  api.setSubmitScoreError(Object.assign(new Error('offline'), {
+    code: 'network_error',
+    status: 0,
+  }));
+  const enqueued = [];
+  const fixedTime = new Date('2026-05-13T00:01:00.000Z');
+  const player = createFakePlayer({ lives: 1, isDead() { return this.lives <= 0; } });
+  const formation = createFakeFormation({
+    tryFire() { return { x: 384, y: 540, w: 4, h: 10, alive: true }; },
+  });
+  const { scene } = createScene({
+    apiClient: api,
+    now: () => fixedTime,
+    getMode: () => 'ranked',
+    enqueuePendingScore: (entry) => { enqueued.push(entry); },
+    playerInstance: player,
+    formationInstance: formation,
+  });
+  scene.enter();
+  await flushMicrotasks();
+  scene.update(0.001);
+  await flushMicrotasks();
+
+  assert.deepEqual(enqueued, [{
+    sessionId: 'sess-001',
+    score: scene.state().score,
+    finishedAt: '2026-05-13T00:01:00.000Z',
+  }]);
+});
+
+test('CS08: permanent submit rejections do not enqueue pending scores', async () => {
+  for (const err of [
+    Object.assign(new Error('consumed'), { code: 'session-consumed', status: 409 }),
+    Object.assign(new Error('expired'), { code: 'expired', status: 400 }),
+  ]) {
+    const api = fakeApiClient();
+    api.setSubmitScoreError(err);
+    const enqueued = [];
+    const player = createFakePlayer({ lives: 1, isDead() { return this.lives <= 0; } });
+    const formation = createFakeFormation({
+      tryFire() { return { x: 384, y: 540, w: 4, h: 10, alive: true }; },
+    });
+    const { scene } = createScene({
+      apiClient: api,
+      getMode: () => 'ranked',
+      enqueuePendingScore: (entry) => { enqueued.push(entry); },
+      playerInstance: player,
+      formationInstance: formation,
+    });
+    scene.enter();
+    await flushMicrotasks();
+    scene.update(0.001);
+    await flushMicrotasks();
+
+    assert.deepEqual(enqueued, []);
+  }
+});
+
+test('CS08: practice mode never enqueues pending scores', async () => {
+  const api = fakeApiClient();
+  api.setStartSessionResponse({ skipped: true, reason: 'practice' });
+  api.setSubmitScoreError(Object.assign(new Error('offline'), {
+    code: 'network_error',
+    status: 0,
+  }));
+  const enqueued = [];
+  const player = createFakePlayer({ lives: 1, isDead() { return this.lives <= 0; } });
+  const formation = createFakeFormation({
+    tryFire() { return { x: 384, y: 540, w: 4, h: 10, alive: true }; },
+  });
+  const { scene } = createScene({
+    apiClient: api,
+    getMode: () => 'practice',
+    enqueuePendingScore: (entry) => { enqueued.push(entry); },
+    playerInstance: player,
+    formationInstance: formation,
+  });
+  scene.enter();
+  await flushMicrotasks();
+  scene.update(0.001);
+  await flushMicrotasks();
+
+  assert.equal(api.calls.submitScore.length, 0);
+  assert.deepEqual(enqueued, []);
 });
 
 test('CS03/D9: finishGame skips submitScore when startSession previously failed (no sessionId)', async () => {
@@ -1459,5 +1612,3 @@ test('CS04 PvI: modifier registry ignores unknown daily.modifierName gracefully'
   assert.equal(observedOpts.lives, undefined);
   assert.equal(observedOpts.speed, undefined);
 });
-
-

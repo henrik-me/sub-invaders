@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { CANVAS } from './constants.mjs';
-import { bootstrap } from './main.mjs';
+import { bootstrap, __forTesting } from './main.mjs';
 import { installTestHooks } from './test-hooks.mjs';
 
 function createFakeSceneStack() {
@@ -55,6 +55,26 @@ function createStorage(initialValue = null) {
       return value;
     },
   };
+}
+
+function createKeyedStorage(initialValues = {}) {
+  const values = new Map(Object.entries(initialValues));
+
+  return {
+    getItem(key) {
+      return values.has(key) ? values.get(key) : null;
+    },
+    setItem(key, nextValue) {
+      values.set(key, String(nextValue));
+    },
+    value(key) {
+      return values.get(key);
+    },
+  };
+}
+
+function flushMicrotasks() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 function createHarness(overrides = {}) {
@@ -527,3 +547,253 @@ test('CS04 PvI: startPlay after startDaily resets the leaderboard context', asyn
   assert.equal(Object.prototype.hasOwnProperty.call(lbOpts, 'date'), false);
 });
 
+test('CS08: practice mode game over writes only the practice high-score key', async () => {
+  const storage = createKeyedStorage({
+    subInvadersHighScore: '5',
+    subInvadersPracticeHighScore: '7',
+  });
+  const harness = createHarness({
+    storage,
+    getMode: () => 'practice',
+  });
+  await harness.run();
+
+  harness.records.menuOptions.onStart();
+  harness.records.playOptions.onGameOver(42);
+
+  assert.equal(storage.value('subInvadersPracticeHighScore'), '42');
+  assert.equal(storage.value('subInvadersHighScore'), '5');
+});
+
+test('CS08: menu receives a mode option that toggles getMode/setMode', async () => {
+  let mode = 'ranked';
+  const harness = createHarness({
+    getMode: () => mode,
+    setMode: (nextMode) => { mode = nextMode; },
+  });
+  await harness.run();
+
+  const { modeOption } = harness.records.menuOptions;
+  assert.equal(typeof modeOption.handleInput, 'function');
+  assert.equal(modeOption.promptText(), 'MODE: RANKED  (← → to change)');
+
+  assert.equal(modeOption.handleInput({ pressed: (code) => code === 'ArrowRight' }), true);
+  assert.equal(mode, 'practice');
+  assert.equal(modeOption.promptText(), 'MODE: PRACTICE  (← → to change)');
+});
+
+test('CS08: daily challenge is disabled in practice mode, re-enabled in ranked (CS08-14)', async () => {
+  let mode = 'practice';
+  const harness = createHarness({
+    fetchFlagsFn: async () => ({ dailyChallenge: 'on' }),
+    getMode: () => mode,
+    setMode: (nextMode) => { mode = nextMode; },
+    createDailySceneFn() { return { tag: 'daily' }; },
+  });
+  await harness.run();
+
+  const { dailyOption } = harness.records.menuOptions;
+  // Practice + daily are mutually exclusive: the daily option is hidden + inert.
+  assert.equal(dailyOption.enabled, false);
+  assert.equal(dailyOption.promptText(), null);
+  assert.equal(dailyOption.handleInput({ pressed: (code) => code === 'KeyD' }), false);
+  assert.equal(mode, 'practice');
+
+  // Toggling back to ranked re-enables it live.
+  mode = 'ranked';
+  assert.equal(dailyOption.enabled, true);
+  assert.equal(dailyOption.promptText(), 'PRESS D FOR DAILY CHALLENGE');
+});
+
+test('CS08: Service Worker registration is skipped for nosw and localhost, otherwise registered', async () => {
+  const noswCalls = [];
+  await createHarness({
+    location: { href: 'https://example.test/?nosw=1', search: '?nosw=1', hostname: 'example.test' },
+    navigator: { serviceWorker: { register: () => {} } },
+    registerServiceWorker: (url) => { noswCalls.push(url); },
+  }).run();
+  assert.deepEqual(noswCalls, []);
+
+  const localhostCalls = [];
+  await createHarness({
+    location: { href: 'http://localhost/', search: '', hostname: 'localhost' },
+    navigator: { serviceWorker: { register: () => {} } },
+    registerServiceWorker: (url) => { localhostCalls.push(url); },
+  }).run();
+  assert.deepEqual(localhostCalls, []);
+
+  const registered = [];
+  await createHarness({
+    location: { href: 'https://sub.example/', search: '', hostname: 'sub.example' },
+    navigator: { serviceWorker: { register: () => {} } },
+    registerServiceWorker: (url, options) => { registered.push({ url, options }); },
+  }).run();
+  assert.equal(registered.length, 1);
+  assert.equal(registered[0].url, '/sw.mjs');
+  assert.equal(registered[0].options?.type, 'module');
+});
+
+test('CS08: a Service Worker update shows a one-time "updated" banner (not on first install)', async () => {
+  // Genuine update: a controller was already active before registration.
+  const updateBanners = [];
+  let updateHandler = null;
+  await createHarness({
+    location: { href: 'https://sub.example/', search: '', hostname: 'sub.example' },
+    navigator: {
+      serviceWorker: {
+        controller: {},
+        register: () => {},
+        addEventListener: (type, fn) => { if (type === 'controllerchange') updateHandler = fn; },
+      },
+    },
+    registerServiceWorker: () => {},
+    showUpdateBanner: (sha) => { updateBanners.push(sha); },
+  }).run();
+
+  assert.equal(typeof updateHandler, 'function');
+  updateHandler();
+  assert.equal(updateBanners.length, 1);
+  updateHandler();
+  assert.equal(updateBanners.length, 1); // one-time only
+
+  // First-ever install: no prior controller -> no "updated" banner (CS08-12).
+  const firstInstallBanners = [];
+  let firstHandler = null;
+  await createHarness({
+    location: { href: 'https://sub.example/', search: '', hostname: 'sub.example' },
+    navigator: {
+      serviceWorker: {
+        controller: null,
+        register: () => {},
+        addEventListener: (type, fn) => { if (type === 'controllerchange') firstHandler = fn; },
+      },
+    },
+    registerServiceWorker: () => {},
+    showUpdateBanner: (sha) => { firstInstallBanners.push(sha); },
+  }).run();
+
+  if (typeof firstHandler === 'function') firstHandler();
+  assert.equal(firstInstallBanners.length, 0);
+});
+
+test('defaultShowUpdateBanner appends a one-time DOM notice and auto-removes it', () => {
+  const originalDoc = globalThis.document;
+  const originalSetTimeout = globalThis.setTimeout;
+  const appended = [];
+  let removeCalls = 0;
+  const el = { style: {}, setAttribute() {}, remove() { removeCalls += 1; } };
+  globalThis.document = {
+    createElement: () => el,
+    querySelector: (sel) => (String(sel).includes('build-sha') ? { content: 'abc1234' } : null),
+    body: { appendChild: (node) => appended.push(node) },
+  };
+  globalThis.setTimeout = (fn) => { fn(); return 0; };
+
+  try {
+    __forTesting.defaultShowUpdateBanner('abc1234');
+    assert.equal(appended.length, 1);
+    assert.equal(el.textContent, 'updated to abc1234');
+    assert.equal(removeCalls, 1);
+  } finally {
+    globalThis.document = originalDoc;
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
+test('defaultShowUpdateBanner is inert without a usable document', () => {
+  const originalDoc = globalThis.document;
+  globalThis.document = undefined;
+  try {
+    assert.doesNotThrow(() => __forTesting.defaultShowUpdateBanner('x'));
+    assert.doesNotThrow(() => __forTesting.defaultShowUpdateBanner());
+  } finally {
+    globalThis.document = originalDoc;
+  }
+});
+
+test('CS08: a ?mode= deep-link seeds the mode once via setMode at boot (CS08-2)', async () => {
+  const seeded = [];
+  await createHarness({
+    location: { href: 'https://sub.example/?mode=practice', search: '?mode=practice', hostname: 'sub.example' },
+    setMode: (m) => { seeded.push(m); },
+  }).run();
+  assert.deepEqual(seeded, ['practice']);
+
+  // No ?mode= present -> no seeding (menu toggle / stored mode drive it instead).
+  const unseeded = [];
+  await createHarness({
+    location: { href: 'https://sub.example/', search: '', hostname: 'sub.example' },
+    setMode: (m) => { unseeded.push(m); },
+  }).run();
+  assert.deepEqual(unseeded, []);
+});
+
+test('CS08: pending scores drain on online load and stay queued offline', async () => {
+  const entry = {
+    sessionId: 'session-1',
+    score: 123,
+    finishedAt: '2026-05-14T12:34:56.000Z',
+    queuedAt: 1,
+  };
+  const storage = createKeyedStorage({
+    subInvadersPendingScores: JSON.stringify([entry]),
+  });
+  const submitted = [];
+  await createHarness({
+    storage,
+    navigator: { onLine: true },
+    apiClient: { submitScore: async (nextEntry) => { submitted.push(nextEntry); } },
+  }).run();
+  await flushMicrotasks();
+
+  assert.deepEqual(submitted, [entry]);
+  assert.equal(storage.value('subInvadersPendingScores'), '[]');
+
+  const offlineStorage = createKeyedStorage({
+    subInvadersPendingScores: JSON.stringify([entry]),
+  });
+  const offlineSubmitted = [];
+  await createHarness({
+    storage: offlineStorage,
+    navigator: { onLine: false },
+    apiClient: { submitScore: async (nextEntry) => { offlineSubmitted.push(nextEntry); } },
+  }).run();
+  await flushMicrotasks();
+
+  assert.deepEqual(offlineSubmitted, []);
+  assert.equal(offlineStorage.value('subInvadersPendingScores'), JSON.stringify([entry]));
+});
+
+test('CS08: pending ranked scores drain even while in practice mode (no silent loss)', async () => {
+  const entry = {
+    sessionId: 'session-9',
+    score: 50,
+    finishedAt: '2026-05-14T00:00:00.000Z',
+    queuedAt: 1,
+  };
+  const storage = createKeyedStorage({
+    subInvadersPendingScores: JSON.stringify([entry]),
+  });
+  const submitted = [];
+  await createHarness({
+    storage,
+    navigator: { onLine: true },
+    getMode: () => 'practice',
+    // Fake mirrors the real mode-aware guard: no-op in practice UNLESS bypassed.
+    apiClient: {
+      submitScore: async (nextEntry, opts = {}) => {
+        if (!opts.bypassPracticeSkip) {
+          return { skipped: true, reason: 'practice' };
+        }
+        submitted.push(nextEntry);
+        return { status: 'accepted' };
+      },
+    },
+  }).run();
+  await flushMicrotasks();
+
+  // The drain must bypass the practice guard so queued ranked scores are actually
+  // submitted (not silently cleared).
+  assert.deepEqual(submitted, [entry]);
+  assert.equal(storage.value('subInvadersPendingScores'), '[]');
+});

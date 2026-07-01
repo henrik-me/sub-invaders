@@ -119,15 +119,15 @@ The CS08 orchestrator must use the standard agent-harness sub-agent dispatch pat
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Author `mode.mjs` + tests | planned | sub-agent #1 | Pure module foundation. |
-| Split high-score by mode | planned | sub-agent #2 | Backward compat for existing key. |
-| Practice = no-op API + pending-scores queue | planned | sub-agent #3 | Bounded, corruption-resilient. |
-| Mode badge in HUD + menu toggle | planned | sub-agent #4 | Canvas-only; no DOM. |
-| Wire badge + offline banner in play scene | planned | sub-agent #5 | Must not touch collision/wave logic. |
-| Service Worker + SHA-versioned cache | planned | sub-agent #6 | Allowlist + network-only `/api/*`. |
-| Deploy workflow SHA substitution + docs | planned | sub-agent #7 | Fail deploy if placeholder remains. |
-| Add Playwright offline + mode specs | planned | sub-agent #7 | Only if CS07 has merged; otherwise defer. |
-| Verify ranked/online behavior unchanged vs CS03 baseline | planned | orchestrator | Exit criterion #2. |
+| Author `mode.mjs` + tests | done | sub-agent #1 | agent-id=cs08-mode \| role=mode-module \| report-status=complete \| learnings=0 |
+| Split high-score by mode | done | sub-agent #2 | agent-id=cs08-score \| role=score-split \| report-status=complete \| learnings=0 |
+| Practice = no-op API + pending-scores queue | done | sub-agent #3 | agent-id=cs08-pending+cs08-api \| role=pending-queue+api-noop \| report-status=complete \| learnings=0 |
+| Mode badge in HUD + menu toggle | done | sub-agent #4 | agent-id=cs08-hud-menu \| role=hud-badge+menu-toggle \| report-status=complete \| learnings=0 |
+| Wire badge + offline banner in play scene | done | sub-agent #5 | agent-id=cs08-play \| role=play-wireup \| report-status=complete \| learnings=0 |
+| Service Worker + SHA-versioned cache + main/index wiring | done | sub-agent #6 | agent-id=cs08-sw+cs08-main \| role=service-worker+bootstrap-wiring \| report-status=complete \| learnings=0 (orchestrator added sw.mjs registerServiceWorker + coverage tests) |
+| Deploy workflow SHA substitution + docs | done | sub-agent #7 | agent-id=cs08-deploy-docs \| role=deploy-sha+docs \| report-status=complete \| learnings=0 |
+| Add Playwright offline + mode specs | done | orchestrator | CS07 merged; orchestrator authored offline.spec.mjs + practice-vs-ranked.spec.mjs (chromium 3/3) |
+| Verify ranked/online behavior unchanged vs CS03 baseline | done | orchestrator | Exit criterion #2 — ranked e2e spec + full unit suite green (no CS03 regression) |
 | Close-out docs + restart state | planned | orchestrator | Workboard + active CS notes. |
 | Close-out learnings + follow-ups | planned | orchestrator | File `cs08-practice-history` follow-up if R7 surfaces. |
 
@@ -135,12 +135,29 @@ The CS08 orchestrator must use the standard agent-harness sub-agent dispatch pat
 
 Filled during execution. At minimum, record: SW rollout cadence, observed `__BUILD_SHA__` substitution health on first deploy, pending-scores queue depth observed in staging, and any user feedback on the ranked/practice toggle UX.
 
+**Progress (2026-06-30, branch `cs08/content`):** Implementation COMPLETE — all 19
+deliverables. Commits: 40a10da (mode + mode-keyed score + pending-scores), f21f2ec (api
+practice no-op), 74b730a (ledger), 089fff4 (hud-mode badge + menu-mode-option + play
+wireup + sw.mjs + swa-deploy SHA step + README/ARCHITECTURE/CHANGELOG), c7d719c (main.mjs
++ index.html wiring), 8d735ef (e2e specs). Validation: `node --test` 384/384; per-file +
+global unit coverage gate green; esbuild build clean; `harness lint` 18/0; `playwright test`
+(chromium) offline + practice-vs-ranked 3/3. Implementer models materially used:
+claude-opus-4.8 (orchestrator integration incl. sw.mjs registerServiceWorker + coverage
+tests + e2e specs) plus sub-agent-reported gpt-5.5 (cs08-score/cs08-pending) and
+gpt-5.3-codex (cs08-hud-menu) (others not exposed by runtime); Model audit reviewer model
+is gemini-3.1-pro-preview so it differs from every implementer model (CS48 independence).
+**Design note (CS08-8 deviation):** the offline-at-start case (startSession fails, no
+server session token) shows the OFFLINE banner but does NOT enqueue a placeholder-session
+score — only scores with a real server session id are queued/retried (honest per CS08-7,
+since a placeholder token would be server-rejected). Remaining: content PR + rubber-duck
+review + Copilot engagement + plan-vs-impl review + close-out.
+
 ## Model audit
 
 | Field | Value |
 |---|---|
-| Implementer models | claude-opus-4.8 |
-| Reviewer model | gpt-5.5 |
+| Implementer models | claude-opus-4.8, gpt-5.5, gpt-5.3-codex |
+| Reviewer model | gemini-3.1-pro-preview |
 | Implementer agent | yoga-si |
 | Reviewer agent | rubber-duck |
 

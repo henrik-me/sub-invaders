@@ -117,11 +117,14 @@ export const test = base.extend({
     const gamePage = {
       page,
 
-      async goto({ seed, startWave, formationSpeed, fireIntervalMs, test = 1 } = {}) {
+      async goto({ seed, startWave, formationSpeed, fireIntervalMs, mode, test = 1 } = {}) {
         const params = new URLSearchParams();
 
         if (test !== undefined) {
           params.set('test', String(test));
+        }
+        if (mode !== undefined) {
+          params.set('mode', String(mode));
         }
         if (seed !== undefined) {
           params.set('seed', String(seed));

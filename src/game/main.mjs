@@ -14,8 +14,11 @@ import { createGameOverScene } from './scenes/gameover.mjs';
 import { createLeaderboardScene } from './scenes/leaderboard.mjs';
 import { createMenuScene } from './scenes/menu.mjs';
 import { createDailyMenuOption } from './scenes/menu-daily-option.mjs';
+import { createModeMenuOption } from './scenes/menu-mode-option.mjs';
 import { createPlayScene } from './scenes/play.mjs';
-import { getHighScore, setHighScore } from './score.mjs';
+import { getMode as defaultGetMode, setMode as defaultSetMode, readUrlMode } from './mode.mjs';
+import { drain as drainPendingScores } from './pending-scores.mjs';
+import { getHighScore, getHighScoreFor, setHighScore, setHighScoreFor } from './score.mjs';
 import { installTestHooks } from './test-hooks.mjs';
 
 function toScore(value) {
@@ -74,14 +77,42 @@ function buildSprites(spriteSheet) {
   return sprites;
 }
 
+function defaultShowUpdateBanner(sha) {
+  try {
+    const doc = globalThis.document;
+    if (!doc || typeof doc.createElement !== 'function' || !doc.body) {
+      return;
+    }
+    const el = doc.createElement('div');
+    el.textContent = `updated to ${sha || 'new version'}`;
+    el.setAttribute('role', 'status');
+    el.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);'
+      + 'z-index:9999;background:#12a7a0;color:#061525;font:14px monospace;'
+      + 'padding:6px 12px;border-radius:6px;box-shadow:0 0 12px rgb(18 167 160 / 50%)';
+    doc.body.appendChild(el);
+    setTimeout(() => {
+      try { el.remove(); } catch { /* already gone */ }
+    }, 4000);
+  } catch {
+    // The update banner is a best-effort courtesy; never let it break boot.
+  }
+}
+
+export const __forTesting = { defaultShowUpdateBanner };
+
 export async function bootstrap(opts = {}) {
   const {
     canvas = globalThis.document?.getElementById('game-canvas'),
     window: win = globalThis.window,
     location = globalThis.location,
+    navigator: nav = globalThis.navigator,
     spritesUrl = './public/sprites.png',
     loadSprites = ({ url, imageFactory: factory }) => loadSpriteSheet(url, { imageFactory: factory }),
     storage,
+    getMode = defaultGetMode,
+    setMode = defaultSetMode,
+    registerServiceWorker,
+    showUpdateBanner = defaultShowUpdateBanner,
     seed,
     startWave,
     formationSpeed,
@@ -111,6 +142,13 @@ export async function bootstrap(opts = {}) {
     imageFactory,
   } = opts;
   const queryOptions = readQueryOptions(location);
+  // CS08-2: consume a `?mode=` deep-link ONCE as the initial mode and persist it,
+  // so the in-menu toggle can override it thereafter (getMode reads the stored
+  // mode, not the live URL).
+  const seededMode = readUrlMode({ url: location });
+  if (seededMode) {
+    setMode(seededMode, { storage });
+  }
   let currentSeed = toSeed(seed ?? queryOptions.seed, 1);
   const currentStartWave = toPositiveInt(startWave ?? queryOptions.startWave, 1);
   const currentFormationSpeed = toNonNegativeNumber(formationSpeed ?? queryOptions.formationSpeed);
@@ -135,8 +173,8 @@ export async function bootstrap(opts = {}) {
   const flags = await Promise.resolve(fetchFlagsFn({})).catch(() => ({}));
   const dailyEnabled = isDailyChallengeEnabled(flags);
 
-  const readHighScore = () => getHighScore({ storage });
-  const writeHighScore = (value) => setHighScore(value, { storage });
+  const readHighScore = () => getHighScoreFor(getMode(), { storage });
+  const writeHighScore = (value) => setHighScoreFor(getMode(), value, { storage });
 
   function currentUtcDate() {
     const date = now();
@@ -150,13 +188,61 @@ export async function bootstrap(opts = {}) {
   let lastLeaderboardContext = { period: 'all', date: null };
 
   function createMenu() {
-    const dailyOption = createDailyMenuOptionFn({ flags, onDaily: dailyEnabled ? startDaily : undefined });
+    const dailyOption = createDailyMenuOptionFn({ flags, onDaily: dailyEnabled ? startDaily : undefined, getMode });
+    const modeOption = createModeMenuOption({ getMode, setMode });
     return createMenuSceneFn({
       onStart: startPlay,
       onLeaderboard: apiClient ? showLeaderboard : undefined,
       getHighScore: readHighScore,
       dailyOption,
+      modeOption,
     });
+  }
+
+  function maybeRegisterServiceWorker() {
+    try {
+      const search = String(location?.search ?? '');
+      if (/[?&]nosw=1\b/.test(search)) return;
+      const host = String(location?.hostname ?? '');
+      if (host === 'localhost' || host === '127.0.0.1' || host === '') return;
+      const sw = nav?.serviceWorker;
+      const reg = registerServiceWorker ?? sw?.register?.bind(sw);
+      if (typeof reg !== 'function') return;
+      // CS08-11: on a genuine update (a controller was already active) show a
+      // one-time "updated to <sha>" notice; a first-ever install shows nothing
+      // (CS08-12 — SW is a progressive enhancement).
+      if (sw && typeof sw.addEventListener === 'function') {
+        const hadController = Boolean(sw.controller);
+        let notified = false;
+        sw.addEventListener('controllerchange', () => {
+          if (notified || !hadController) return;
+          notified = true;
+          let sha = '';
+          try {
+            sha = globalThis.document?.querySelector?.('meta[name="build-sha"]')?.content ?? '';
+          } catch { sha = ''; }
+          showUpdateBanner(sha);
+        });
+      }
+      // sw.mjs is an ES module (it uses `export`), so it MUST be registered as a
+      // module worker or the browser fails to parse it as a classic script.
+      Promise.resolve(reg('/sw.mjs', { type: 'module' })).catch(() => {});
+    } catch {
+      // Service Worker registration is a progressive enhancement; boot must not depend on it.
+    }
+  }
+
+  async function drainPendingOnLoad() {
+    try {
+      if (nav && nav.onLine === false) return;
+      if (!apiClient || typeof apiClient.submitScore !== 'function') return;
+      // Queued scores are always RANKED (practice never enqueues), so submit them
+      // as ranked even if the player is currently in practice mode; otherwise the
+      // mode-aware submitScore would no-op and the drain would silently drop them.
+      await drainPendingScores((entry) => apiClient.submitScore(entry, { bypassPracticeSkip: true }), { storage });
+    } catch {
+      // Pending-score drain is best-effort; the queue remains for the next online load.
+    }
   }
 
   function createConfiguredFormation(options = {}) {
@@ -231,6 +317,7 @@ export async function bootstrap(opts = {}) {
   }
 
   function startDaily() {
+    setMode('ranked', { storage });
     const utcDate = currentUtcDate();
     lastLeaderboardContext = { period: 'daily', date: utcDate };
     scenes.replace(createDaily(utcDate));
@@ -286,6 +373,9 @@ export async function bootstrap(opts = {}) {
     setSeed,
     showGameOver,
   });
+
+  drainPendingOnLoad();
+  maybeRegisterServiceWorker();
 
   return { renderer, input, scenes, loop, sprites, testHooks };
 }
