@@ -1,8 +1,27 @@
 # Project Context
 
-> **Last updated:** 2026-06-30 (post-CS13 close-out: engine extracted to canvas-game-engine v0.1.0)
+> **Last updated:** 2026-07-01 (post-CS08 close-out: offline play + ranked/practice modes)
 
 ## Codebase state
+
+**CS08 complete** (merged 2026-07-01 as `1321cc0`) — offline play + ranked/practice
+modes. The frontend resolves a mode (`?mode=` deep-link seed + canvas menu toggle,
+default ranked), splits the high score by mode (`subInvadersPracticeHighScore` for
+practice), and makes practice a pure local mode (never calls `/api/session|score`).
+Ranked scores that fail to submit offline are queued in
+`localStorage.subInvadersPendingScores` (bounded FIFO, cap 20) and drained on the next
+online load, bypassing the practice guard so queued ranked scores are never silently
+lost. A self-contained root-scope Service Worker (`src/sw.mjs`, registered
+`{ type: 'module' }`) cache-firsts an explicit static allowlist (network-only for
+`/api/*`), names its cache `sub-invaders-<build-sha>` (the deploy substitutes
+`__BUILD_SHA__` in `index.html` + `sw.mjs` and fails if the placeholder remains), and
+shows a one-time "updated" banner on SW update. An always-visible HUD badge shows
+`RANKED`/`PRACTICE`. Test counts on `main`: `npm run test:unit` 394; e2e adds
+`offline.spec.mjs` + `practice-vs-ranked.spec.mjs`. Implemented via a 7-lane sub-agent
+fan-out; the content PR #118 took 7 rubber-duck rounds (gemini-3.1-pro-preview) + 6
+Copilot rounds, catching 3 real bugs before merge (SW module-worker registration,
+drain-in-practice silent ranked-score loss, SW cache `ignoreSearch` for offline
+deep-links). See `project/clickstops/done/done_cs08_offline-and-practice-mode.md`.
 
 **CS13 complete** (merged 2026-06-30 as `78dcad0`) — the Canvas 2D engine was
 extracted from the in-tree `src/engine/` into the standalone public repo

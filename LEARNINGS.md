@@ -485,6 +485,50 @@ landed; (2) **main-push `swa-deploy` runs have been cancelling since `8a2c5bc`
 CS13 merge deploy (`78dcad0`) landed it, but the recurring cancellation needs a root-cause
 fix to the workflow concurrency/triggers. Recommend filing a maintenance CS for both.)_
 
+---
+
+### LRN-029
+
+```yaml
+id: LRN-029
+date: 2026-07-01
+category: architectural
+source_cs: CS08
+status: open
+tags: [service-worker, offline, esm, cache-api, mode-aware-client, frontend]
+```
+
+**Problem:** CS08 added a root-scope Service Worker and a ranked/practice mode split.
+Three integration bugs were caught in Copilot review (not by unit tests) because they
+only manifest in a real browser / production, where Node + in-test doubles don't
+exercise the browser Service Worker / Cache API semantics.
+
+**Finding:**
+- **An ESM Service Worker MUST be registered with `{ type: 'module' }`.** `src/sw.mjs`
+  uses `export` (for testability), so registering `/sw.mjs` as a *classic* worker fails
+  to parse `export` and the SW never activates. Unit tests missed it (SW registration is
+  skipped on localhost per CS08-13; Node imports the module directly). Also keep the SW
+  self-contained — no bare-specifier imports — since it is served raw, not bundled.
+- **Draining a mode-agnostic queue through a mode-aware client silently drops items.**
+  The pending-scores queue holds RANKED scores, but `drainPendingOnLoad` submitted them
+  via the mode-aware `apiClient`, whose `submitScore` no-ops in practice mode and returns
+  a success-shaped sentinel — so the drain cleared the queue without contacting the
+  backend. Fix: the drain forces submission (`submitScore(entry, { bypassPracticeSkip: true })`).
+  Lesson: any batch/retry path that submits inherently-typed items must force the correct
+  behavior, not inherit the ambient mode of a mode-gated client.
+- **`cache.match()` is query-string sensitive.** A pathname-allowlisted SW that precaches
+  `/` still 503s an offline navigation to `/?mode=practice` unless it matches with
+  `{ ignoreSearch: true }`.
+
+**Evidence:** All three surfaced in Copilot review of PR #118 (rounds 3–5), fixed in
+`142b284` / `dbcd85c` / `0d37064`, and locked in with regression tests (assert
+`{ type: 'module' }` is passed to register; drain-in-practice actually submits the queue;
+a query-sensitive fake cache resolves `/?...` to the cached `/`).
+
+**Disposition:** _(open — applied within CS08; retain as the standard frontend
+Service-Worker / offline / mode-aware-client pattern for any future SW or offline-queue
+work.)_
+
 ## Applied
 
 ### LRN-003
