@@ -1,9 +1,9 @@
 # CS17 — Fix swa-deploy push-run cancellations (production deploys never land)
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-si
+**Branch:** cs17/content
+**Started:** 2026-07-01
 **Closed:** —
 **Filed by:** yoga-si (claude-opus-4.8), 2026-07-01, after CS08 required manually re-running the cancelled production deploy 3× this session (be8a412, 1321cc0/cda1ec8); recurring since `8a2c5bc` (2026-06-16). See LRN-028.
 **Depends on:** none
@@ -83,6 +83,15 @@ None — internal CI/deploy reliability fix with no user-visible behavior change
    (it is now in its own group `swa-deploy-pull_request-…`); verify a PR close still
    tears down its preview.
 
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | yoga-si |
+| Reviewer agent | rubber-duck |
+
 ## Plan review
 
 | Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
@@ -93,7 +102,10 @@ None — internal CI/deploy reliability fix with no user-visible behavior change
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Event+PR-number-qualify `swa-deploy.yml` concurrency group (CS17-2) | planned | sub-agent #1 | Only the `group:` line; no other workflow change. |
+| Update LRN-028 disposition (swa-deploy sub-item resolved) | planned | sub-agent #1 | Retain e2e-floor sub-item for CS18. |
+| Close-out docs + restart state | planned | orchestrator | Workboard + active CS notes; active→done. |
+| Close-out learnings + follow-ups | planned | orchestrator | File LRN if a residual cancellation cause surfaces at exit criterion #2. |
 
 ## Notes / Learnings
 
