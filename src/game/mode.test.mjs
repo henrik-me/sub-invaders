@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { getMode, isPractice, isRanked, LAST_MODE_KEY, MODES, setMode } from './mode.mjs';
+import { getMode, isPractice, isRanked, LAST_MODE_KEY, MODES, readUrlMode, setMode } from './mode.mjs';
 
 function createStorage(initial = {}) {
   const values = new Map(Object.entries(initial));
@@ -21,12 +21,21 @@ test('getMode defaults to ranked when nothing is set', () => {
   assert.equal(getMode({ search: '', storage: createStorage() }), MODES.RANKED);
 });
 
-test('getMode parses ?mode=practice from search', () => {
-  assert.equal(getMode({ search: '?mode=practice', storage: createStorage() }), MODES.PRACTICE);
+test('readUrlMode parses ?mode= from search or url, ignoring invalid values', () => {
+  assert.equal(readUrlMode({ search: '?mode=practice' }), MODES.PRACTICE);
+  assert.equal(readUrlMode({ url: { search: '?mode=ranked' } }), MODES.RANKED);
+  assert.equal(readUrlMode({ url: 'http://sub-invaders.local/?mode=practice' }), MODES.PRACTICE);
+  assert.equal(readUrlMode({ search: '?mode=foo' }), undefined);
+  assert.equal(readUrlMode({ search: '' }), undefined);
+  assert.doesNotThrow(() => readUrlMode()); // globalThis.location absent in Node
+  assert.equal(readUrlMode(), undefined);
 });
 
-test('getMode parses ?mode=ranked from url', () => {
-  assert.equal(getMode({ url: { search: '?mode=ranked' }, storage: createStorage() }), MODES.RANKED);
+test('getMode reads the persisted mode, not the live URL (CS08-2 seed model)', () => {
+  const storage = createStorage({ [LAST_MODE_KEY]: MODES.RANKED });
+  // A ?mode=practice URL does NOT override a stored ranked mode: the URL is a
+  // one-time boot seed (main.mjs), so an in-menu toggle can win afterward.
+  assert.equal(getMode({ url: { search: '?mode=practice' }, storage }), MODES.RANKED);
 });
 
 test('getMode ignores unknown query mode and falls back to storage', () => {
@@ -65,8 +74,8 @@ test('setMode rejects unknown modes without persisting', () => {
 });
 
 test('isRanked and isPractice agree with getMode', () => {
-  const rankedOpts = { search: '?mode=ranked', storage: createStorage() };
-  const practiceOpts = { search: '?mode=practice', storage: createStorage() };
+  const rankedOpts = { storage: createStorage({ [LAST_MODE_KEY]: MODES.RANKED }) };
+  const practiceOpts = { storage: createStorage({ [LAST_MODE_KEY]: MODES.PRACTICE }) };
 
   assert.equal(getMode(rankedOpts), MODES.RANKED);
   assert.equal(isRanked(rankedOpts), true);

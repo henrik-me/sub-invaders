@@ -16,7 +16,7 @@ import { createMenuScene } from './scenes/menu.mjs';
 import { createDailyMenuOption } from './scenes/menu-daily-option.mjs';
 import { createModeMenuOption } from './scenes/menu-mode-option.mjs';
 import { createPlayScene } from './scenes/play.mjs';
-import { getMode as defaultGetMode, setMode as defaultSetMode } from './mode.mjs';
+import { getMode as defaultGetMode, setMode as defaultSetMode, readUrlMode } from './mode.mjs';
 import { drain as drainPendingScores } from './pending-scores.mjs';
 import { getHighScore, getHighScoreFor, setHighScore, setHighScoreFor } from './score.mjs';
 import { installTestHooks } from './test-hooks.mjs';
@@ -142,6 +142,13 @@ export async function bootstrap(opts = {}) {
     imageFactory,
   } = opts;
   const queryOptions = readQueryOptions(location);
+  // CS08-2: consume a `?mode=` deep-link ONCE as the initial mode and persist it,
+  // so the in-menu toggle can override it thereafter (getMode reads the stored
+  // mode, not the live URL).
+  const seededMode = readUrlMode({ url: location });
+  if (seededMode) {
+    setMode(seededMode, { storage });
+  }
   let currentSeed = toSeed(seed ?? queryOptions.seed, 1);
   const currentStartWave = toPositiveInt(startWave ?? queryOptions.startWave, 1);
   const currentFormationSpeed = toNonNegativeNumber(formationSpeed ?? queryOptions.formationSpeed);

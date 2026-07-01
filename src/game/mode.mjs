@@ -84,8 +84,12 @@ function modeFromStorage(storage) {
   }
 }
 
+export function readUrlMode(opts = {}) {
+  return modeFromSearch(resolveSearch(opts));
+}
+
 export function getMode(opts = {}) {
-  return modeFromSearch(resolveSearch(opts)) ?? modeFromStorage(opts.storage) ?? MODES.RANKED;
+  return modeFromStorage(opts.storage) ?? MODES.RANKED;
 }
 
 export function setMode(mode, { storage } = {}) {

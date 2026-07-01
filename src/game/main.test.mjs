@@ -709,6 +709,23 @@ test('defaultShowUpdateBanner is inert without a usable document', () => {
   }
 });
 
+test('CS08: a ?mode= deep-link seeds the mode once via setMode at boot (CS08-2)', async () => {
+  const seeded = [];
+  await createHarness({
+    location: { href: 'https://sub.example/?mode=practice', search: '?mode=practice', hostname: 'sub.example' },
+    setMode: (m) => { seeded.push(m); },
+  }).run();
+  assert.deepEqual(seeded, ['practice']);
+
+  // No ?mode= present -> no seeding (menu toggle / stored mode drive it instead).
+  const unseeded = [];
+  await createHarness({
+    location: { href: 'https://sub.example/', search: '', hostname: 'sub.example' },
+    setMode: (m) => { unseeded.push(m); },
+  }).run();
+  assert.deepEqual(unseeded, []);
+});
+
 test('CS08: pending scores drain on online load and stay queued offline', async () => {
   const entry = {
     sessionId: 'session-1',

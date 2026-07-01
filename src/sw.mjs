@@ -12,7 +12,7 @@ export const ASSET_ALLOWLIST = [
 
 const FALLBACK_ORIGIN = 'https://sub-invaders.local';
 
-function getServiceOrigin(requestUrl) {
+function getServiceOrigin() {
   if (typeof self !== 'undefined' && self.location?.origin) {
     return self.location.origin;
   }
@@ -101,7 +101,7 @@ export async function onFetch(request, {
       return await safeFetch(fetch, request);
     }
 
-    const serviceOrigin = getServiceOrigin(request.url);
+    const serviceOrigin = getServiceOrigin();
     const url = new URL(request.url, serviceOrigin);
     const isSameOrigin = url.origin === serviceOrigin;
     const isApiRequest = url.pathname.startsWith('/api/');
