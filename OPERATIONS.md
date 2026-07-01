@@ -2370,7 +2370,7 @@ There are two layers of enforcement:
    New files automatically inherit the per-file defaults — they cannot
    land below threshold without an explicit, documented override.
 
-**Single source of truth:** [`coverage-thresholds.json`](../coverage-thresholds.json)
+**Single source of truth:** [`coverage-thresholds.json`](coverage-thresholds.json)
 holds the suite floors, per-file defaults, and per-file overrides for both
 suites. As of CS18 the E2E suite floors (`e2e.suite`) are read directly from
 this file by both `scripts/coverage-suite.mjs` (the enforced gate) and
