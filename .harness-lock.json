@@ -2,7 +2,7 @@
   "harness_ref": "v0.10.0",
   "resolved_sha": "6ccc28428f4795cc986a30bf5d0178dacdf070c9",
   "config_schema_version": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
-  "synced_at": "2026-07-01T21:14:09.831Z",
+  "synced_at": "2026-07-01T22:11:18.576Z",
   "files": [
     {
       "target": ".github/workflows/pr-evidence-lint.yml",
@@ -10,6 +10,47 @@
       "class": "managed",
       "rendered_hash": "7ec3e619969cf1915794bd14df99cb1359dd1fca508049e0251d15249020dad4",
       "action": "skipped"
+    },
+    {
+      "target": "TRACKING.md",
+      "source_template": "template/managed/TRACKING.md",
+      "class": "managed",
+      "rendered_hash": "c4798c41ad4e5a6fb0acca64031361061253aaff3e8278595b26d8fa5e9309cf",
+      "action": "created"
+    },
+    {
+      "target": "RETROSPECTIVES.md",
+      "source_template": "template/managed/RETROSPECTIVES.md",
+      "class": "managed",
+      "rendered_hash": "a5d37a84089bd086d7dfeedb6e6d2459c32cca6c92d14f55c0cd33b51d30e99a",
+      "action": "created"
+    },
+    {
+      "target": "READMEGUIDE.md",
+      "source_template": "template/managed/READMEGUIDE.md",
+      "class": "managed",
+      "rendered_hash": "e82e54ddb6a3096ae18140fd41efc0d44f1c1481f1aec605608e8794ebdb70e3",
+      "action": "created"
+    },
+    {
+      "target": "INSTRUCTIONS.md",
+      "source_template": "template/composed/INSTRUCTIONS.md",
+      "class": "composed",
+      "rendered_hash": "4fda4f895f1f8838e3292365c1d7375a382efbbbca019539d052b4fde0a37028",
+      "action": "created",
+      "blocks": [
+        {
+          "id": "instructions.harness",
+          "source_line_range": {
+            "start": 612,
+            "end": 616
+          },
+          "body_hash": "eae33c440132e43bd68d9c7e220956c21f919f618e6b451a121900ed151bc873",
+          "template_marker_hash": "a1d7aa0bc8405304204b5543d04415b6a9536f8bdc156ff1afba8eb5ca3ef444",
+          "provenance": "seeded-empty"
+        }
+      ],
+      "template_prose_hash": "52f3726ea17f0e423afd47501c6c8191b34675a4fe05bee1fb92ee3850c44048"
     },
     {
       "target": "CONVENTIONS.md",
@@ -70,6 +111,26 @@
         }
       ],
       "template_prose_hash": "73a8bd6998ebd2558232be39d20ff06a3aeb31559abaf3112971494795d6272d"
+    },
+    {
+      "target": ".github/copilot-instructions.md",
+      "source_template": "template/composed/.github/copilot-instructions.md",
+      "class": "composed",
+      "rendered_hash": "ae0fe000c6e6204b50575fb3c94cbcb7e74a02b1731126a94939f5ffd140adfc",
+      "action": "created",
+      "blocks": [
+        {
+          "id": "copilot-instructions.harness",
+          "source_line_range": {
+            "start": 243,
+            "end": 246
+          },
+          "body_hash": "06ba16e7804bd0fbe18412571250d38fcd2e364406baa9f1692ae9d6383c32b1",
+          "template_marker_hash": "42a32b7dec3ef51074bab594f4f872f7d4a96b032495723a45e5c5a83dd1b3e6",
+          "provenance": "seeded-empty"
+        }
+      ],
+      "template_prose_hash": "19dddc836a0e363aed2fa31fd63c0d66b2d2774534056d252dc298b4543b3348"
     }
   ],
   "scaffolds": [

@@ -25,11 +25,18 @@
   },
   "composed": {
     "files": [
+      "INSTRUCTIONS.md",
       "CONVENTIONS.md",
       "OPERATIONS.md",
-      "REVIEWS.md"
+      "REVIEWS.md",
+      ".github/copilot-instructions.md"
     ],
     "overrides": {
+      "INSTRUCTIONS.md": {
+        "local_blocks": [
+          "instructions.harness"
+        ]
+      },
       "CONVENTIONS.md": {
         "local_blocks": [
           "conventions.project"
@@ -43,6 +50,11 @@
       "REVIEWS.md": {
         "local_blocks": [
           "reviews.project-gates"
+        ]
+      },
+      ".github/copilot-instructions.md": {
+        "local_blocks": [
+          "copilot-instructions.harness"
         ]
       }
     }
@@ -66,7 +78,10 @@
   ],
   "managed": {
     "files": [
-      ".github/workflows/pr-evidence-lint.yml"
+      ".github/workflows/pr-evidence-lint.yml",
+      "TRACKING.md",
+      "RETROSPECTIVES.md",
+      "READMEGUIDE.md"
     ]
   }
 }
