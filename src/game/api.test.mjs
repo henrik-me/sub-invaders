@@ -113,6 +113,16 @@ test('practice submitScore skips validation, skips network, and returns sentinel
   assert.equal(fetch.calls.length, 0);
 });
 
+test('submitScore submits in practice mode when bypassPracticeSkip is set (drain path)', async () => {
+  const fetch = fakeFetch(() => jsonResponse(200, { status: 'accepted' }));
+  const client = createApiClient({ fetch, isPractice: () => true });
+  await client.submitScore(
+    { sessionId: 'abc', score: 5, finishedAt: '2026-05-13T00:00:00Z' },
+    { bypassPracticeSkip: true },
+  );
+  assert.equal(fetch.calls.length, 1);
+});
+
 test('submitScore surfaces backend error code and message', async () => {
   const fetch = fakeFetch(() => jsonResponse(409, { error: 'already_consumed', message: 'session has already been used' }));
   const client = createApiClient({ fetch });

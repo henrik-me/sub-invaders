@@ -112,8 +112,8 @@ export function createApiClient(opts = {}) {
     };
   }
 
-  async function submitScore({ sessionId, score, finishedAt, period, utcDate } = {}) {
-    if (isPractice()) {
+  async function submitScore({ sessionId, score, finishedAt, period, utcDate } = {}, { bypassPracticeSkip = false } = {}) {
+    if (isPractice() && !bypassPracticeSkip) {
       return PRACTICE_SKIP;
     }
 

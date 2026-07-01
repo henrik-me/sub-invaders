@@ -236,7 +236,10 @@ export async function bootstrap(opts = {}) {
     try {
       if (nav && nav.onLine === false) return;
       if (!apiClient || typeof apiClient.submitScore !== 'function') return;
-      await drainPendingScores((entry) => apiClient.submitScore(entry), { storage });
+      // Queued scores are always RANKED (practice never enqueues), so submit them
+      // as ranked even if the player is currently in practice mode; otherwise the
+      // mode-aware submitScore would no-op and the drain would silently drop them.
+      await drainPendingScores((entry) => apiClient.submitScore(entry, { bypassPracticeSkip: true }), { storage });
     } catch {
       // Pending-score drain is best-effort; the queue remains for the next online load.
     }

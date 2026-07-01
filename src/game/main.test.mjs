@@ -763,3 +763,37 @@ test('CS08: pending scores drain on online load and stay queued offline', async 
   assert.deepEqual(offlineSubmitted, []);
   assert.equal(offlineStorage.value('subInvadersPendingScores'), JSON.stringify([entry]));
 });
+
+test('CS08: pending ranked scores drain even while in practice mode (no silent loss)', async () => {
+  const entry = {
+    sessionId: 'session-9',
+    score: 50,
+    finishedAt: '2026-05-14T00:00:00.000Z',
+    queuedAt: 1,
+  };
+  const storage = createKeyedStorage({
+    subInvadersPendingScores: JSON.stringify([entry]),
+  });
+  const submitted = [];
+  await createHarness({
+    storage,
+    navigator: { onLine: true },
+    getMode: () => 'practice',
+    // Fake mirrors the real mode-aware guard: no-op in practice UNLESS bypassed.
+    apiClient: {
+      submitScore: async (nextEntry, opts = {}) => {
+        if (!opts.bypassPracticeSkip) {
+          return { skipped: true, reason: 'practice' };
+        }
+        submitted.push(nextEntry);
+        return { status: 'accepted' };
+      },
+    },
+  }).run();
+  await flushMicrotasks();
+
+  // The drain must bypass the practice guard so queued ranked scores are actually
+  // submitted (not silently cleared).
+  assert.deepEqual(submitted, [entry]);
+  assert.equal(storage.value('subInvadersPendingScores'), '[]');
+});
