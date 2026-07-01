@@ -85,7 +85,11 @@ export function createApiClient(opts = {}) {
     throw new Error('createApiClient: fetch is not available');
   }
   const baseUrl = normalizeBase(opts.baseUrl);
-  const isPractice = opts.isPractice ?? (() => defaultIsPractice());
+  // Normalize isPractice to a predicate: accept a function, coerce a plain
+  // boolean (an easy caller mistake), and otherwise default to mode.mjs.
+  const isPractice = typeof opts.isPractice === 'function'
+    ? opts.isPractice
+    : (opts.isPractice === undefined ? () => defaultIsPractice() : () => Boolean(opts.isPractice));
 
   async function startSession() {
     if (isPractice()) {

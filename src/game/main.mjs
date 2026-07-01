@@ -224,7 +224,9 @@ export async function bootstrap(opts = {}) {
           showUpdateBanner(sha);
         });
       }
-      Promise.resolve(reg('/sw.mjs')).catch(() => {});
+      // sw.mjs is an ES module (it uses `export`), so it MUST be registered as a
+      // module worker or the browser fails to parse it as a classic script.
+      Promise.resolve(reg('/sw.mjs', { type: 'module' })).catch(() => {});
     } catch {
       // Service Worker registration is a progressive enhancement; boot must not depend on it.
     }
@@ -312,7 +314,7 @@ export async function bootstrap(opts = {}) {
   }
 
   function startDaily() {
-    setMode('ranked');
+    setMode('ranked', { storage });
     const utcDate = currentUtcDate();
     lastLeaderboardContext = { period: 'daily', date: utcDate };
     scenes.replace(createDaily(utcDate));

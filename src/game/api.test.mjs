@@ -68,6 +68,16 @@ test('practice startSession skips network and returns sentinel', async () => {
   assert.equal(fetch.calls.length, 0);
 });
 
+test('createApiClient coerces a boolean isPractice into a predicate without throwing', async () => {
+  const fetch = fakeFetch(() => {
+    throw new Error('practice must not fetch');
+  });
+  const client = createApiClient({ fetch, isPractice: true });
+  const out = await client.startSession();
+  assert.deepEqual(out, { skipped: true, reason: 'practice' });
+  assert.equal(fetch.calls.length, 0);
+});
+
 test('startSession throws ApiError when response is malformed', async () => {
   const fetch = fakeFetch(() => jsonResponse(200, { nope: true }));
   const client = createApiClient({ fetch });

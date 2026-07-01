@@ -626,9 +626,11 @@ test('CS08: Service Worker registration is skipped for nosw and localhost, other
   await createHarness({
     location: { href: 'https://sub.example/', search: '', hostname: 'sub.example' },
     navigator: { serviceWorker: { register: () => {} } },
-    registerServiceWorker: (url) => { registered.push(url); },
+    registerServiceWorker: (url, options) => { registered.push({ url, options }); },
   }).run();
-  assert.deepEqual(registered, ['/sw.mjs']);
+  assert.equal(registered.length, 1);
+  assert.equal(registered[0].url, '/sw.mjs');
+  assert.equal(registered[0].options?.type, 'module');
 });
 
 test('CS08: a Service Worker update shows a one-time "updated" banner (not on first install)', async () => {
