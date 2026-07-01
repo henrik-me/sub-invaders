@@ -1,8 +1,24 @@
 # Project Context
 
-> **Last updated:** 2026-07-01 (post-CS17 close-out: swa-deploy push-cancellation fix)
+> **Last updated:** 2026-07-01 (post-CS18 close-out: E2E suite coverage floor made fatal)
 
 ## Codebase state
+
+**CS18 complete** (merged 2026-07-01 as `00ffb1d`) — the E2E suite-level coverage
+floor is now a real, blocking CI gate. The monocart `onEnd` hook set
+`process.exitCode = 1` on a breach, but Playwright ignores a reporter-set exit code,
+so `test:e2e:coverage` exited 0 even below the floor (LRN-028). A new post-Playwright
+checker (`scripts/coverage-suite.mjs`, wired into `test:e2e:coverage` after the
+per-file gate) reads the aggregate `.summary` from `coverage-report.json` and exits
+non-zero on any breach (fail-closed on missing/malformed/non-finite/empty-floors). The
+E2E suite floors were re-baselined to measured reality (lines 68 / statements 77 /
+functions 77 / branches 62 / bytes 78, ~1pp margin) in `coverage-thresholds.json`
+`e2e.suite` — now the single source of truth also read by
+`playwright.coverage.config.mjs` (duplicated literal removed). Verified: full
+`test:e2e:coverage` exits 0 at floors, a raised floor exits non-zero from the suite
+checker, and the CI `coverage` job is green. Content PR #125 ran 5 rubber-duck + 5
+Copilot rounds (6 robustness fixes). See
+`project/clickstops/done/done_cs18_e2e-suite-coverage-floor-fatal.md`.
 
 **CS17 complete** (merged 2026-07-01 as `5cd13cc`) — fixed the recurring `swa-deploy`
 push-run cancellations that had left production stale after every merge since
