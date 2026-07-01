@@ -1027,6 +1027,20 @@ test('CS08: practice startSession failure never draws the offline banner', async
   assert.equal(renderer.calls.some((call) => String(call.args?.[0]).startsWith('OFFLINE')), false);
 });
 
+test('CS08: ranked startSession failure from a non-network error does not draw the offline banner', async () => {
+  const api = fakeApiClient();
+  api.setStartSessionError(Object.assign(new Error('server error'), { status: 500, code: 'http_500' }));
+  const { scene } = createScene({ apiClient: api, getMode: () => 'ranked' });
+  scene.enter();
+  await flushMicrotasks();
+
+  scene.update(0.016);
+  const renderer = createFakeRenderer();
+  scene.render(renderer);
+
+  assert.equal(renderer.calls.some((call) => String(call.args?.[0]).startsWith('OFFLINE')), false);
+});
+
 test('CS03/D9: finishGame submits the final score with apiClient.submitScore(sessionId, score, finishedAt)', async () => {
   const api = fakeApiClient();
   const fixedTime = new Date('2026-05-13T00:01:00.000Z');

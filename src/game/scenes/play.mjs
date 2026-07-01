@@ -511,7 +511,10 @@ export function createPlayScene(opts = {}) {
         sessionId = null;
         sessionStartedAt = null;
         sessionError = err?.message ?? String(err);
-        if (!isPractice()) {
+        // Only surface the OFFLINE banner for genuine network failures (same
+        // predicate as the pending-score enqueue) — not for backend/response
+        // errors like 500s or malformed responses.
+        if (!isPractice() && (err?.code === 'network_error' || err?.status === 0)) {
           sessionOffline = true;
         }
       });

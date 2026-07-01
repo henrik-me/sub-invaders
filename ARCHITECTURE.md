@@ -370,16 +370,16 @@ Weekly cadence for `npm`, `nuget`, and `github-actions` (CS01-4).
 
 CS08 adds offline play as a progressive enhancement and splits play into ranked
 and practice modes. The Service Worker uses a small explicit static-asset
-allowlist: `/`, `/index.html`, `/dist/main.mjs`, `/dist/main.mjs.map`, and
-`/public/sprites.png`. Requests under `/api/*` are always network-only so
+allowlist: `/`, `/index.html`, `/dist/main.mjs`, `/dist/main.mjs.map`,
+`/public/sprites.png`, and `/public/sprites.licence`. Requests under `/api/*` are always network-only so
 sessions, score submissions, health, and leaderboard reads never come from a
 stale cache.
 
 The deploy workflow injects the short commit SHA into the uploaded assets, and
-`src/sw.mjs` names its cache `sub-invaders-<build-sha>`. During activation the
-worker deletes older `sub-invaders-*` caches, calls `self.skipWaiting()`, and
-claims clients with `clients.claim()` so a reload moves players onto the newest
-asset set.
+`src/sw.mjs` names its cache `sub-invaders-<build-sha>`. On install the worker
+calls `self.skipWaiting()`; on activation it deletes older `sub-invaders-*`
+caches and claims clients with `clients.claim()` so a reload moves players onto
+the newest asset set.
 
 Ranked mode is the default data flow: it starts a `/api/session`, submits game
 over scores to `/api/score`, and reads the leaderboard. Practice mode can be
