@@ -30,20 +30,22 @@ export function readAggregate(summaryJson) {
   if (!agg || typeof agg !== 'object') return null;
   const out = {};
   for (const [k, v] of Object.entries(agg)) {
-    if (v && typeof v.pct === 'number') out[k] = v.pct;
+    if (v && Number.isFinite(v.pct)) out[k] = v.pct;
   }
   return out;
 }
 
 // Pure comparison: returns { failures: [{metric, got, floor}] }.
 // Only numeric-valued floor keys are compared; metadata like `_reason` is ignored.
-// A metric present in the floors but absent from the aggregate fails closed.
+// A metric that is absent, non-object, or non-finite (NaN/Infinity) in the
+// aggregate fails closed (got: null) so a malformed/changed summary can't yield a
+// silent false pass. Robust to a null/undefined aggregate (optional chaining).
 export function check(floors, aggregate) {
   const failures = [];
   for (const [metric, floor] of Object.entries(floors)) {
     if (typeof floor !== 'number') continue; // ignore _reason and other metadata
-    const got = aggregate[metric];
-    if (typeof got !== 'number') {
+    const got = aggregate?.[metric];
+    if (!Number.isFinite(got)) {
       failures.push({ metric, got: null, floor });
       continue;
     }
@@ -120,8 +122,8 @@ function main() {
       console.error(`   - ${f.metric}: ${f.got.toFixed(2)}% < floor ${f.floor}%`);
     }
     console.error('\nFix one of the following:');
-    console.error('  - add E2E specs to raise the aggregate above the floor');
-    console.error(`  - if the gap is unit-covered dead-in-E2E code, lower the floor in coverage-thresholds.json ([${suite}].suite) with a documented _reason`);
+    console.error('  - add tests to raise the aggregate above the floor');
+    console.error(`  - if the gap is covered by another suite, lower the floor in coverage-thresholds.json ([${suite}].suite) with a documented _reason`);
   }
 
   if (missing.length) {

@@ -17,6 +17,11 @@ test('readAggregate returns null when no aggregate block', () => {
   assert.equal(readAggregate(null), null);
 });
 
+test('readAggregate excludes non-finite pct values (NaN/Infinity)', () => {
+  const agg = readAggregate({ summary: { lines: { pct: NaN }, branches: { pct: Infinity }, bytes: { pct: 80 } } });
+  assert.deepEqual(agg, { bytes: 80 });
+});
+
 test('check passes when all metrics meet floors', () => {
   const { failures } = check(
     { lines: 68, statements: 77, functions: 77, branches: 62, bytes: 78 },
@@ -42,6 +47,18 @@ test('check fails closed when an expected metric is missing from the aggregate',
   assert.equal(failures.length, 1);
   assert.equal(failures[0].metric, 'bytes');
   assert.equal(failures[0].got, null);
+});
+
+test('check treats a non-finite aggregate value as missing (fail-closed)', () => {
+  const { failures } = check({ lines: 68 }, { lines: NaN });
+  assert.equal(failures.length, 1);
+  assert.equal(failures[0].got, null);
+});
+
+test('check does not throw on a null/undefined aggregate (all metrics missing)', () => {
+  const { failures } = check({ lines: 68, bytes: 78 }, null);
+  assert.equal(failures.length, 2);
+  assert.ok(failures.every((f) => f.got === null));
 });
 
 test('resolveExit returns 0 when there are no failures', () => {
