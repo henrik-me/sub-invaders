@@ -1,10 +1,10 @@
 # CS08 — Offline play + ranked vs practice modes
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-si
 **Branch:** cs08/content
 **Started:** 2026-06-30
-**Closed:** —
+**Closed:** 2026-07-01
 **Depends on:** CS03 (Backend Function project + persistent leaderboard), CS04 (Daily challenge + v1 ship)
 
 ## Goal
@@ -168,4 +168,38 @@ review + Copilot engagement + plan-vs-impl review + close-out.
 | R1 | gpt-5.5 | claude-sonnet-4.6 | rubber-duck dispatched (orchestrator: yoga-si) | b2cd771eec46 | 2026-05-14T07:55:00Z | Go-with-amendments | Grandfathered at v0.5.0 pin-bump per harness CS42-7. Plan content unchanged at backfill; SI orchestrator may add R2 when CS is claimed. |
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** rubber-duck (gemini-3.1-pro-preview) — independent of every implementer model
+(claude-opus-4.8, gpt-5.5, gpt-5.3-codex) per CS48. Seven rubber-duck rounds
+(R1 Conditional Go → R2–R7 Go) plus six Copilot (`copilot-pull-request-reviewer`) rounds on #118.
+**Date:** 2026-07-01
+**Outcome:** GO — content PR #118 merged as `1321cc0`.
+
+**Deliverables:** all 19 landed — `mode.mjs`, mode-keyed `score.mjs`, `pending-scores.mjs`,
+practice-no-op `api.mjs`, `hud-mode` badge, `menu-mode-option` toggle, play-scene wireup,
+self-contained `sw.mjs`, `main.mjs`/`index.html` wiring, `swa-deploy` `__BUILD_SHA__`
+substitution, README/ARCHITECTURE/CHANGELOG docs, and the two Playwright specs.
+
+**Exit criteria:** 1–12 satisfied — verified by `node --test` (394 unit), `playwright test`
+(offline + practice-vs-ranked, 3/3 chromium), and the coverage/build/lint gates.
+
+**Accepted deviations / interpretations:**
+- **CS08-8:** an offline-at-start ranked run (no server session token) shows the OFFLINE
+  banner but does NOT enqueue a placeholder-session score — only scores with a real server
+  session id are queued/retried (honest per CS08-7; a placeholder token would be
+  server-rejected).
+- **CS08-14:** implemented the stricter reading — the daily-challenge menu option is
+  disabled/hidden in practice mode (not merely "daily implies ranked", which is also kept).
+- **`?mode=`** is a one-time boot seed (persisted via `setMode`) so the in-menu toggle can
+  override it within a session; a deep-link re-applies its mode on each load (intentional).
+
+**Real bugs caught in review and fixed before merge:**
+1. `sw.mjs` (ESM) was registered as a classic worker → now `register('/sw.mjs', { type: 'module' })`.
+2. `drainPendingOnLoad` submitted queued ranked scores via the mode-aware client (no-op in
+   practice) → silent ranked-score loss; now drains with `bypassPracticeSkip`.
+3. SW `cache.match` was query-string sensitive → offline deep-links (`/?mode=...`) 503'd; now
+   `{ ignoreSearch: true }`.
+
+**Open follow-up:** R7 (richer practice history beyond a single high score) remains a deferred,
+unfiled follow-up. The minor Copilot note on wrapping `self.skipWaiting()` in `waitUntil` was
+reviewed and accepted as-is (bare `skipWaiting()` is a standard pattern; `waitUntil(onInstall)`
+already holds the install open).
