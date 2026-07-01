@@ -74,8 +74,9 @@ function main() {
 
   const suite = args.suite;
   const summaryPath = args.summary;
-  if (!suite || !summaryPath) {
-    console.error('Usage: --suite=<unit|e2e> --summary=<path>');
+  if (typeof suite !== 'string' || typeof summaryPath !== 'string') {
+    // Guard against value-less flags (e.g. `--suite e2e` parses to boolean true).
+    console.error('Usage: --suite=<unit|e2e> --summary=<path>  (both flags require =VALUE)');
     process.exit(2);
   }
 
@@ -90,6 +91,12 @@ function main() {
   }
   if (!floors || typeof floors !== 'object') {
     console.error(`\u274c No suite-level floors for '${suite}' in coverage-thresholds.json ([${suite}].suite).`);
+    process.exit(2);
+  }
+  // Fail closed if the floors object has no numeric metric to enforce (e.g. an
+  // accidental edit left only `_reason`) -- otherwise the gate would pass vacuously.
+  if (!Object.values(floors).some((v) => typeof v === 'number')) {
+    console.error(`\u274c [${suite}].suite in coverage-thresholds.json has no numeric floors to enforce (fail-closed).`);
     process.exit(2);
   }
 
