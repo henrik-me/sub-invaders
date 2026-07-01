@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { CANVAS } from './constants.mjs';
-import { bootstrap } from './main.mjs';
+import { bootstrap, __forTesting } from './main.mjs';
 import { installTestHooks } from './test-hooks.mjs';
 
 function createFakeSceneStack() {
@@ -582,21 +582,27 @@ test('CS08: menu receives a mode option that toggles getMode/setMode', async () 
   assert.equal(modeOption.promptText(), 'MODE: PRACTICE  (← → to change)');
 });
 
-test('CS08: starting daily challenge switches mode back to ranked', async () => {
+test('CS08: daily challenge is disabled in practice mode, re-enabled in ranked (CS08-14)', async () => {
   let mode = 'practice';
-  const fixedTime = new Date('2026-05-14T12:34:56.000Z');
   const harness = createHarness({
     fetchFlagsFn: async () => ({ dailyChallenge: 'on' }),
     getMode: () => mode,
     setMode: (nextMode) => { mode = nextMode; },
-    now: () => fixedTime,
     createDailySceneFn() { return { tag: 'daily' }; },
   });
   await harness.run();
 
-  harness.records.menuOptions.dailyOption.handleInput({ pressed: (code) => code === 'KeyD' });
+  const { dailyOption } = harness.records.menuOptions;
+  // Practice + daily are mutually exclusive: the daily option is hidden + inert.
+  assert.equal(dailyOption.enabled, false);
+  assert.equal(dailyOption.promptText(), null);
+  assert.equal(dailyOption.handleInput({ pressed: (code) => code === 'KeyD' }), false);
+  assert.equal(mode, 'practice');
 
-  assert.equal(mode, 'ranked');
+  // Toggling back to ranked re-enables it live.
+  mode = 'ranked';
+  assert.equal(dailyOption.enabled, true);
+  assert.equal(dailyOption.promptText(), 'PRESS D FOR DAILY CHALLENGE');
 });
 
 test('CS08: Service Worker registration is skipped for nosw and localhost, otherwise registered', async () => {
@@ -623,6 +629,84 @@ test('CS08: Service Worker registration is skipped for nosw and localhost, other
     registerServiceWorker: (url) => { registered.push(url); },
   }).run();
   assert.deepEqual(registered, ['/sw.mjs']);
+});
+
+test('CS08: a Service Worker update shows a one-time "updated" banner (not on first install)', async () => {
+  // Genuine update: a controller was already active before registration.
+  const updateBanners = [];
+  let updateHandler = null;
+  await createHarness({
+    location: { href: 'https://sub.example/', search: '', hostname: 'sub.example' },
+    navigator: {
+      serviceWorker: {
+        controller: {},
+        register: () => {},
+        addEventListener: (type, fn) => { if (type === 'controllerchange') updateHandler = fn; },
+      },
+    },
+    registerServiceWorker: () => {},
+    showUpdateBanner: (sha) => { updateBanners.push(sha); },
+  }).run();
+
+  assert.equal(typeof updateHandler, 'function');
+  updateHandler();
+  assert.equal(updateBanners.length, 1);
+  updateHandler();
+  assert.equal(updateBanners.length, 1); // one-time only
+
+  // First-ever install: no prior controller -> no "updated" banner (CS08-12).
+  const firstInstallBanners = [];
+  let firstHandler = null;
+  await createHarness({
+    location: { href: 'https://sub.example/', search: '', hostname: 'sub.example' },
+    navigator: {
+      serviceWorker: {
+        controller: null,
+        register: () => {},
+        addEventListener: (type, fn) => { if (type === 'controllerchange') firstHandler = fn; },
+      },
+    },
+    registerServiceWorker: () => {},
+    showUpdateBanner: (sha) => { firstInstallBanners.push(sha); },
+  }).run();
+
+  if (typeof firstHandler === 'function') firstHandler();
+  assert.equal(firstInstallBanners.length, 0);
+});
+
+test('defaultShowUpdateBanner appends a one-time DOM notice and auto-removes it', () => {
+  const originalDoc = globalThis.document;
+  const originalSetTimeout = globalThis.setTimeout;
+  const appended = [];
+  let removeCalls = 0;
+  const el = { style: {}, setAttribute() {}, remove() { removeCalls += 1; } };
+  globalThis.document = {
+    createElement: () => el,
+    querySelector: (sel) => (String(sel).includes('build-sha') ? { content: 'abc1234' } : null),
+    body: { appendChild: (node) => appended.push(node) },
+  };
+  globalThis.setTimeout = (fn) => { fn(); return 0; };
+
+  try {
+    __forTesting.defaultShowUpdateBanner('abc1234');
+    assert.equal(appended.length, 1);
+    assert.equal(el.textContent, 'updated to abc1234');
+    assert.equal(removeCalls, 1);
+  } finally {
+    globalThis.document = originalDoc;
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});
+
+test('defaultShowUpdateBanner is inert without a usable document', () => {
+  const originalDoc = globalThis.document;
+  globalThis.document = undefined;
+  try {
+    assert.doesNotThrow(() => __forTesting.defaultShowUpdateBanner('x'));
+    assert.doesNotThrow(() => __forTesting.defaultShowUpdateBanner());
+  } finally {
+    globalThis.document = originalDoc;
+  }
 });
 
 test('CS08: pending scores drain on online load and stay queued offline', async () => {

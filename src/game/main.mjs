@@ -77,6 +77,29 @@ function buildSprites(spriteSheet) {
   return sprites;
 }
 
+function defaultShowUpdateBanner(sha) {
+  try {
+    const doc = globalThis.document;
+    if (!doc || typeof doc.createElement !== 'function' || !doc.body) {
+      return;
+    }
+    const el = doc.createElement('div');
+    el.textContent = `updated to ${sha || 'new version'}`;
+    el.setAttribute('role', 'status');
+    el.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);'
+      + 'z-index:9999;background:#12a7a0;color:#061525;font:14px monospace;'
+      + 'padding:6px 12px;border-radius:6px;box-shadow:0 0 12px rgb(18 167 160 / 50%)';
+    doc.body.appendChild(el);
+    setTimeout(() => {
+      try { el.remove(); } catch { /* already gone */ }
+    }, 4000);
+  } catch {
+    // The update banner is a best-effort courtesy; never let it break boot.
+  }
+}
+
+export const __forTesting = { defaultShowUpdateBanner };
+
 export async function bootstrap(opts = {}) {
   const {
     canvas = globalThis.document?.getElementById('game-canvas'),
@@ -89,6 +112,7 @@ export async function bootstrap(opts = {}) {
     getMode = defaultGetMode,
     setMode = defaultSetMode,
     registerServiceWorker,
+    showUpdateBanner = defaultShowUpdateBanner,
     seed,
     startWave,
     formationSpeed,
@@ -157,7 +181,7 @@ export async function bootstrap(opts = {}) {
   let lastLeaderboardContext = { period: 'all', date: null };
 
   function createMenu() {
-    const dailyOption = createDailyMenuOptionFn({ flags, onDaily: dailyEnabled ? startDaily : undefined });
+    const dailyOption = createDailyMenuOptionFn({ flags, onDaily: dailyEnabled ? startDaily : undefined, getMode });
     const modeOption = createModeMenuOption({ getMode, setMode });
     return createMenuSceneFn({
       onStart: startPlay,
@@ -174,8 +198,25 @@ export async function bootstrap(opts = {}) {
       if (/[?&]nosw=1\b/.test(search)) return;
       const host = String(location?.hostname ?? '');
       if (host === 'localhost' || host === '127.0.0.1' || host === '') return;
-      const reg = registerServiceWorker ?? nav?.serviceWorker?.register?.bind(nav.serviceWorker);
+      const sw = nav?.serviceWorker;
+      const reg = registerServiceWorker ?? sw?.register?.bind(sw);
       if (typeof reg !== 'function') return;
+      // CS08-11: on a genuine update (a controller was already active) show a
+      // one-time "updated to <sha>" notice; a first-ever install shows nothing
+      // (CS08-12 — SW is a progressive enhancement).
+      if (sw && typeof sw.addEventListener === 'function') {
+        const hadController = Boolean(sw.controller);
+        let notified = false;
+        sw.addEventListener('controllerchange', () => {
+          if (notified || !hadController) return;
+          notified = true;
+          let sha = '';
+          try {
+            sha = globalThis.document?.querySelector?.('meta[name="build-sha"]')?.content ?? '';
+          } catch { sha = ''; }
+          showUpdateBanner(sha);
+        });
+      }
       Promise.resolve(reg('/sw.mjs')).catch(() => {});
     } catch {
       // Service Worker registration is a progressive enhancement; boot must not depend on it.
