@@ -241,6 +241,13 @@ above are managed by the harness and will be overwritten on the next
 `composed.overrides[".github/copilot-instructions.md"].local_blocks`.
 
 <!-- harness:local-start id=copilot-instructions.harness -->
-_(Project-local agent instructions — repository-specific cross-repo
-procedures, model choices, and institutional citations. Empty by default.)_
+### Harness invocation in this repo
+
+This repository is a **consumer** of `agent-harness` — it has no local `bin/harness.mjs`,
+and its `scripts/` directory holds this repo's own scripts, not the harness's. Invoke any
+`harness …` command (including the `node bin/harness.mjs …` / `node scripts/check-*.mjs …`
+examples in the sections above, which reference agent-harness's files) via
+`npx -y github:henrik-me/agent-harness#<version>`, where `<version>` is the `version`
+field in `harness.config.json` (currently `v0.10.0`). Example:
+`npx -y github:henrik-me/agent-harness#v0.10.0 lint --quiet`. This matches CI.
 <!-- harness:local-end id=copilot-instructions.harness -->

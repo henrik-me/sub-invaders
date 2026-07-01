@@ -610,7 +610,23 @@ above are managed by the harness and will be overwritten on the next
 `harness.config.json` under `composed.overrides["INSTRUCTIONS.md"].local_blocks`.
 
 <!-- harness:local-start id=instructions.harness -->
-_(Project-local orchestration notes — repository-specific claiming phases,
-model choices, cross-repo procedures, and institutional citations. Empty by
-default.)_
+### Harness invocation in this repo (consumer)
+
+sub-invaders is a **consumer** of `agent-harness`: it has no local `bin/harness.mjs`, and
+its own `scripts/` directory is unrelated to the harness's. So the `node bin/harness.mjs …`
+/ `node scripts/check-*.mjs …` command examples in the managed sections above (which point
+at agent-harness's own files) must be run in this repo via **npx against the pinned
+version** instead, where `<version>` is the `version` field in
+[`harness.config.json`](harness.config.json) (currently `v0.10.0`):
+
+```bash
+npx -y github:henrik-me/agent-harness#<version> <command>
+npx -y github:henrik-me/agent-harness#v0.10.0 lint --quiet
+npx -y github:henrik-me/agent-harness#v0.10.0 sync --mode=check --cwd .
+```
+
+This matches CI (`.github/workflows/ci.yml`, which reads the version from
+[`harness.config.json`](harness.config.json)). One exception: a pin-bump's
+`sync --mode=apply` should be run from a git-aware local harness checkout at the tag,
+because the npx form writes placeholder lock metadata (agent-harness#352).
 <!-- harness:local-end id=instructions.harness -->
