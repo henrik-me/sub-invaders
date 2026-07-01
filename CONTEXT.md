@@ -1,8 +1,20 @@
 # Project Context
 
-> **Last updated:** 2026-07-01 (post-CS08 close-out: offline play + ranked/practice modes)
+> **Last updated:** 2026-07-01 (post-CS17 close-out: swa-deploy push-cancellation fix)
 
 ## Codebase state
+
+**CS17 complete** (merged 2026-07-01 as `5cd13cc`) — fixed the recurring `swa-deploy`
+push-run cancellations that had left production stale after every merge since
+`8a2c5bc` (2026-06-16). Root cause: the `push` production deploy and the
+`pull_request:closed` preview teardown shared concurrency group
+`swa-deploy-${{ github.ref }}`; the teardown (`cancel-in-progress: true`) cancelled the
+push deploy ~2s after each merge, requiring a manual re-run (LRN-028). The group is now
+event- and PR-number-qualified
+(`swa-deploy-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}`),
+so push production deploys are never cancelled by PR teardown runs. **Verified on its own
+merge:** `5cd13cc`'s push deploy completed with no manual re-run and `/api/health` →
+`commit: 5cd13cc`. See `project/clickstops/done/done_cs17_swa-deploy-push-cancellation.md`.
 
 **CS08 complete** (merged 2026-07-01 as `1321cc0`) — offline play + ranked/practice
 modes. The frontend resolves a mode (`?mode=` deep-link seed + canvas menu toggle,
@@ -33,9 +45,10 @@ in-repo isolation linter are deleted (the contract is now enforced by the
 upstream repo's CI). Production deploy on `78dcad0` is healthy
 (`/api/health` → `commit: 78dcad0`; the engine ships inside the esbuild bundle).
 Test counts on `main`: `npm run test:unit` 316/316, `dotnet test api/` 95/95,
-e2e 48 passing. **Known pre-existing issue:** main-push `swa-deploy` runs have
-been cancelling since `8a2c5bc` (2026-06-16) — the CS13 merge deploy had to be
-re-run manually to land; see LRN-028.
+e2e 48 passing. **Deploy reliability:** main-push `swa-deploy` runs were cancelling
+since `8a2c5bc` (2026-06-16) — the CS13 merge deploy had to be re-run manually to land;
+**fixed in CS17** (2026-07-01), see LRN-028 (deploy sub-item resolved; e2e-floor
+sub-item tracked by CS18).
 
 Prior milestones (CS01–CS12, CS14, CS15) shipped repo hardening, the engine +
 game, backend leaderboard, daily challenge, E2E suite, coverage gates, the

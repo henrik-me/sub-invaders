@@ -1,10 +1,10 @@
 # CS17 — Fix swa-deploy push-run cancellations (production deploys never land)
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-si
 **Branch:** cs17/content
 **Started:** 2026-07-01
-**Closed:** —
+**Closed:** 2026-07-01
 **Filed by:** yoga-si (claude-opus-4.8), 2026-07-01, after CS08 required manually re-running the cancelled production deploy 3× this session (be8a412, 1321cc0/cda1ec8); recurring since `8a2c5bc` (2026-06-16). See LRN-028.
 **Depends on:** none
 
@@ -102,15 +102,23 @@ None — internal CI/deploy reliability fix with no user-visible behavior change
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Event+PR-number-qualify `swa-deploy.yml` concurrency group (CS17-2) | planned | sub-agent #1 | Only the `group:` line; no other workflow change. |
-| Update LRN-028 disposition (swa-deploy sub-item resolved) | planned | sub-agent #1 | Retain e2e-floor sub-item for CS18. |
-| Close-out docs + restart state | planned | orchestrator | Workboard + active CS notes; active→done. |
-| Close-out learnings + follow-ups | planned | orchestrator | File LRN if a residual cancellation cause surfaces at exit criterion #2. |
+| Event+PR-number-qualify `swa-deploy.yml` concurrency group (CS17-2) | done | sub-agent #1 | Only the `group:` line + comment rewrite; no other workflow change. Commit on cs17/content. |
+| Update LRN-028 disposition (swa-deploy sub-item resolved) | done | sub-agent #1 | Deploy sub-item RESOLVED by CS17; e2e-floor sub-item retained for CS18. |
+| Close-out docs + restart state | done | orchestrator | active→done, WORKBOARD cleared, CONTEXT.md updated. |
+| Close-out learnings + follow-ups | done | orchestrator | No residual cancellation cause — exit criterion #2 verified clean (see Notes). |
 
 ## Notes / Learnings
 
-Filled during execution.
+**Outcome (2026-07-01):** content PR #122 merged as `5cd13cc`. Exit criteria #1–#5 all met.
+
+- **Exit #2 + #3 VERIFIED on the CS17 merge's own deploy** — the definitive proof of the fix. At the `5cd13cc` merge, the `push` production deploy (run 28493723025, group `swa-deploy-push-refs/heads/main`) ran to **completion (success, not cancelled)** while the concurrent `pull_request:closed` teardown for PR #122 (group `swa-deploy-pull_request-122`) succeeded independently. Prod `/api/health` → `commit: 5cd13cc` with **no manual re-run**. Contrast the two immediately-prior merges under the old shared group: `5353d05` (filing PR #120) and `406f4ef` (claim PR #121) push deploys were both **cancelled** in ~2s.
+- **Exit #5 (preview teardown):** the PR #122 `close-pull-request` job ran and succeeded in its own per-PR group.
+- **Review:** rubber-duck (gpt-5.5) returned Go with no blocking findings (confirmed group separation, unchanged push queueing, no other refs to the old group, valid `||` expression, LRN-028 frontmatter intact). Copilot raised one comment claiming `cancel-in-progress: false` does not supersede older *pending* runs; declined with an authoritative GitHub-docs citation (default `queue: single` cancels+replaces existing pending runs) — the comment wording is correct and the reviewer concurred.
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** rubber-duck (gpt-5.5) — independent of the implementer model (claude-opus-4.8) per CS48. One rubber-duck round (Go, no blocking findings) plus one Copilot (`copilot-pull-request-reviewer`) round on #122 (one comment, declined with GitHub-docs citation).
+**Date:** 2026-07-01
+**Outcome:** GO — content PR #122 merged as `5cd13cc`.
+
+**Deliverables:** both landed exactly as planned — (1) `swa-deploy.yml` concurrency `group:` changed to `swa-deploy-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}` (plus a comment rewrite documenting the real root cause; no trigger/job/pin/cancel-in-progress/deploy-input change), and (2) LRN-028's disposition updated (deploy sub-item RESOLVED by CS17, e2e-floor sub-item retained for CS18). All six exit criteria satisfied; #2/#3 verified empirically on the CS17 merge's own push deploy (`5cd13cc` deployed to prod with no manual re-run — see Notes). No scope deviation.
