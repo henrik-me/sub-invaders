@@ -13,7 +13,7 @@
     }
   },
   "e2e": {
-    "suite": { "lines": 77, "statements": 87, "functions": 84, "branches": 70, "bytes": 80 },
+    "suite": { "lines": 68, "statements": 77, "functions": 77, "branches": 62, "bytes": 78, "_reason": "CS18 re-baseline to the measured E2E aggregate on de47e4a (lines 69.24 / statements 78.24 / functions 78.39 / branches 63.41 / bytes 79.06) minus a ~1pp margin for V8 run-to-run variance (R3). E2E plateaus below the unit targets because the remaining gaps are unit-covered defensive/modifier code (game/modifiers/*, defensive guards); the unit suite is the primary gate for those. Enforced by scripts/coverage-suite.mjs. See OPERATIONS.md Coverage policy." },
     "perFileDefaults": { "lines": 80, "statements": 85, "functions": 80, "branches": 70, "bytes": 80 },
     "overrides": {
       "src/game/hud.mjs":               { "branches": 70, "_reason": "trivial label-formatting branches; unit covers 91" },

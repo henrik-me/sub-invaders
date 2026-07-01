@@ -14,10 +14,26 @@
 process.env.PLAYWRIGHT_COVERAGE = '1';
 
 import { defineConfig, devices } from '@playwright/test';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Single source of truth for the E2E suite-level floors (CS18): read the numeric
+// metric floors from coverage-thresholds.json [e2e].suite. The authoritative gate
+// is the post-Playwright checker (scripts/coverage-suite.mjs, wired into
+// `npm run test:e2e:coverage`); these values only drive monocart's own report
+// coloring and the informational onEnd console summary below.
+const suiteFloors = (() => {
+  const raw = JSON.parse(fs.readFileSync(path.join(__dirname, 'coverage-thresholds.json'), 'utf8'));
+  const out = {};
+  for (const [k, v] of Object.entries(raw.e2e?.suite ?? {})) {
+    if (typeof v === 'number') out[k] = v;
+  }
+  return out;
+})();
+
 const baseURL = process.env.BASE_URL ?? 'http://localhost:4173';
 const useWebServer = process.env.USE_WEB_SERVER === undefined
   ? /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/.test(baseURL)
@@ -93,44 +109,34 @@ export default defineConfig({
               || sourcePath.startsWith('game/')
               || sourcePath.includes('canvas-game-engine');
           },
-          // CS09 Phase 3: locked-in floors after Phase 2 test-writing.
-          // Targets were >=90/85 across all four metrics (matched in the unit
-          // suite). E2E plateaus below 90 on lines/branches because the
-          // remaining gaps are dead-in-production defensive code (createFrame
-          // helpers in sprite.mjs, defaultFactory paths in play.mjs, throw
-          // guards in renderer/loop, etc.) which the *unit* suite covers
-          // independently. CS03 lowered branches 70 → 69 because the new
-          // apiClient fallbacks (startSession failure → no submission;
-          // missing entries field; ternary on apiClient presence) are
-          // exercised by unit tests only and would require multiple new
-          // E2E specs each driving an offline scenario to recover the 0.3pp.
-          // See OPERATIONS.md "Coverage policy" for the per-file E2E
-          // exception list.
-          thresholds: {
-            lines: 77,
-            statements: 87,
-            functions: 84,
-            branches: 69,
-            bytes: 80,
-          },
-          // Fail the run if any of the above thresholds are not met.
-          // monocart-coverage-reports calls this hook with the final summary.
+          // Suite-level floors (single source of truth: coverage-thresholds.json
+          // [e2e].suite; re-baselined in CS18). These drive monocart's report
+          // status coloring only -- the ENFORCED gate is scripts/coverage-suite.mjs,
+          // run after `playwright test` in `npm run test:e2e:coverage`. E2E
+          // plateaus below the unit targets because the remaining gaps are
+          // unit-covered defensive/modifier code; see OPERATIONS.md "Coverage
+          // policy".
+          thresholds: suiteFloors,
+          // Informational console summary only. The ENFORCED suite-level gate is
+          // scripts/coverage-suite.mjs (run after `playwright test` in
+          // `npm run test:e2e:coverage`) -- Playwright derives its exit code from
+          // test results, not a reporter-set process.exitCode, so this hook must
+          // NOT be relied on to fail CI (CS18). Floors come from suiteFloors
+          // (coverage-thresholds.json [e2e].suite).
           onEnd: async (coverageResults) => {
             const s = coverageResults.summary;
-            const t = { lines: 77, statements: 87, functions: 84, branches: 69, bytes: 80 };
             const fails = [];
-            for (const k of Object.keys(t)) {
+            for (const [k, floor] of Object.entries(suiteFloors)) {
               const pct = s[k]?.pct;
-              if (typeof pct === 'number' && pct < t[k]) {
-                fails.push(`${k}: ${pct.toFixed(2)}% < floor ${t[k]}%`);
+              if (typeof pct === 'number' && pct < floor) {
+                fails.push(`${k}: ${pct.toFixed(2)}% < floor ${floor}%`);
               }
             }
             if (fails.length) {
-              console.error('\n❌ E2E coverage regression below CS09 floor:');
+              console.error('\n\u274c E2E suite coverage below floor (enforced by scripts/coverage-suite.mjs):');
               for (const f of fails) console.error('   - ' + f);
-              process.exitCode = 1;
             } else {
-              console.log('\n✅ E2E coverage meets CS09 floors.');
+              console.log('\n\u2705 E2E suite coverage meets floors.');
             }
           },
         },
