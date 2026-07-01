@@ -1,9 +1,9 @@
 # CS18 — Make the E2E suite-level coverage floor actually fail CI
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** yoga-si
+**Branch:** cs18/content
+**Started:** 2026-07-01
 **Closed:** —
 **Filed by:** yoga-si (claude-opus-4.8), 2026-07-01, surfaced during CS08/LRN-028 harvest: the E2E suite-level aggregate floor check is non-fatal and has been printing a ❌ on `main` without failing CI.
 **Depends on:** none (independent of CS17)
@@ -91,6 +91,15 @@ None — CI-gate hardening with no runtime/user-visible change.
 3. **R3 — CI flakiness.** V8 coverage percentages can vary slightly run-to-run; set
    floors with a small margin below the measured value to avoid flaky failures.
 
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8, gpt-5.5 |
+| Reviewer model | gemini-3.1-pro-preview |
+| Implementer agent | yoga-si |
+| Reviewer agent | rubber-duck |
+
 ## Plan review
 
 | Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
@@ -101,7 +110,13 @@ None — CI-gate hardening with no runtime/user-visible change.
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| Suite-floor checker reading `coverage-report.json` `.summary.*.pct` vs `coverage-thresholds.json` `e2e.suite` (CS18-1/2) | planned | sub-agent #1 | Fail-closed if summary missing/malformed (R1). Distinct miss message for CS18-5. |
+| Wire checker into `package.json` `test:e2e:coverage` after `playwright test` (CS18-2) | planned | sub-agent #1 | Alongside existing `coverage:check:e2e` per-file check. |
+| Re-baseline `e2e.suite` floors to measured aggregate (small margin) with `_reason`s (CS18-3/4) | planned | sub-agent #1 | Single source of truth; drop the duplicated literal in `playwright.coverage.config.mjs`. |
+| Negative test: raise a suite floor, confirm non-zero exit from the new checker (CS18-5) | planned | sub-agent #1 | Must fail from the suite checker's message, not per-file gate/reporter (LRN-019). |
+| Update `LEARNINGS.md` (LRN-028 e2e-floor sub-item resolved) + `OPERATIONS.md` Coverage policy (CS18-6) | planned | sub-agent #1 | Note suite floor now enforced; unit is primary gate for `game/modifiers/*`. |
+| Close-out docs + restart state | planned | orchestrator | active→done, WORKBOARD cleared, CONTEXT.md updated. |
+| Close-out learnings + follow-ups | planned | orchestrator | Confirm no lingering ❌ on `main`; file LRN if the re-baseline surfaces anything. |
 
 ## Notes / Learnings
 
