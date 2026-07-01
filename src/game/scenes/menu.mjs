@@ -14,6 +14,7 @@ export function createMenuScene(opts = {}) {
   const getHighScore = opts.getHighScore ?? (() => 0);
   const now = opts.now ?? (() => Date.now());
   const dailyOption = opts.dailyOption ?? null;
+  const modeOption = opts.modeOption ?? null;
 
   return {
     handleInput(input) {
@@ -26,6 +27,7 @@ export function createMenuScene(opts = {}) {
       }
 
       dailyOption?.handleInput?.(input);
+      modeOption?.handleInput?.(input);
     },
 
     render(renderer) {
@@ -73,6 +75,16 @@ export function createMenuScene(opts = {}) {
             baseline: 'middle',
           });
         }
+      }
+
+      const modePrompt = modeOption?.promptText?.();
+      if (modePrompt) {
+        renderer.drawText(modePrompt, width / 2, height - 128, {
+          font: '18px monospace',
+          fill: PALETTE.ui,
+          align: 'center',
+          baseline: 'middle',
+        });
       }
     },
   };
