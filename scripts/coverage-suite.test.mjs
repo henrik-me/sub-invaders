@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { check, readAggregate } from './coverage-suite.mjs';
+import { check, readAggregate, resolveExit } from './coverage-suite.mjs';
 
 test('readAggregate reads monocart .summary shape', () => {
   const agg = readAggregate({ summary: { lines: { pct: 70.5 }, branches: { pct: 60 } } });
@@ -42,4 +42,23 @@ test('check fails closed when an expected metric is missing from the aggregate',
   assert.equal(failures.length, 1);
   assert.equal(failures[0].metric, 'bytes');
   assert.equal(failures[0].got, null);
+});
+
+test('resolveExit returns 0 when there are no failures', () => {
+  assert.equal(resolveExit([]), 0);
+});
+
+test('resolveExit returns 1 for a real breach (metric below floor)', () => {
+  assert.equal(resolveExit([{ metric: 'lines', got: 60, floor: 70 }]), 1);
+});
+
+test('resolveExit returns 2 (fail-closed) when a floored metric is missing', () => {
+  assert.equal(resolveExit([{ metric: 'bytes', got: null, floor: 78 }]), 2);
+});
+
+test('resolveExit prefers fail-closed (2) when both a breach and a missing metric occur', () => {
+  assert.equal(resolveExit([
+    { metric: 'lines', got: 60, floor: 70 },
+    { metric: 'bytes', got: null, floor: 78 },
+  ]), 2);
 });

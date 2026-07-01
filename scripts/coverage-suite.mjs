@@ -52,6 +52,16 @@ export function check(floors, aggregate) {
   return { failures };
 }
 
+// Map a failure list to a process exit code:
+//   0 = no failures; 1 = real breach(es) below floor; 2 = fail-closed, because a
+//   floored metric is ABSENT from the aggregate (the summary shape changed /
+//   is malformed, so the numbers can't be trusted). A missing metric takes
+//   precedence over a plain breach.
+export function resolveExit(failures) {
+  if (!failures.length) return 0;
+  return failures.some((f) => f.got === null) ? 2 : 1;
+}
+
 function main() {
   const args = Object.fromEntries(
     process.argv.slice(2).map((a) => {
@@ -95,19 +105,36 @@ function main() {
   }
 
   const { failures } = check(floors, aggregate);
-  if (failures.length) {
-    console.error(`\n\u274c ${suite.toUpperCase()} suite-level coverage floor breached (${failures.length} miss${failures.length === 1 ? '' : 'es'}):`);
-    for (const f of failures) {
-      const got = f.got === null ? 'missing' : `${f.got.toFixed(2)}%`;
-      console.error(`   - ${f.metric}: ${got} < floor ${f.floor}%`);
+  const code = resolveExit(failures);
+  if (code === 0) {
+    console.log(`\u2705 Suite-level coverage gate passed for ${suite} suite.`);
+    return;
+  }
+
+  const breaches = failures.filter((f) => f.got !== null);
+  const missing = failures.filter((f) => f.got === null);
+
+  if (breaches.length) {
+    console.error(`\n\u274c ${suite.toUpperCase()} suite-level coverage floor breached (${breaches.length} miss${breaches.length === 1 ? '' : 'es'}):`);
+    for (const f of breaches) {
+      console.error(`   - ${f.metric}: ${f.got.toFixed(2)}% < floor ${f.floor}%`);
     }
     console.error('\nFix one of the following:');
     console.error('  - add E2E specs to raise the aggregate above the floor');
     console.error(`  - if the gap is unit-covered dead-in-E2E code, lower the floor in coverage-thresholds.json ([${suite}].suite) with a documented _reason`);
-    process.exit(1);
   }
 
-  console.log(`\u2705 Suite-level coverage gate passed for ${suite} suite.`);
+  if (missing.length) {
+    // Fail-closed (exit 2): a floored metric is absent from the summary, so the
+    // report shape likely changed -- do NOT treat this as a coverage regression.
+    console.error(`\n\u274c Coverage summary is missing floored metric(s) -- cannot verify the ${suite} suite floor (fail-closed):`);
+    for (const f of missing) {
+      console.error(`   - ${f.metric}: not present in the aggregate (expected floor ${f.floor}%)`);
+    }
+    console.error('  This usually means the coverage report shape changed; fix the reporter/summary, not the floor.');
+  }
+
+  process.exit(code);
 }
 
 // Run the gate only when invoked directly; importing (e.g. from the unit test)
