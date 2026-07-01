@@ -476,14 +476,7 @@ did not anticipate, and exposed one pre-existing production-deploy issue.
   `canvas-game-engine` package (vs. relative `../engine/...`), the `node --test`
   job must install dependencies; other jobs already did.
 
-**Disposition:** _(open — FOLLOW-UP. Two pre-existing, non-CS13 issues to track
-separately: (1) the E2E suite-level aggregate floor check (`playwright.coverage.config.mjs`
-`onEnd`) is **non-fatal** — `process.exitCode=1` does not fail the Playwright run —
-and has been printing a ❌ regression on `main` since low-coverage `game/modifiers/*`
-landed; (2) **main-push `swa-deploy` runs have been cancelling since `8a2c5bc`
-(2026-06-16)**, leaving production stale across CS14/CS15/CS13-claim; re-running the
-CS13 merge deploy (`78dcad0`) landed it, but the recurring cancellation needs a root-cause
-fix to the workflow concurrency/triggers. Recommend filing a maintenance CS for both.)_
+**Disposition:** _(open — FOLLOW-UP, both sub-items now filed as maintenance CSs. (1) The E2E suite-level aggregate floor check (`playwright.coverage.config.mjs` `onEnd`) is **non-fatal** — `process.exitCode=1` does not fail the Playwright run — and has been printing a ❌ regression on `main` since low-coverage `game/modifiers/*` landed; tracked by **CS18** (make the suite-level floor fatal + re-baseline). (2) **main-push `swa-deploy` runs cancelling since `8a2c5bc` (2026-06-16)** — ROOT CAUSE (CS17): the `push` production deploy and the `pull_request:closed` teardown shared concurrency group `swa-deploy-${{ github.ref }}`; the pull_request run (cancel-in-progress=true) cancelled the push deploy in ~2s. **RESOLVED by CS17**: the group is now event- and PR-number-qualified so push deploys are never cancelled by PR teardown runs. This LRN stays `open` until CS18 also lands.)_
 
 ---
 
