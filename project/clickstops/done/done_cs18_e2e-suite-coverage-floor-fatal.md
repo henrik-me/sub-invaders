@@ -1,10 +1,10 @@
 # CS18 — Make the E2E suite-level coverage floor actually fail CI
 
-**Status:** active
+**Status:** done
 **Owner:** yoga-si
 **Branch:** cs18/content
 **Started:** 2026-07-01
-**Closed:** —
+**Closed:** 2026-07-01
 **Filed by:** yoga-si (claude-opus-4.8), 2026-07-01, surfaced during CS08/LRN-028 harvest: the E2E suite-level aggregate floor check is non-fatal and has been printing a ❌ on `main` without failing CI.
 **Depends on:** none (independent of CS17)
 
@@ -95,10 +95,11 @@ None — CI-gate hardening with no runtime/user-visible change.
 
 | Field | Value |
 |---|---|
-| Implementer models | claude-opus-4.8, gpt-5.5 |
+| Implementer models | claude-opus-4.8 |
 | Reviewer model | gemini-3.1-pro-preview |
 | Implementer agent | yoga-si |
 | Reviewer agent | rubber-duck |
+| Notes | Implemented directly by the orchestrator (claude-opus-4.8); no fan-out sub-agent was used (the claim-time audit optimistically listed gpt-5.5). Reviewer model (gemini-3.1-pro-preview) differs from the implementer model (CS48 independence). Content PR #125 ran 5 rubber-duck Go rounds + 5 Copilot rounds; 6 real robustness findings fixed. |
 
 ## Plan review
 
@@ -110,18 +111,28 @@ None — CI-gate hardening with no runtime/user-visible change.
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Suite-floor checker reading `coverage-report.json` `.summary.*.pct` vs `coverage-thresholds.json` `e2e.suite` (CS18-1/2) | planned | sub-agent #1 | Fail-closed if summary missing/malformed (R1). Distinct miss message for CS18-5. |
-| Wire checker into `package.json` `test:e2e:coverage` after `playwright test` (CS18-2) | planned | sub-agent #1 | Alongside existing `coverage:check:e2e` per-file check. |
-| Re-baseline `e2e.suite` floors to measured aggregate (small margin) with `_reason`s (CS18-3/4) | planned | sub-agent #1 | Single source of truth; drop the duplicated literal in `playwright.coverage.config.mjs`. |
-| Negative test: raise a suite floor, confirm non-zero exit from the new checker (CS18-5) | planned | sub-agent #1 | Must fail from the suite checker's message, not per-file gate/reporter (LRN-019). |
-| Update `LEARNINGS.md` (LRN-028 e2e-floor sub-item resolved) + `OPERATIONS.md` Coverage policy (CS18-6) | planned | sub-agent #1 | Note suite floor now enforced; unit is primary gate for `game/modifiers/*`. |
-| Close-out docs + restart state | planned | orchestrator | active→done, WORKBOARD cleared, CONTEXT.md updated. |
-| Close-out learnings + follow-ups | planned | orchestrator | Confirm no lingering ❌ on `main`; file LRN if the re-baseline surfaces anything. |
+| Suite-floor checker reading `coverage-report.json` `.summary.*.pct` vs `coverage-thresholds.json` `e2e.suite` (CS18-1/2) | done | orchestrator | `scripts/coverage-suite.mjs` + 14 unit tests; fail-closed (exit 2) on missing/malformed/non-finite/empty-floors; distinct suite message. |
+| Wire checker into `package.json` `test:e2e:coverage` after `playwright test` (CS18-2) | done | orchestrator | `coverage:check:e2e:suite` chained after the per-file gate. |
+| Re-baseline `e2e.suite` floors to measured aggregate (small margin) with `_reason`s (CS18-3/4) | done | orchestrator | lines 68/statements 77/functions 77/branches 62/bytes 78 (~1pp margin); duplicated literal removed from `playwright.coverage.config.mjs`. |
+| Negative test: raise a suite floor, confirm non-zero exit from the new checker (CS18-5) | done | orchestrator | Floor→95 ⇒ suite checker exits 1 with its own message; reverted. |
+| Update `LEARNINGS.md` (LRN-028 e2e-floor sub-item resolved) + `OPERATIONS.md` Coverage policy (CS18-6) | done | orchestrator | LRN-028 moved Open→Applied (both sub-items resolved); Coverage policy + ratchet steps updated. |
+| Close-out docs + restart state | done | orchestrator | active→done, WORKBOARD cleared, CONTEXT.md updated. |
+| Close-out learnings + follow-ups | done | orchestrator | No lingering ❌ — CI `coverage` green at re-baselined floors; no new LRN needed. |
 
 ## Notes / Learnings
 
-Filled during execution.
+**Outcome (2026-07-01):** content PR #125 merged as `00ffb1d`. All exit criteria met.
+
+- **Exit #1 VERIFIED both ways:** the full `npm run test:e2e:coverage` chain (playwright 51 → per-file gate → suite gate) exits **0** at the re-baselined floors; the negative test (a suite floor raised to 95) makes `coverage:check:e2e:suite` exit **1** with its own `❌ E2E suite-level coverage floor breached` message (not the per-file gate/reporter — LRN-019 discipline).
+- **Exit #2 VERIFIED in CI:** the PR's `coverage` job (runs `test:e2e:coverage`) passed with the new gate active, confirming a real suite-floor regression would now fail CI.
+- **Measured aggregate** on this branch: lines 69.24 / statements 78.24 / functions 78.39 / branches 63.41 / bytes 79.06 → floors set ~1pp below (R3).
+- **Single source of truth:** `playwright.coverage.config.mjs` reads `e2e.suite` from `coverage-thresholds.json` (no duplicated literal); the monocart `onEnd` hook is now informational only (the ignored `process.exitCode` reliance removed).
+- **Review:** 5 rubber-duck rounds (gemini-3.1-pro-preview, all Go) + 5 Copilot rounds. Copilot surfaced 6 legitimate robustness improvements that were all fixed: exit-code semantics for a missing metric (exit 2 not 1), a broken OPERATIONS.md relative link, `Number.isFinite` guarding against NaN/Infinity false-passes, null-safe `check()`, suite-agnostic guidance, and fail-closed guards for value-less flags + empty-floors config. Copilot round 5 was clean.
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** rubber-duck (gemini-3.1-pro-preview) — independent of the implementer model (claude-opus-4.8) per CS48. Five rubber-duck rounds (all Go) plus five Copilot (`copilot-pull-request-reviewer`) rounds on #125 (round 5 clean).
+**Date:** 2026-07-01
+**Outcome:** GO — content PR #125 merged as `00ffb1d`.
+
+**Deliverables:** all six landed as planned — (1) `scripts/coverage-suite.mjs` post-Playwright suite checker (+ 14 unit tests) reading the aggregate from `coverage-report.json` and failing closed; (2) wired into `package.json` `test:e2e:coverage` after the per-file gate; (3) `coverage-thresholds.json` `e2e.suite` re-baselined to the measured aggregate with a documented `_reason` (single source of truth); (4) `playwright.coverage.config.mjs` reads that source and no longer relies on the ignored `onEnd` exit code; (5) `LEARNINGS.md` LRN-028 e2e-floor sub-item resolved (moved Open→Applied); (6) `OPERATIONS.md` Coverage policy updated. All five exit criteria satisfied; #1 verified by positive (exit 0) + negative (exit 1 from the suite checker) tests and #2 by the green CI `coverage` job. No scope deviation.
