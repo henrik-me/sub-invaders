@@ -53,7 +53,9 @@ async function safeFetch(fetchFn, request) {
 
 async function safeMatch(cache, request) {
   try {
-    return await cache.match(request);
+    // Allowlisting is pathname-based, so match ignoring the query string:
+    // otherwise an offline deep-link like `/?mode=practice` misses the cached `/`.
+    return await cache.match(request, { ignoreSearch: true });
   } catch {
     return undefined;
   }

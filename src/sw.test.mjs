@@ -411,3 +411,24 @@ test('onFetch resolves the origin from global location when self.location is abs
     }
   }
 });
+
+test('onFetch serves an allowlisted asset regardless of the query string (ignoreSearch)', async () => {
+  const cachedRoot = new FakeResponse('root', { label: 'root' });
+  // A query-sensitive cache: only an ignoreSearch match resolves `/?mode=...` to `/`.
+  const cache = {
+    async match(request, opts) {
+      const url = new URL(typeof request === 'string' ? request : request.url, 'https://sub-invaders.local');
+      const key = opts?.ignoreSearch ? url.pathname : `${url.pathname}${url.search}`;
+      return key === '/' ? cachedRoot : undefined;
+    },
+    async put() {},
+  };
+  const caches = createCaches({ current: cache });
+  const request = createRequest('/?mode=practice');
+  const fetchSpy = createFetchSpy();
+
+  const response = await sw.onFetch(request, { caches, cacheName: 'current', fetch: fetchSpy });
+
+  assert.equal(response, cachedRoot);
+  assert.equal(fetchSpy.calls.length, 0);
+});
