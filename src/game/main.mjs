@@ -14,8 +14,11 @@ import { createGameOverScene } from './scenes/gameover.mjs';
 import { createLeaderboardScene } from './scenes/leaderboard.mjs';
 import { createMenuScene } from './scenes/menu.mjs';
 import { createDailyMenuOption } from './scenes/menu-daily-option.mjs';
+import { createModeMenuOption } from './scenes/menu-mode-option.mjs';
 import { createPlayScene } from './scenes/play.mjs';
-import { getHighScore, setHighScore } from './score.mjs';
+import { getMode as defaultGetMode, setMode as defaultSetMode } from './mode.mjs';
+import { drain as drainPendingScores } from './pending-scores.mjs';
+import { getHighScore, getHighScoreFor, setHighScore, setHighScoreFor } from './score.mjs';
 import { installTestHooks } from './test-hooks.mjs';
 
 function toScore(value) {
@@ -79,9 +82,13 @@ export async function bootstrap(opts = {}) {
     canvas = globalThis.document?.getElementById('game-canvas'),
     window: win = globalThis.window,
     location = globalThis.location,
+    navigator: nav = globalThis.navigator,
     spritesUrl = './public/sprites.png',
     loadSprites = ({ url, imageFactory: factory }) => loadSpriteSheet(url, { imageFactory: factory }),
     storage,
+    getMode = defaultGetMode,
+    setMode = defaultSetMode,
+    registerServiceWorker,
     seed,
     startWave,
     formationSpeed,
@@ -135,8 +142,8 @@ export async function bootstrap(opts = {}) {
   const flags = await Promise.resolve(fetchFlagsFn({})).catch(() => ({}));
   const dailyEnabled = isDailyChallengeEnabled(flags);
 
-  const readHighScore = () => getHighScore({ storage });
-  const writeHighScore = (value) => setHighScore(value, { storage });
+  const readHighScore = () => getHighScoreFor(getMode(), { storage });
+  const writeHighScore = (value) => setHighScoreFor(getMode(), value, { storage });
 
   function currentUtcDate() {
     const date = now();
@@ -151,12 +158,38 @@ export async function bootstrap(opts = {}) {
 
   function createMenu() {
     const dailyOption = createDailyMenuOptionFn({ flags, onDaily: dailyEnabled ? startDaily : undefined });
+    const modeOption = createModeMenuOption({ getMode, setMode });
     return createMenuSceneFn({
       onStart: startPlay,
       onLeaderboard: apiClient ? showLeaderboard : undefined,
       getHighScore: readHighScore,
       dailyOption,
+      modeOption,
     });
+  }
+
+  function maybeRegisterServiceWorker() {
+    try {
+      const search = String(location?.search ?? '');
+      if (/[?&]nosw=1\b/.test(search)) return;
+      const host = String(location?.hostname ?? '');
+      if (host === 'localhost' || host === '127.0.0.1' || host === '') return;
+      const reg = registerServiceWorker ?? nav?.serviceWorker?.register?.bind(nav.serviceWorker);
+      if (typeof reg !== 'function') return;
+      Promise.resolve(reg('/sw.mjs')).catch(() => {});
+    } catch {
+      // Service Worker registration is a progressive enhancement; boot must not depend on it.
+    }
+  }
+
+  async function drainPendingOnLoad() {
+    try {
+      if (nav && nav.onLine === false) return;
+      if (!apiClient || typeof apiClient.submitScore !== 'function') return;
+      await drainPendingScores((entry) => apiClient.submitScore(entry), { storage });
+    } catch {
+      // Pending-score drain is best-effort; the queue remains for the next online load.
+    }
   }
 
   function createConfiguredFormation(options = {}) {
@@ -231,6 +264,7 @@ export async function bootstrap(opts = {}) {
   }
 
   function startDaily() {
+    setMode('ranked');
     const utcDate = currentUtcDate();
     lastLeaderboardContext = { period: 'daily', date: utcDate };
     scenes.replace(createDaily(utcDate));
@@ -286,6 +320,9 @@ export async function bootstrap(opts = {}) {
     setSeed,
     showGameOver,
   });
+
+  drainPendingOnLoad();
+  maybeRegisterServiceWorker();
 
   return { renderer, input, scenes, loop, sprites, testHooks };
 }

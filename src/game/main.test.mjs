@@ -57,6 +57,26 @@ function createStorage(initialValue = null) {
   };
 }
 
+function createKeyedStorage(initialValues = {}) {
+  const values = new Map(Object.entries(initialValues));
+
+  return {
+    getItem(key) {
+      return values.has(key) ? values.get(key) : null;
+    },
+    setItem(key, nextValue) {
+      values.set(key, String(nextValue));
+    },
+    value(key) {
+      return values.get(key);
+    },
+  };
+}
+
+function flushMicrotasks() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 function createHarness(overrides = {}) {
   const records = {
     attachedTarget: undefined,
@@ -527,3 +547,116 @@ test('CS04 PvI: startPlay after startDaily resets the leaderboard context', asyn
   assert.equal(Object.prototype.hasOwnProperty.call(lbOpts, 'date'), false);
 });
 
+test('CS08: practice mode game over writes only the practice high-score key', async () => {
+  const storage = createKeyedStorage({
+    subInvadersHighScore: '5',
+    subInvadersPracticeHighScore: '7',
+  });
+  const harness = createHarness({
+    storage,
+    getMode: () => 'practice',
+  });
+  await harness.run();
+
+  harness.records.menuOptions.onStart();
+  harness.records.playOptions.onGameOver(42);
+
+  assert.equal(storage.value('subInvadersPracticeHighScore'), '42');
+  assert.equal(storage.value('subInvadersHighScore'), '5');
+});
+
+test('CS08: menu receives a mode option that toggles getMode/setMode', async () => {
+  let mode = 'ranked';
+  const harness = createHarness({
+    getMode: () => mode,
+    setMode: (nextMode) => { mode = nextMode; },
+  });
+  await harness.run();
+
+  const { modeOption } = harness.records.menuOptions;
+  assert.equal(typeof modeOption.handleInput, 'function');
+  assert.equal(modeOption.promptText(), 'MODE: RANKED  (← → to change)');
+
+  assert.equal(modeOption.handleInput({ pressed: (code) => code === 'ArrowRight' }), true);
+  assert.equal(mode, 'practice');
+  assert.equal(modeOption.promptText(), 'MODE: PRACTICE  (← → to change)');
+});
+
+test('CS08: starting daily challenge switches mode back to ranked', async () => {
+  let mode = 'practice';
+  const fixedTime = new Date('2026-05-14T12:34:56.000Z');
+  const harness = createHarness({
+    fetchFlagsFn: async () => ({ dailyChallenge: 'on' }),
+    getMode: () => mode,
+    setMode: (nextMode) => { mode = nextMode; },
+    now: () => fixedTime,
+    createDailySceneFn() { return { tag: 'daily' }; },
+  });
+  await harness.run();
+
+  harness.records.menuOptions.dailyOption.handleInput({ pressed: (code) => code === 'KeyD' });
+
+  assert.equal(mode, 'ranked');
+});
+
+test('CS08: Service Worker registration is skipped for nosw and localhost, otherwise registered', async () => {
+  const noswCalls = [];
+  await createHarness({
+    location: { href: 'https://example.test/?nosw=1', search: '?nosw=1', hostname: 'example.test' },
+    navigator: { serviceWorker: { register: () => {} } },
+    registerServiceWorker: (url) => { noswCalls.push(url); },
+  }).run();
+  assert.deepEqual(noswCalls, []);
+
+  const localhostCalls = [];
+  await createHarness({
+    location: { href: 'http://localhost/', search: '', hostname: 'localhost' },
+    navigator: { serviceWorker: { register: () => {} } },
+    registerServiceWorker: (url) => { localhostCalls.push(url); },
+  }).run();
+  assert.deepEqual(localhostCalls, []);
+
+  const registered = [];
+  await createHarness({
+    location: { href: 'https://sub.example/', search: '', hostname: 'sub.example' },
+    navigator: { serviceWorker: { register: () => {} } },
+    registerServiceWorker: (url) => { registered.push(url); },
+  }).run();
+  assert.deepEqual(registered, ['/sw.mjs']);
+});
+
+test('CS08: pending scores drain on online load and stay queued offline', async () => {
+  const entry = {
+    sessionId: 'session-1',
+    score: 123,
+    finishedAt: '2026-05-14T12:34:56.000Z',
+    queuedAt: 1,
+  };
+  const storage = createKeyedStorage({
+    subInvadersPendingScores: JSON.stringify([entry]),
+  });
+  const submitted = [];
+  await createHarness({
+    storage,
+    navigator: { onLine: true },
+    apiClient: { submitScore: async (nextEntry) => { submitted.push(nextEntry); } },
+  }).run();
+  await flushMicrotasks();
+
+  assert.deepEqual(submitted, [entry]);
+  assert.equal(storage.value('subInvadersPendingScores'), '[]');
+
+  const offlineStorage = createKeyedStorage({
+    subInvadersPendingScores: JSON.stringify([entry]),
+  });
+  const offlineSubmitted = [];
+  await createHarness({
+    storage: offlineStorage,
+    navigator: { onLine: false },
+    apiClient: { submitScore: async (nextEntry) => { offlineSubmitted.push(nextEntry); } },
+  }).run();
+  await flushMicrotasks();
+
+  assert.deepEqual(offlineSubmitted, []);
+  assert.equal(offlineStorage.value('subInvadersPendingScores'), JSON.stringify([entry]));
+});
