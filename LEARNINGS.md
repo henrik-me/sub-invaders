@@ -484,6 +484,56 @@ work.)_
 
 ## Applied
 
+### LRN-030
+
+```yaml
+id: LRN-030
+date: 2026-07-01
+category: process
+source_cs: CS17
+status: applied
+tags: [github-actions, concurrency, swa-deploy, ci, pr-review, copilot, review-discipline]
+```
+
+**Problem:** CS17 fixed the recurring swa-deploy push cancellations, but two reusable
+lessons from that work were captured only in the `swa-deploy.yml` comment, the CS17
+done-file notes, and a PR review reply — not in the canonical learnings index. `LRN-028`
+records the CS17 root cause + fix but not the underlying GitHub-concurrency semantics or
+the review-verification discipline below.
+
+**Finding:**
+- **A workflow triggering on BOTH `push` and `pull_request: closed` must not share a
+  ref-only concurrency group.** With `group: …-${{ github.ref }}`, at a merge the `push`
+  production deploy and the `pull_request: closed` teardown resolve to the same group; the
+  teardown (`cancel-in-progress: true`) cancels the in-progress push deploy in ~2s. Qualify
+  the group by `github.event_name` (and PR number for PRs) so events never collide:
+  `swa-deploy-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}`.
+- **`queue: single` (the default) cancels+replaces existing *pending* runs, not
+  in-progress ones.** With `cancel-in-progress: false`, a running job is never cancelled; a
+  newly queued run becomes pending and any *existing* pending run in the group is cancelled
+  and replaced. So back-to-back `main` merges only supersede a *pending* deploy — correct
+  and desirable for a static SWA where only the latest commit must be live. (Authoritative:
+  GitHub "Control workflow concurrency" docs.)
+- **Automated reviewers can be confidently wrong about platform semantics.** Copilot flagged
+  the swa-deploy comment as inaccurate, asserting `cancel-in-progress:false` does NOT
+  supersede pending runs — the opposite of the documented `queue: single` behavior. Verify
+  platform-behavior claims against primary docs before acting; decline an incorrect finding
+  with a citation rather than degrading correct code/comments. A web-search summary was
+  *also* wrong here (it conflated `queue: max`); the primary GitHub docs settled it.
+
+**Evidence:** CS17 PR #122 — Copilot COMMENTED at `ce5db96` with the concurrency claim;
+declined with a GitHub-docs citation, and the rubber-duck reviewer (gpt-5.5) independently
+concurred the comment was correct. Fix verified across merges
+`5cd13cc`/`45564f0`/`00ffb1d`/`eed9220` (push deploys auto-landed; prod `/api/health`
+auto-tracked the latest commit with no manual re-run).
+
+**Disposition:** _(applied within CS17. Reuse the event-qualified concurrency-group pattern
+for any workflow spanning `push` + `pull_request` events; trust the `queue: single`
+pending-supersede semantics for static-site deploys; and verify reviewer platform-semantics
+claims against primary docs before acting on them.)_
+
+---
+
 ### LRN-028
 
 ```yaml
