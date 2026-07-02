@@ -17,7 +17,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
-| CS21 | CS21 — Adopt the v0.12.0 managed workboard-auto-approve.yml (WORKBOARD_MERGE_TOKEN merge path) | 🟢 Active | omni-si | cs21/content | 2026-07-02 | — |
 
 > **Note:** Filesystem is the source of truth for queued and completed work.
 > See `project/clickstops/planned/` for the queue and `project/clickstops/done/`

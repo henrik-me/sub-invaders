@@ -484,6 +484,36 @@ work.)_
 
 ## Applied
 
+### LRN-032
+
+```yaml
+id: LRN-032
+date: 2026-07-02
+category: process
+source_cs: CS21
+status: applied
+tags: [workboard, auto-merge, ci, managed-workflow, harness-boundary]
+```
+
+**Problem:** After adopting the v0.12.0 managed `workboard-auto-approve.yml` (CS21), workboard-only
+PR auto-approval is gated on the PR branch name AND requires a repo secret — neither of which the
+old custom workflow had. A future agent using the old ad-hoc branch names, or working before the
+secret is added, will see workboard PRs silently NOT auto-merge and must fall back to admin-merge.
+
+**Finding:** For workboard-only auto-merge to work under the v0.12.0 workflow: (1) the PR branch
+MUST match `cs<NN>/(claim|close|close-out)`, `workboard/cs<NN>-(claim|close|close-out)`, or
+`docs/file-planned-cs<NN>(-<slug>)?`; and (2) the repo must carry a `WORKBOARD_MERGE_TOKEN` secret
+(fine-grained PAT, Contents + Pull-requests R/W, owner/admin account). Until the secret exists,
+workboard PRs are admin-merged manually — the `validate-and-approve` job is NOT a required status
+check, so a mis-named branch never *blocks* a merge, it only forgoes bot auto-approval. Separately,
+Copilot findings on the adopted managed workflow content are not fixable in-consumer (editing a
+managed file causes sync drift) and were routed upstream as agent-harness#394 — reinforcing LRN-031
+(harness-owned content stays in the harness; file issues upstream).
+
+**Disposition:** _applied in CS21 (merged `e074a32`); operational details recorded in CONTEXT.md; upstream harness gaps tracked by agent-harness#390–#394._
+
+---
+
 ### LRN-031
 
 ```yaml
