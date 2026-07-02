@@ -2,7 +2,7 @@
   "harness_ref": "v0.12.0",
   "resolved_sha": "3e66461519af7ff314a72097dcea0f06940a67c9",
   "config_schema_version": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
-  "synced_at": "2026-07-02T16:23:49.688Z",
+  "synced_at": "2026-07-02T19:26:11.298Z",
   "files": [
     {
       "target": ".github/workflows/pr-evidence-lint.yml",
@@ -10,6 +10,13 @@
       "class": "managed",
       "rendered_hash": "7ec3e619969cf1915794bd14df99cb1359dd1fca508049e0251d15249020dad4",
       "action": "skipped"
+    },
+    {
+      "target": ".github/workflows/workboard-auto-approve.yml",
+      "source_template": "template/managed/.github/workflows/workboard-auto-approve.yml",
+      "class": "managed",
+      "rendered_hash": "120485c706a3671cdcd733d98087db14156549d4469c0e67c5fa9958461ef9a3",
+      "action": "updated"
     },
     {
       "target": "TRACKING.md",
@@ -23,21 +30,21 @@
       "source_template": "template/managed/RETROSPECTIVES.md",
       "class": "managed",
       "rendered_hash": "b51847e6f7721ff87785cfca22ae18a8c707d408ed280efff2fb38480337d00f",
-      "action": "updated"
+      "action": "skipped"
     },
     {
       "target": "READMEGUIDE.md",
       "source_template": "template/managed/READMEGUIDE.md",
       "class": "managed",
       "rendered_hash": "25daab0f17eaa8e6c42c2624cbc800210be84d442e345df428f2f09a1e58d16c",
-      "action": "updated"
+      "action": "skipped"
     },
     {
       "target": "INSTRUCTIONS.md",
       "source_template": "template/composed/INSTRUCTIONS.md",
       "class": "composed",
       "rendered_hash": "e90239c2bd23a86e779fcba93062a16e0b97ab66adb96176f6db47d8a62a0357",
-      "action": "updated",
+      "action": "skipped",
       "blocks": [
         {
           "id": "instructions.harness",
@@ -77,7 +84,7 @@
       "source_template": "template/composed/OPERATIONS.md",
       "class": "composed",
       "rendered_hash": "92e37ce603c76057baff317ac51651025b1c49096b662495835ba64acfe35370",
-      "action": "updated",
+      "action": "skipped",
       "blocks": [
         {
           "id": "operations.project-deploy",
@@ -117,7 +124,7 @@
       "source_template": "template/composed/.github/copilot-instructions.md",
       "class": "composed",
       "rendered_hash": "c61e35d4a670e4432b25e6d60071669412fba6af7a77033497784a32c0020e50",
-      "action": "updated",
+      "action": "skipped",
       "blocks": [
         {
           "id": "copilot-instructions.harness",
