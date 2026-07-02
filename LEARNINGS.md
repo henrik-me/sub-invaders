@@ -500,15 +500,22 @@ PR auto-approval is gated on the PR branch name AND requires a repo secret — n
 old custom workflow had. A future agent using the old ad-hoc branch names, or working before the
 secret is added, will see workboard PRs silently NOT auto-merge and must fall back to admin-merge.
 
-**Finding:** For workboard-only auto-merge to work under the v0.12.0 workflow: (1) the PR branch
-MUST match `cs<NN>/(claim|close|close-out)`, `workboard/cs<NN>-(claim|close|close-out)`, or
-`docs/file-planned-cs<NN>(-<slug>)?`; and (2) the repo must carry a `WORKBOARD_MERGE_TOKEN` secret
-(fine-grained PAT, Contents + Pull-requests R/W, owner/admin account). Until the secret exists,
-workboard PRs are admin-merged manually — the `validate-and-approve` job is NOT a required status
-check, so a mis-named branch never *blocks* a merge, it only forgoes bot auto-approval. Separately,
-Copilot findings on the adopted managed workflow content are not fixable in-consumer (editing a
-managed file causes sync drift) and were routed upstream as agent-harness#394 — reinforcing LRN-031
-(harness-owned content stays in the harness; file issues upstream).
+**Finding:** The "second reviewer" on workboard-only PRs comes **solely** from the GitHub ruleset's
+`required_approving_review_count: 1`; the harness review-evidence gate (`read-only-gates`) already
+skips for the `workboard-only` label and is NOT a required status check, and `GITHUB_TOKEN` cannot
+approve a PR. GitHub cannot path-conditionally waive the approval, so the only ways to merge a
+workboard-only PR are **maintainer admin-override** (`gh pr merge --admin` — the sanctioned,
+zero-secret path, no second reviewer) or a credential that can approve/merge (an App or a
+`WORKBOARD_MERGE_TOKEN` PAT, which merely *automates* the admin bypass). **Decision: use
+admin-override; the `WORKBOARD_MERGE_TOKEN` auto-merge is optional and deliberately not configured.**
+The v0.12.0 workflow's branch-name convention (`cs<NN>/(claim|close|close-out)`,
+`workboard/cs<NN>-(claim|close|close-out)`, `docs/file-planned-cs<NN>(-<slug>)?`) still applies to
+the (non-required) `validate-and-approve` job — a mis-named branch only forgoes bot auto-approval,
+never blocks admin-merge. The deeper fix (make review-evidence a REQUIRED check so
+`required_approving_review_count` can be 0, eliminating the bypass entirely) is filed upstream as
+agent-harness#395. Separately, Copilot findings on the adopted managed workflow are not fixable
+in-consumer (managed-file edits cause sync drift) and were routed upstream as agent-harness#394 —
+reinforcing LRN-031 (harness-owned content stays in the harness; file issues upstream).
 
 **Disposition:** _applied in CS21 (merged `e074a32`); operational details recorded in CONTEXT.md; upstream harness gaps tracked by agent-harness#390–#394._
 
