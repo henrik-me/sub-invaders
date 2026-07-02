@@ -79,6 +79,7 @@
   "managed": {
     "files": [
       ".github/workflows/pr-evidence-lint.yml",
+      ".github/workflows/workboard-auto-approve.yml",
       "TRACKING.md",
       "RETROSPECTIVES.md",
       "READMEGUIDE.md"
