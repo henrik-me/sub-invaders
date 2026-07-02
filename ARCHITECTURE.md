@@ -335,12 +335,12 @@ Node 20 + .NET 8 SDK matrix. Jobs run on every PR and push to `main`:
 
 | Job | Command / purpose |
 |---|---|
-| `harness-lint` | `harness lint --quiet` (schema, PR-body, workflow-pin, and commit-trailer checks run by the harness CLI) |
-| `harness-sync-check` | `harness sync --mode=check` (fails on drift between the repo and the pinned harness templates) |
+| `harness-lint` | `npx -y "github:henrik-me/agent-harness#<version>" lint --quiet` (`<version>` read from `harness.config.json`; runs the schema, PR-body, workflow-pin, and commit-trailer checks via the pinned harness CLI) |
+| `harness-sync-check` | `npx -y "github:henrik-me/agent-harness#<version>" sync --mode=check --cwd .` (fails on drift between the repo and the pinned harness templates) |
 | `js-tests` | `npm ci`, then `node --test` over `src/**/*.test.mjs` + `scripts/**/*.test.mjs` |
 | `dotnet-tests` | `dotnet restore api/` + `dotnet test api/ --configuration Release` |
 | `coverage` | Unit coverage under c8 with suite thresholds (lines/statements/functions ≥ 90, branches ≥ 85) + per-file floors (`npm run coverage:check:unit`); then `npm run build` (frontend bundle) and `npm run test:e2e:coverage` (E2E coverage including the suite-level floor) |
-| `ci` | Aggregate gate (`needs:` every job above); fails unless all required jobs succeeded — the single required status-check context |
+| `ci` | Aggregate gate (`needs:` every job above); fails unless all required jobs succeeded. It is one of the six required status-check contexts in the Ruleset (see [Repository hardening](#repository-hardening)), not the only one |
 
 ### `swa-deploy.yml`
 
