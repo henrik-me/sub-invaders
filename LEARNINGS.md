@@ -484,6 +484,40 @@ work.)_
 
 ## Applied
 
+### LRN-031
+
+```yaml
+id: LRN-031
+date: 2026-07-02
+category: architectural
+source_cs: CS19
+status: applied
+tags: [documentation, bootstrap, cross-repo, harness-boundary, staleness]
+```
+
+**Problem:** `ARCHITECTURE.md` — a seeded, consumer-owned doc authored during the
+agent-harness–orchestrated bootstrap (`done_cs16` in agent-harness) — carried
+harness-internal content that rots for this repo: a reproduced `CS16`
+technology-decisions (`C16-9..C16-16`) table and a hard link into the harness's own
+`project/clickstops/active/active_cs16_...` path, which returns HTTP 404 once the
+harness closes that CS. It had also accumulated stale facts (a 4-job CI table, a
+"five required contexts" list, `## Future scope` framing, a storage-name
+contradiction) as CS13–CS18 shipped.
+
+**Finding:** Harness-owned content must stay in the harness. In consumer-owned docs,
+reference it by a single stable `done/` (or commit-pinned) pointer — never reproduce
+harness decision tables and never link into a transient `active/` clickstop path (it
+404s at close-out). CS19 removed the duplication + broken link (kept one `done/`
+provenance pointer), stripped the inline `(C16-xx)` tags, and refreshed the stale
+facts. The systemic prevention (the harness bootstrap should not seed consumer docs
+with `active/` self-links or duplicated decision tables) is a harness-side defect and
+is filed upstream as **agent-harness#371** — issues that belong to the harness are
+filed there, not fixed in-repo.
+
+**Disposition:** _applied in CS19 (merged `54219c0`); harness-side root cause tracked by agent-harness#371._
+
+---
+
 ### LRN-030
 
 ```yaml
