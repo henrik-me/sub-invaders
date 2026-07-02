@@ -1,10 +1,10 @@
 # CS21 — Adopt the v0.12.0 managed workboard-auto-approve.yml (WORKBOARD_MERGE_TOKEN merge path)
 
-**Status:** active
+**Status:** done
 **Owner:** omni-si
 **Branch:** cs21/content
 **Started:** 2026-07-02
-**Closed:** —
+**Closed:** 2026-07-02
 **Filed by:** omni-si, 2026-07-02, after the v0.12.0 pin bump (#140) surfaced 5 offered managed files; the user reviewed the per-file adoption analysis and chose to adopt workboard-auto-approve.yml with the WORKBOARD_MERGE_TOKEN merge path.
 **Depends on:** none (v0.12.0 already pinned as of #140)
 
@@ -92,12 +92,12 @@ validation (`--match-head-commit`).
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| T1 — Add `.github/workflows/workboard-auto-approve.yml` to `harness.config.json` `managed.files` (CS21-1) | pending | omni-si | config edit |
-| T2 — `harness sync --mode=apply` from a git-aware v0.12.0 checkout to materialize the managed workflow (CS21-1) | pending | omni-si | overwrites custom workflow; re-stamps `.harness-lock.json` |
-| T3 — Document the `WORKBOARD_MERGE_TOKEN` PAT owner-setup step (CS21-2) | pending | omni-si | content PR body + CONTEXT.md at close-out |
-| T4 — Validate: `sync --mode=check` no drift; `harness lint` green; only this file adopted (CS21-1/4) | pending | omni-si | 4 other offered files stay un-adopted |
-| Close-out: docs + restart state | pending | omni-si | Update `WORKBOARD.md` + `CONTEXT.md` (incl. branch-name convention CS21-3 + pending PAT secret) |
-| Close-out: learnings + follow-ups | pending | omni-si | File learnings if warranted; upstream #381 + features #390–#393 noted |
+| T1 — Add `.github/workflows/workboard-auto-approve.yml` to `harness.config.json` `managed.files` (CS21-1) | done | omni-si | added alongside the existing 4 managed entries |
+| T2 — `harness sync --mode=apply` from a git-aware v0.12.0 checkout to materialize the managed workflow (CS21-1) | done | omni-si | replaced the custom workflow; lock re-stamped; no drift |
+| T3 — Document the `WORKBOARD_MERGE_TOKEN` PAT owner-setup step (CS21-2) | done | omni-si | in PR #144 body + CONTEXT.md |
+| T4 — Validate: `sync --mode=check` no drift; `harness lint` green; only this file adopted (CS21-1/4) | done | omni-si | No drift; lint 21/0; CODEOWNERS + 3 workflows still un-adopted |
+| Close-out: docs + restart state | done | omni-si | WORKBOARD row removed; CONTEXT.md updated (CS21 entry + branch convention + pending PAT secret) |
+| Close-out: learnings + follow-ups | done | omni-si | LRN-032 filed; upstream #381/#394 + features #390–#393 tracked |
 
 ## Notes / Learnings
 
@@ -123,4 +123,23 @@ validation (`--match-head-commit`).
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck, dispatched by omni-si; reviewer model ∉ Implementer models `claude-opus-4.8`; reviewer agent ≠ `omni-si`)
+**Date:** 2026-07-02
+**Outcome:** GO
+
+| Field | Value |
+|---|---|
+| model | gpt-5.5 |
+| branch HEAD SHA | e074a32f567c86f0d64e28643eb7e9762fba7899 |
+| R-round | R1 |
+| verdict | Go |
+| evidence link | content PR #144 (merged `e074a32`) |
+
+All four decisions **Delivered**, no scope creep, `harness lint` 21/0:
+
+- **CS21-1** — `.github/workflows/workboard-auto-approve.yml` is in `managed.files` and matches the v0.12.0 template (`sync --mode=check` → No drift).
+- **CS21-2** — the workflow references `secrets.WORKBOARD_MERGE_TOKEN` and degrades to validation-only when unset; the secret is documented as an owner action.
+- **CS21-3** — the workflow enforces the branch-name convention; recorded in `CONTEXT.md` at close-out.
+- **CS21-4** — only this file adopted; `CODEOWNERS` unchanged (custom); `harness-drift`/`harness-pr-check`/`review-gates` absent (still report-only "available but not tracked").
+
+Content-PR review: R1 Needs-Fix flagged only an over-strict lock-metadata acceptance criterion (my review spec, not a code defect); R2 confirmed **Go** at the same HEAD. Copilot engaged; its 2 findings on the harness-managed workflow were filed upstream as agent-harness#394 (not editable in-consumer) and the threads resolved.

@@ -1,8 +1,27 @@
 # Project Context
 
-> **Last updated:** 2026-07-02 (post-CS19 close-out: ARCHITECTURE.md refresh — removed harness-owned refs + fixed staleness)
+> **Last updated:** 2026-07-02 (post-CS21 close-out: adopted v0.12.0 managed workboard-auto-approve.yml; harness pin v0.12.0)
 
 ## Codebase state
+
+**CS21 complete** (merged 2026-07-02 as `e074a32`) — adopted the agent-harness v0.12.0 managed
+`.github/workflows/workboard-auto-approve.yml` (the harness pin was first bumped v0.11.0→v0.12.0 in
+PR #140), replacing the older custom validation-only workflow. The v0.12.0 workflow adds a
+**branch-name gate** plus real auto-approve + auto-merge of `workboard-only` PRs via a
+**`WORKBOARD_MERGE_TOKEN`** PAT, degrading gracefully to validation-only (owner admin-merge) when
+the secret is absent — so there is **no behavior change until the owner adds the secret**.
+**Owner action pending:** add a fine-grained PAT (Contents R/W + Pull-requests R/W, owner/admin
+account, with an expiration + rotation policy) as the repo secret `WORKBOARD_MERGE_TOKEN` to
+activate auto-merge. **Workboard branch-name convention (now enforced by the workflow):** filing a
+planned CS uses `docs/file-planned-cs<NN>(-<slug>)?`; claim / close-out use
+`cs<NN>/(claim|close|close-out)` or `workboard/cs<NN>-(claim|close|close-out)`. A non-matching
+branch simply falls back to manual admin-merge (`validate-and-approve` is not a required check).
+Scope: only this file was adopted — `CODEOWNERS` kept custom (pending agent-harness#390) and
+`harness-drift`/`harness-pr-check`/`review-gates` deferred to a future CI-migration CS
+(agent-harness#392/#393); those 4 remain as report-only "available but not tracked" sync warnings.
+Copilot findings on the harness-managed workflow were routed upstream (agent-harness#394). Harness
+pin is now **v0.12.0** (authoritative source: `harness.config.json`). See
+`project/clickstops/done/done_cs21_adopt-workboard-auto-approve.md`.
 
 **CS19 complete** (merged 2026-07-02 as `54219c0`) — refreshed `ARCHITECTURE.md` so it
 describes *this* repo and stops carrying harness-owned content. Removed the reproduced
