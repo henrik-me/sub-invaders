@@ -53,8 +53,9 @@ and escalate — do not fix it in-band.
 JSON schemas in `schemas/` define the canonical shape of every harness
 artefact. If your deliverable conflicts with a schema, fix the deliverable,
 not the schema, unless the CS plan explicitly assigns you a schema change.
-Run `node scripts/validate-schemas.mjs` (or `harness lint`) to confirm
-conformance before reporting back.
+Run `npx -y github:henrik-me/agent-harness#v0.12.0 sync --mode=check` (validates your config against the
+schema) and `npx -y github:henrik-me/agent-harness#v0.12.0 lint` to confirm conformance before reporting
+back.
 
 ### 5 — Mandatory briefing preamble (orchestrator-side)
 
@@ -185,12 +186,11 @@ harness lint
 ```
 
 This is the single command that must exit 0 before you report back. It runs
-schema validation, PR-body linting, and any other harness-registered checks.
-If `harness` is not on the PATH, run the underlying scripts directly:
+PR-body linting and any other harness-registered checks. If `harness` is not
+on the PATH, invoke it via:
 
 ```
-node scripts/validate-schemas.mjs
-node scripts/check-pr-body.mjs --file <path-to-pr-body>
+npx -y github:henrik-me/agent-harness#v0.12.0 lint
 ```
 
 ---
