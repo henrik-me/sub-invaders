@@ -1,9 +1,9 @@
 # CS21 — Adopt the v0.12.0 managed workboard-auto-approve.yml (WORKBOARD_MERGE_TOKEN merge path)
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** omni-si
+**Branch:** cs21/content
+**Started:** 2026-07-02
 **Closed:** —
 **Filed by:** omni-si, 2026-07-02, after the v0.12.0 pin bump (#140) surfaced 5 offered managed files; the user reviewed the per-file adoption analysis and chose to adopt workboard-auto-approve.yml with the WORKBOARD_MERGE_TOKEN merge path.
 **Depends on:** none (v0.12.0 already pinned as of #140)
@@ -92,7 +92,12 @@ validation (`--match-head-commit`).
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| T1 — Add `.github/workflows/workboard-auto-approve.yml` to `harness.config.json` `managed.files` (CS21-1) | pending | omni-si | config edit |
+| T2 — `harness sync --mode=apply` from a git-aware v0.12.0 checkout to materialize the managed workflow (CS21-1) | pending | omni-si | overwrites custom workflow; re-stamps `.harness-lock.json` |
+| T3 — Document the `WORKBOARD_MERGE_TOKEN` PAT owner-setup step (CS21-2) | pending | omni-si | content PR body + CONTEXT.md at close-out |
+| T4 — Validate: `sync --mode=check` no drift; `harness lint` green; only this file adopted (CS21-1/4) | pending | omni-si | 4 other offered files stay un-adopted |
+| Close-out: docs + restart state | pending | omni-si | Update `WORKBOARD.md` + `CONTEXT.md` (incl. branch-name convention CS21-3 + pending PAT secret) |
+| Close-out: learnings + follow-ups | pending | omni-si | File learnings if warranted; upstream #381 + features #390–#393 noted |
 
 ## Notes / Learnings
 
@@ -105,6 +110,16 @@ validation (`--match-head-commit`).
 | Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
 |---|---|---|---|---|---|---|---|
 | R1 | gpt-5.5 | claude-opus-4.8 | rubber-duck dispatched (orchestrator: omni-si) | 03de8f43be5c | 2026-07-02T19:20:26Z | Go-with-amendments | All 6 fact-claims confirmed. Amendments applied: branch-convention made a durable deliverable + PAT owner/expiry guidance tightened. |
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | omni-si |
+| Reviewer agent | rubber-duck |
+| Notes | Managed-file adoption; the v0.12.0 workboard-auto-approve.yml is sync-materialized from a git-aware v0.12.0 checkout. Reviewer model ≠ implementer model (independence); Implementer agent ≠ Reviewer agent. |
 
 ## Plan-vs-implementation review
 
