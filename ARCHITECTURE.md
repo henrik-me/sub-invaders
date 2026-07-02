@@ -409,7 +409,8 @@ ranked, and switching to practice disables daily selection.
   history, squash-only merge, explicit repository-admin bypass for owner override (CS01-1).
 - **Required status checks (CS01-2):** the six contexts required by
   `infra/main-protection-ruleset.json` — `ci`, `harness-lint`,
-  `harness-sync-check`, `js-tests`, `dotnet-tests`, `e2e-local`.
+  `harness-sync-check`, `js-tests`, `dotnet-tests` (from `ci.yml`), and
+  `e2e-local` (from the separate `e2e.yml` workflow).
   Workflow-pin enforcement, PR-body checks, and commit-trailer checks are
   performed **inside** the `harness-lint` job by the harness CLI rather than
   as separate Ruleset contexts.
@@ -448,7 +449,7 @@ The CS02–CS04 arc that delivered the playable v1 game is complete:
 | CS03 | .NET 8 leaderboard backend; replay protection; Storage Tables persistence; leaderboard scene | Done (2026-05-13) |
 | CS04 | Daily challenge (5 modifiers); date-seeded RNG; whale-shark; daily-partitioned leaderboard reads/writes; feature-flags wired (frontend + backend); health-check wired; **v1 shipped** | Done (2026-05-14) |
 
-Post-v1 hardening and tooling has since shipped through CS18: E2E tests (CS07),
+Post-v1 hardening and tooling have since shipped through CS18: E2E tests (CS07),
 offline play + ranked/practice modes (CS08), coverage gates (CS09/CS15/CS18), engine
 extraction to `canvas-game-engine` (CS13), the esbuild bundler (CS14), and the
 production-deploy cancellation fix (CS17).
