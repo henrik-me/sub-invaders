@@ -1,6 +1,6 @@
 # Sub Invaders — Architecture
 
-> **Last updated:** 2026-06-04 (yoga-si / CS12 — leaderboard hardening)
+> **Last updated:** 2026-07-02 (omni-si / CS19 — ARCHITECTURE.md refresh)
 >
 > **Purpose:** This file is created once by `harness init` and is never overwritten on subsequent
 > syncs. It is the authoritative architecture reference for `henrik-me/sub-invaders`.
@@ -129,7 +129,7 @@ once leaderboard load patterns are observable in staging.
 
 ### Health probe + verify-deploy scaffolds (`health/`, `scripts/verify-deploy.mjs`)
 
-Scaffolded by `harness init` from CS16 bootstrap. The verify-deploy smoke probe checks
+Scaffolded by `harness init` during the initial bootstrap. The verify-deploy smoke probe checks
 `GET /` (200) and `GET /api/health` (200, body contains `status=ok`). Wired up fully in CS04.
 
 ### Feature-flags scaffold (`flags/`, `lib/feature-flags.mjs`)
@@ -161,7 +161,7 @@ separated by design:
 Both layers are hand-authored ES2022 `.mjs` modules. Since CS14, esbuild bundles the game
 entrypoint — resolving both the relative `src/` graph and the `canvas-game-engine` bare
 specifiers — into `src/dist/`, which the browser loads as an ES module (see LRN-025). This
-realises C16-11's extraction contract via the CS13 split.
+realises the engine-extraction contract via the CS13 split.
 
 ---
 
@@ -172,7 +172,7 @@ realises C16-11's extraction contract via the CS13 split.
 - **Language:** C# 12.
 - **Project layout:** `api/Sub-invaders.Api.csproj` targets `net8.0`,
   `<AzureFunctionsVersion>v4</AzureFunctionsVersion>`, `<OutputType>Exe</OutputType>`.
-  Functions use the `[Function]` attribute (C16-15).
+  Functions use the `[Function]` attribute.
 
 ### Routes
 
@@ -215,7 +215,7 @@ The `RateLimitMiddleware` enforces a per-IP sliding window using an in-process
    returned for over-sized bodies, but the worker did read the full payload. If that
    threat model matters, add a Front Door / APIM body-size rule upstream.
 
-### Replay protection (C16-12, implemented in CS03)
+### Replay protection (implemented in CS03)
 
 Triple guard against adversarial score submission:
 
@@ -245,16 +245,16 @@ HTTP 409 `already_consumed`.
 
 ## Azure topology
 
-- **Subscription:** the user's personal Azure subscription (confirmed at CS16 claim, gate G1).
+- **Subscription:** the user's personal Azure subscription (confirmed at bootstrap, gate G1).
 - **Resource group:** `rg-sub-invaders-prod` — every Sub Invaders Azure resource lives inside
-  this RG (C16-14, CS01-6).
+  this RG (CS01-6).
 
 > **Hard isolation invariant:** no Sub Invaders resource may be created outside
 > `rg-sub-invaders-prod`. Cleanup is a single command:
 > `az group delete --name rg-sub-invaders-prod --yes --no-wait`
 > This removes 100% of the Sub Invaders Azure footprint with no orphans.
 
-### Idempotency-via-tag (C16-14)
+### Idempotency-via-tag
 
 `provision.sh` MUST verify the RG carries tag `workload=sub-invaders` before any other
 operation. If the tag is absent the script fails closed. On first run the RG is created
@@ -288,8 +288,9 @@ No resources exist outside the RG; no manual sweeps required.
 
 CS03 introduces the first persistent application data. CS01 had no persistent data — the
 stub frontend was static HTML and `/api/health` does not touch storage. CS03 turns on
-Azure Storage Tables inside the storage account `${STORAGE_ACCT_NAME}` (defaults to
-`stsubinvadersee1282`). The connection string is wired to the SWA via the
+Azure Storage Tables inside the storage account `${STORAGE_ACCT_NAME}` (naming pattern
+`stsubinvaders$RAND6`; the provisioned production instance is `stsubinvadersee1282`). The
+connection string is wired to the SWA via the
 **`SUB_INVADERS_STORAGE`** app setting (Program.cs reads `SUB_INVADERS_STORAGE` first
 with fallback to `AzureWebJobsStorage` for local dev). The name `AzureWebJobsStorage`
 **cannot** be used as a user app setting on SWA — the platform reserves it for the
@@ -298,7 +299,7 @@ Phase 3.5 sets `SUB_INVADERS_STORAGE` idempotently.
 
 | Table | Partition key | Row key | Purpose | Cleanup |
 |---|---|---|---|---|
-| `Sessions` | `yyyyMMdd` (UTC day) | `sessionId` (GUID) | Replay-protection token + nonce (C16-12). Columns: `Nonce`, `StartedAt`, `Consumed`, `ConsumedAt`. Single-use via ETag-conditional update. `Nonce` is currently reserved metadata; replay protection itself is keyed off `sessionId` consumption. | Admin Function `POST /api/admin/sessions-cleanup` (`AuthorizationLevel.Function`) deletes rows older than 24 h. Triggered by an external scheduler (SWA managed Functions does not support `timerTrigger`). Azure Tables has no native TTL. |
+| `Sessions` | `yyyyMMdd` (UTC day) | `sessionId` (GUID) | Replay-protection token + nonce. Columns: `Nonce`, `StartedAt`, `Consumed`, `ConsumedAt`. Single-use via ETag-conditional update. `Nonce` is currently reserved metadata; replay protection itself is keyed off `sessionId` consumption. | Admin Function `POST /api/admin/sessions-cleanup` (`AuthorizationLevel.Function`) deletes rows older than 24 h. Triggered by an external scheduler (SWA managed Functions does not support `timerTrigger`). Azure Tables has no native TTL. |
 | `Leaderboard` | `"all"` or `daily-YYYY-MM-DD` | `<invertedScore D8>_<submissionUuid>` | Top scores. `invertedScore = 99_999_999 - score` so ascending RowKey sort returns top scores first. Columns: `Score` (int), `FinishedAt` (ISO-8601), `SessionId` (string, audit trail). Daily partition dates must be real UTC calendar dates. | Same admin cleanup Function trims all-time to `LeaderboardCap = 10 000` and deletes daily rows older than `DAILY_LEADERBOARD_RETENTION_DAYS` (default 30). |
 
 Both tables are created idempotently by `infra/provision.sh` Phase 2.5 so a fresh deploy
@@ -332,18 +333,20 @@ separate Function App resource; the SWA pipeline handles both layers.
 
 Node 20 + .NET 8 SDK matrix. Jobs run on every PR and push to `main`:
 
-| Job | Command |
+| Job | Command / purpose |
 |---|---|
-| `harness-lint` | `harness lint --quiet` |
-| `harness-sync-check` | `harness sync --mode=check` |
-| `js-tests` | `node --test src/**/*.test.mjs` |
-| `dotnet-tests` | `dotnet test api/` |
+| `harness-lint` | `npx -y "github:henrik-me/agent-harness#<version>" lint --quiet` (`<version>` read from `harness.config.json`; runs the schema, PR-body, workflow-pin, and commit-trailer checks via the pinned harness CLI) |
+| `harness-sync-check` | `npx -y "github:henrik-me/agent-harness#<version>" sync --mode=check --cwd .` (fails on drift between the repo and the pinned harness templates) |
+| `js-tests` | `npm ci`, then `node --test` over `src/**/*.test.mjs` + `scripts/**/*.test.mjs` |
+| `dotnet-tests` | `dotnet restore api/` + `dotnet test api/ --configuration Release` |
+| `coverage` | Unit coverage under c8 with suite thresholds (lines/statements/functions ≥ 90, branches ≥ 85) + per-file floors (`npm run coverage:check:unit`); then `npm run build` (frontend bundle) and `npm run test:e2e:coverage` (E2E coverage including the suite-level floor) |
+| `ci` | Aggregate gate (`needs:` every job above); fails unless all required jobs succeeded. It is one of the six required status-check contexts in the Ruleset (see [Repository hardening](#repository-hardening)), not the only one |
 
 ### `swa-deploy.yml`
 
 Deploys to Azure Static Web Apps. Depends on G5 secret
 (`AZURE_STATIC_WEB_APPS_API_TOKEN`). Committed **unguarded** by design
-(C16-16, CS01-9 as implemented): before G5 the deploy job fails with a
+(CS01-9 as implemented): before G5 the deploy job fails with a
 `deployment_token was not provided` error. The failure is informational —
 it surfaces the missing-secret state on every PR run so the gate cannot be
 silently forgotten — and `swa-deploy/build-and-deploy` is intentionally
@@ -403,10 +406,11 @@ ranked, and switching to practice disables daily selection.
 
 - **Ruleset `main-protection`** (`infra/main-protection-ruleset.json`): pull request required,
   ≥1 approving review, conversation resolution, no force-push, no branch deletion, linear
-  history, squash-only merge, explicit repository-admin bypass for owner override (CS01-1,
-  C16-13).
-- **Required status checks (CS01-2):** the five contexts wired through CI —
-  `ci`, `harness-lint`, `harness-sync-check`, `js-tests`, `dotnet-tests`.
+  history, squash-only merge, explicit repository-admin bypass for owner override (CS01-1).
+- **Required status checks (CS01-2):** the six contexts required by
+  `infra/main-protection-ruleset.json` — `ci`, `harness-lint`,
+  `harness-sync-check`, `js-tests`, `dotnet-tests` (from `ci.yml`), and
+  `e2e-local` (from the separate `e2e.yml` workflow).
   Workflow-pin enforcement, PR-body checks, and commit-trailer checks are
   performed **inside** the `harness-lint` job by the harness CLI rather than
   as separate Ruleset contexts.
@@ -415,10 +419,10 @@ ranked, and switching to practice disables daily selection.
   extending coverage via an advanced CodeQL workflow (or revisiting once GitHub
   detection improves) is a planned follow-up CS. Analysis may take up to 24 h on
   first enable.
-- **Secret scanning + push protection:** enabled (C16-13).
+- **Secret scanning + push protection:** enabled.
 - **Dependabot:** alerts, security updates, and version updates for `npm`, `nuget`, and
   `github-actions` (CS01-4).
-- **Private Vulnerability Reporting:** enabled (C16-13).
+- **Private Vulnerability Reporting:** enabled.
 
 ---
 
@@ -435,13 +439,20 @@ ranked, and switching to practice disables daily selection.
 
 ---
 
-## Future scope (CS02–CS04 — v1 complete)
+## Roadmap + deferred tripwires
+
+The CS02–CS04 arc that delivered the playable v1 game is complete:
 
 | CS | Adds | Status |
 |---|---|---|
 | CS02 | Custom engine + minimal playable Sub Invaders; sprite sheet; `localStorage` high-score | Done (2026-05-13) |
 | CS03 | .NET 8 leaderboard backend; replay protection; Storage Tables persistence; leaderboard scene | Done (2026-05-13) |
 | CS04 | Daily challenge (5 modifiers); date-seeded RNG; whale-shark; daily-partitioned leaderboard reads/writes; feature-flags wired (frontend + backend); health-check wired; **v1 shipped** | Done (2026-05-14) |
+
+Post-v1 hardening and tooling have since shipped through CS18: E2E tests (CS07),
+offline play + ranked/practice modes (CS08), coverage gates (CS09/CS15/CS18), engine
+extraction to `canvas-game-engine` (CS13), the esbuild bundler (CS14), and the
+production-deploy cancellation fix (CS17).
 
 Note: CS04 retired the harness pin-bump exercise per CS04-13 (already validated by CS10/CS11/PR#62).
 
@@ -460,36 +471,26 @@ Note: CS04 retired the harness pin-bump exercise per CS04-13 (already validated 
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| CS01-1 — Ruleset API shape | Author `infra/main-protection-ruleset.json` as the Repository Rulesets API request body, mirroring the agent-harness CS15a `main-protection` shape | CS15a proved this shape; C16-13 requires standards parity |
-| CS01-2 — Required checks in Ruleset | Require the five CI contexts: `ci`, `harness-lint`, `harness-sync-check`, `js-tests`, `dotnet-tests` (workflow-pin/PR-body/trailer enforcement runs inside `harness-lint`, not as separate Ruleset contexts) | Enforces contribution discipline while allowing project-specific workflow names; matches what the harness CLI actually runs |
-| CS01-3 — Code scanning | GitHub CodeQL default setup; configure for the languages GitHub auto-detects as eligible (`actions` + `javascript-typescript` on this repo). `csharp` is not auto-surfaced for the `api/` Functions project; planned follow-up CS to enable .NET coverage via advanced workflow if default detection still misses it. | C16-13 calls for default setup; less YAML = less consumer-maintained security plumbing |
+| CS01-1 — Ruleset API shape | Author `infra/main-protection-ruleset.json` as the Repository Rulesets API request body, mirroring the agent-harness CS15a `main-protection` shape | CS15a proved this shape; harness standards parity requires it |
+| CS01-2 — Required checks in Ruleset | Require the six CI contexts: `ci`, `harness-lint`, `harness-sync-check`, `js-tests`, `dotnet-tests`, `e2e-local` (workflow-pin/PR-body/trailer enforcement runs inside `harness-lint`, not as separate Ruleset contexts) | Enforces contribution discipline while allowing project-specific workflow names; matches what the harness CLI actually runs |
+| CS01-3 — Code scanning | GitHub CodeQL default setup; configure for the languages GitHub auto-detects as eligible (`actions` + `javascript-typescript` on this repo). `csharp` is not auto-surfaced for the `api/` Functions project; planned follow-up CS to enable .NET coverage via advanced workflow if default detection still misses it. | harness standards parity calls for default setup; less YAML = less consumer-maintained security plumbing |
 | CS01-4 — Dependabot | `.github/dependabot.yml` for `npm`, `nuget`, `github-actions`; weekly cadence; alerts and version updates enabled | Covers full stack: Node harness/tests, .NET Function, and Actions |
-| CS01-5 — Storage account naming | Default `STORAGE_ACCT_NAME=stsubinvaders$RAND6`; lowercase, no dashes, max 24 chars; env override | Azure global uniqueness + C16-14; env override enables deterministic retries |
-| CS01-6 — Azure resource group | Default `RG_NAME=rg-sub-invaders-prod`; script verifies tag `workload=sub-invaders` before any other resource operation | Hard isolation invariant and cleanup contract from C16-14 |
+| CS01-5 — Storage account naming | Default `STORAGE_ACCT_NAME=stsubinvaders$RAND6`; lowercase, no dashes, max 24 chars; env override | Azure global uniqueness + single-RG isolation; env override enables deterministic retries |
+| CS01-6 — Azure resource group | Default `RG_NAME=rg-sub-invaders-prod`; script verifies tag `workload=sub-invaders` before any other resource operation | Hard isolation invariant and cleanup contract (single-RG isolation) |
 | CS01-7 — Budget | RG-scoped monthly Budget `budget-sub-invaders-monthly`, default cap $5, alerts at 50/80/100% via Action Group `ag-sub-invaders-budget` | Spend guardrail is part of first provisioning, not an afterthought |
 | CS01-8 — Rate-limit defaults documented now | Document 30/min defaults for `/api/session` and `/api/score`; implement no rate limiter in CS01 because only `/api/health` exists | Keeps ARCHITECTURE.md ready for CS03 without unused backend code |
 | CS01-9 — Deploy workflow | Commit `swa-deploy.yml` **unguarded**: the deploy job runs on every push/PR and fails with a `deployment_token was not provided` error until G5 is complete. The failure is informational and is excluded from the Ruleset's required-status-checks list, so it does not block merges. (Original plan called for an `if: secrets.AZURE_STATIC_WEB_APPS_API_TOKEN != ''` guard; the implementer deviated to keep the gate visible — see the file header comment in `.github/workflows/swa-deploy.yml`.) | Visible failure surfaces the missing G5 token on every PR run; an `if:` guard would silently skip and the gate could be forgotten |
 | CS01-10 — Stub backend response | `GET /api/health` returns HTTP 200 + JSON `{"status":"ok"}`; version/flag fields deferred | Minimal stable probe for SWA staging and verify-deploy scaffold |
 | CS01-11 — Stub frontend | `src/index.html` is static HTML only; no JS modules, canvas, engine imports, or localStorage | Avoids stealing CS02 scope |
-| CS01-12 — CHANGELOG pilot | Add a dated SI-CS01 entry to `CHANGELOG.md` | Carries forward the LRN-101 pilot pattern from CS16 |
+| CS01-12 — CHANGELOG pilot | Add a dated SI-CS01 entry to `CHANGELOG.md` | Carries forward the LRN-101 pilot pattern from the bootstrap |
 
-### CS16 technology decisions (C16-9 through C16-16)
-
-CS16 decisions C16-1..C16-16 are normative for sub-invaders; reference
-https://github.com/henrik-me/agent-harness/blob/main/project/clickstops/active/active_cs16_bootstrap-sub-invaders/active_cs16_bootstrap-sub-invaders.md#decisions-cs16-specific-locked-in-2026-05-10.
-
-The technology decisions most relevant to this document:
-
-| Decision | Choice | Rationale |
-|---|---|---|
-| C16-9 — Backend tech | Azure Functions (.NET 8 isolated worker), SWA-managed Functions, route `/api/*` | User directive ".net"; isolated model is current Microsoft recommendation; in-process sunsets 2026-11-10 |
-| C16-10 — Frontend tech | Vanilla JS ES2022, HTML5 Canvas, browser-native ES modules; no bundler, no transpiler, no TypeScript; zero browser runtime deps | User directive "Keep it simple"; native ES modules in 2026 cover all needs |
-| C16-11 — Game engine | Custom in-tree at `src/engine/`; zero `import` from `src/engine/` to anything outside; structured for future extraction | User directive to build an extractable engine; one-way dep is the extraction contract |
-| C16-12 — Replay protection | Server-issued session token + plausibility window + per-IP rate limit; bounded 1 KB payloads; explicit cleanup Function for session expiry (no Azure Tables native TTL) | "Keep it simple" + anti-cheat; session token is simplest design that survives basic adversarial submission |
-| C16-13 — Repo standards parity | Mirror harness Ruleset shape, GitHub App install, security posture, and contribution docs | User directive: "ensuring it follows the same standards as the harness project itself" |
-| C16-14 — Azure resource isolation | All Sub Invaders Azure resources in one dedicated RG `rg-sub-invaders-prod`; tag `workload=sub-invaders` required; cleanup is single `az group delete` | User directive: "separate resource group, SI, for everything in Azure for this game" |
-| C16-15 — Function dev model | `api/` directory; `host.json`, `local.settings.json.example`, `Sub-invaders.Api.csproj`, `net8.0`, Functions v4, `OutputType=Exe` | Standard SWA + .NET 8 isolated layout; minimum surprise for contributors |
-| C16-16 — CI matrix | Node 20 + .NET 8 SDK; `harness lint`, `harness sync --mode=check`, `node --test`, `dotnet test`; `swa-deploy.yml` guarded until G5 | Mirrors harness CI shape across full stack |
+> **Bootstrap provenance.** Sub Invaders' foundational technology decisions
+> (backend, frontend, engine, replay protection, Azure resource isolation, CI)
+> were made during the agent-harness–orchestrated bootstrap and are recorded in
+> that repository's clickstop CS16:
+> <https://github.com/henrik-me/agent-harness/blob/main/project/clickstops/done/done_cs16_bootstrap-sub-invaders/done_cs16_bootstrap-sub-invaders.md>.
+> They are not reproduced here — this document records only sub-invaders' own
+> architecture and decisions.
 
 ### CS04 decisions (locked-in 2026-05-14, R4 hash `eb9b647f8ece`)
 
@@ -515,4 +516,28 @@ The technology decisions most relevant to this document:
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| CS13-1 — Engine extraction | Move the in-tree `src/engine/` engine (9 modules: loop, entity, collision, input, renderer, sprite, audio, scene, seed) to the standalone public repo `henrik-me/canvas-game-engine` at tag `v0.1.0`; consume it as a git-URL dependency (`github:henrik-me/canvas-game-engine#v0.1.0`) imported as bundler-resolved `canvas-game-engine/<module>.mjs` bare specifiers; delete the vendored directory and the in-repo `scripts/check-engine-isolation.mjs` linter | Realises the C16-11 extractability contract — the engine becomes reusable across games and the one-way isolation invariant is now owned and CI-enforced upstream. Accepted tradeoff: engine changes require an upstream PR + tag bump + dependency-pin bump (round-trip) |
+| CS13-1 — Engine extraction | Move the in-tree `src/engine/` engine (9 modules: loop, entity, collision, input, renderer, sprite, audio, scene, seed) to the standalone public repo `henrik-me/canvas-game-engine` at tag `v0.1.0`; consume it as a git-URL dependency (`github:henrik-me/canvas-game-engine#v0.1.0`) imported as bundler-resolved `canvas-game-engine/<module>.mjs` bare specifiers; delete the vendored directory and the in-repo `scripts/check-engine-isolation.mjs` linter | Realises the engine-extractability contract — the engine becomes reusable across games and the one-way isolation invariant is now owned and CI-enforced upstream. Accepted tradeoff: engine changes require an upstream PR + tag bump + dependency-pin bump (round-trip) |
+
+### CS14 decision (esbuild bundler, 2026-06-10)
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| CS14-1 — Frontend bundler | Introduce esbuild to bundle the game entrypoint `src/game/main.mjs` into `src/dist/main.mjs` — resolving both the relative `src/` module graph and the `canvas-game-engine` bare specifiers — which the browser loads as an ES module | Browsers cannot resolve bare package specifiers, so consuming the external engine requires a bundler; esbuild has the smallest footprint (single binary, ~20-line config, native ESM + sourcemaps) |
+
+### CS15 decision (unit per-file coverage gate, 2026-06-16)
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| CS15-1 — Unit per-file floors in CI | Enforce per-file unit-coverage floors in CI via `npm run coverage:check:unit` (`scripts/coverage-perfile.mjs` reading the `unit` suite in `coverage-thresholds.json`) against the json-summary the c8 step already emits; close the gap by raising real coverage, not by lowering thresholds | The c8 step enforced only suite-level totals, so a single file could sit below floor while CI stayed green; per-file gating matches the shape the E2E suite already uses |
+
+### CS17 decision (deploy push-cancellation fix, 2026-07-01)
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| CS17-2 — Deploy concurrency group | Event- and PR-number-qualify the `swa-deploy.yml` concurrency group (`swa-deploy-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}`) so a `pull_request: closed` teardown run can no longer cancel the main-push production deploy | Push and PR-close runs previously shared one group; the PR run (`cancel-in-progress: true`) cancelled the in-progress push deploy, leaving prod stale until a manual re-run |
+
+### CS18 decision (E2E suite-level coverage floor fatal, 2026-07-01)
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| CS18-2 — E2E suite floor enforcement | Enforce the E2E suite-level floors in a post-Playwright Node step (`scripts/coverage-suite.mjs`) that reads the emitted coverage summary and exits non-zero (fail-closed) on any breach of `coverage-thresholds.json`'s `e2e.suite` floors, wired into `npm run test:e2e:coverage` after the Playwright run | Playwright derives its exit code from test results, not a reporter's late `process.exitCode`, so the old monocart `onEnd` suite check was cosmetic; a dedicated post-step gives a reliable blocking gate |
