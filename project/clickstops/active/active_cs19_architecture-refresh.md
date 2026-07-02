@@ -1,9 +1,9 @@
 # CS19 — Refresh ARCHITECTURE.md: remove harness-owned references + fix staleness
 
-**Status:** planned
-**Owner:** —
-**Branch:** —
-**Started:** —
+**Status:** active
+**Owner:** omni-si
+**Branch:** cs19/content
+**Started:** 2026-07-02
 **Closed:** —
 **Filed by:** omni-si, 2026-07-01, after the user flagged that ARCHITECTURE.md "references stuff that is not relevant for this repo" and directed that harness-owned content stay in the harness while this-repo issues get a CS.
 **Depends on:** none
@@ -93,7 +93,13 @@ with no runtime, infra, or process-doctrine impact.
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per § Claim) | planned | — | — |
+| T1 — Remove `### CS16 technology decisions` table + the broken `active/` link; keep at most one stable `done/` pointer (CS19-1/2) | pending | omni-si | ARCHITECTURE.md |
+| T2 — Strip inline `(C16-xx)` provenance tags from prose; retain the facts + this repo's own CS0x decision refs (CS19-3) | pending | omni-si | ARCHITECTURE.md |
+| T3 — Refresh CI/CD table (6 jobs incl. coverage + aggregate ci), `Last updated` header, `## Future scope`, storage-account name (CS19-4) | pending | omni-si | verify vs `.github/workflows/ci.yml` |
+| T4 — Record CS13/CS14/CS15/CS17/CS18 in `## Decision log` (CS19-5) | pending | omni-si | ARCHITECTURE.md |
+| T5 — Validate: `harness lint` (check-architecture + text-encoding) green; keep the 4 required headings and no broken relative links (CS19-6) | pending | omni-si | — |
+| Close-out: docs + restart state | pending | omni-si | Update `WORKBOARD.md` + `CONTEXT.md`; confirm no process-template drift |
+| Close-out: learnings + follow-ups | pending | omni-si | File learnings in `LEARNINGS.md`; harness-side follow-up tracked by agent-harness#371 |
 
 ## Notes / Learnings
 
@@ -106,6 +112,16 @@ with no runtime, infra, or process-doctrine impact.
 | Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
 |---|---|---|---|---|---|---|---|
 | R1 | gpt-5.5 | claude-opus-4.8 | rubber-duck dispatched (orchestrator: omni-si) | 1fef701cecd2 | 2026-07-02T05:36:26Z | Go-with-amendments | All 7 fact-claims confirmed. Amendment applied: replaced "CS13–CS18" range with explicit CS13/14/15/17/18 (no local CS16 exists). |
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | claude-opus-4.8 |
+| Reviewer model | gpt-5.5 |
+| Implementer agent | omni-si |
+| Reviewer agent | rubber-duck |
+| Notes | Claim-time (optimistic). Implementation via background sub-agent (claude-opus-4.8); content-PR review via GPT-5.5 rubber-duck. Reviewer model ≠ implementer model (independence invariant); Implementer agent ≠ Reviewer agent (C35-18). |
 
 ## Plan-vs-implementation review
 
