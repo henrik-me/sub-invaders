@@ -198,11 +198,12 @@ is found.
 ### Step 5 — Run the linter
 
 ```sh
-node scripts/check-learnings.mjs
+npx -y github:henrik-me/agent-harness#v0.12.0 lint
 ```
 
-Fix any errors before proceeding. Warnings are advisory; document any
-intentional deviation in the entry body.
+This runs the `LEARNINGS.md` check (among the harness's other linters). Fix any
+errors before proceeding. Warnings are advisory; document any intentional
+deviation in the entry body.
 
 ### Step 6 — Commit and open a PR
 
@@ -241,7 +242,7 @@ but differ in scope and trigger.
      without substantive progress escalates the entry to weekly-only and
      removes it from before-claim prompts.
 
-2. Run `node scripts/check-learnings.mjs` to confirm no errors remain.
+2. Run `npx -y github:henrik-me/agent-harness#v0.12.0 lint` to confirm no errors remain.
 
 3. Commit the batch of dispositioned entries as a single `learnings: weekly harvest` commit.
 
@@ -270,7 +271,7 @@ Runs automatically as part of `harness harvest --before-claim <area>`.
 4. "Skip-for-this-CS" is a soft bypass — the entry remains `open` but is
    excluded from the current CS's before-claim prompt. It will still appear
    in the next weekly harvest.
-5. After disposition, run `node scripts/check-learnings.mjs` before opening
+5. After disposition, run `npx -y github:henrik-me/agent-harness#v0.12.0 lint` before opening
    the claim PR.
 
 **Invariant:** No CS claim PR should be opened while there are undispositioned
@@ -378,14 +379,13 @@ The YAML frontmatter of every entry is validated against
 Run the linter at any time:
 
 ```sh
-node scripts/check-learnings.mjs           # validate LEARNINGS.md
-node scripts/check-learnings.mjs --quiet   # summary only
-node scripts/check-learnings.mjs --file path/to/file.md   # alternate file
+npx -y github:henrik-me/agent-harness#v0.12.0 lint           # runs the LEARNINGS.md check over the repo
+npx -y github:henrik-me/agent-harness#v0.12.0 lint --quiet   # summary only
 ```
 
-Exit code 0 = all entries valid. Exit code 1 = at least one schema or
-consistency error. Warnings (age-out, deferred-past-due, ID gaps) do not
-affect the exit code.
+Exit code 0 = no linter errors. Exit code 1 = at least one linter error (for
+`LEARNINGS.md`, a schema or consistency violation). Warnings (age-out,
+deferred-past-due, ID gaps) do not affect the exit code.
 
 ---
 

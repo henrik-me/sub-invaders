@@ -299,13 +299,13 @@ human reviewer has to say a word.
 ## Running the linter
 
 ```bash
-node scripts/check-readme.mjs --file README.md
+npx -y github:henrik-me/agent-harness#v0.12.0 lint
 ```
 
 With suppressed per-finding output (summary only):
 
 ```bash
-node scripts/check-readme.mjs --file README.md --quiet
+npx -y github:henrik-me/agent-harness#v0.12.0 lint --quiet
 ```
 
 Exit codes:
@@ -314,10 +314,10 @@ Exit codes:
 |---|---|
 | `0` | No errors (warnings are allowed) |
 | `1` | At least one validation error |
-| `2` | Usage error — missing `--file` flag |
+| `2` | Usage error (e.g. an unknown flag) |
 
-The linter is run automatically by CI on every push that touches `README.md`.
-It is safe to run locally at any time; it is read-only and makes no changes.
+CI runs this check automatically as part of the harness lint aggregate. It is
+safe to run locally at any time; it is read-only and makes no changes.
 
 > **Note:** Do not run `check-readme.mjs` against this guide file
 > (`READMEGUIDE.md`). The linter is for actual `README.md` files, and this
