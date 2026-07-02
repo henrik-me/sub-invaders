@@ -1,8 +1,8 @@
 {
-  "harness_ref": "v0.10.0",
-  "resolved_sha": "6ccc28428f4795cc986a30bf5d0178dacdf070c9",
+  "harness_ref": "v0.11.0",
+  "resolved_sha": "fe70b26057bb6cf06fa6a4054036560e8568a2e6",
   "config_schema_version": "https://github.com/henrik-me/agent-harness/schemas/harness.config.schema.json",
-  "synced_at": "2026-07-01T22:11:18.576Z",
+  "synced_at": "2026-07-02T04:05:36.154Z",
   "files": [
     {
       "target": ".github/workflows/pr-evidence-lint.yml",
@@ -16,28 +16,28 @@
       "source_template": "template/managed/TRACKING.md",
       "class": "managed",
       "rendered_hash": "c4798c41ad4e5a6fb0acca64031361061253aaff3e8278595b26d8fa5e9309cf",
-      "action": "created"
+      "action": "skipped"
     },
     {
       "target": "RETROSPECTIVES.md",
       "source_template": "template/managed/RETROSPECTIVES.md",
       "class": "managed",
       "rendered_hash": "a5d37a84089bd086d7dfeedb6e6d2459c32cca6c92d14f55c0cd33b51d30e99a",
-      "action": "created"
+      "action": "skipped"
     },
     {
       "target": "READMEGUIDE.md",
       "source_template": "template/managed/READMEGUIDE.md",
       "class": "managed",
-      "rendered_hash": "e82e54ddb6a3096ae18140fd41efc0d44f1c1481f1aec605608e8794ebdb70e3",
-      "action": "created"
+      "rendered_hash": "01fe2b1049969afb54090eb230fb53601cb34320f56742c7b9e6ceed3250f0d6",
+      "action": "updated"
     },
     {
       "target": "INSTRUCTIONS.md",
       "source_template": "template/composed/INSTRUCTIONS.md",
       "class": "composed",
-      "rendered_hash": "4fda4f895f1f8838e3292365c1d7375a382efbbbca019539d052b4fde0a37028",
-      "action": "created",
+      "rendered_hash": "e0c3d7410bfcfd7622bb8fa2641da1b2326ee9ffd75bab5daa4a7d5d3cfe6058",
+      "action": "updated",
       "blocks": [
         {
           "id": "instructions.harness",
@@ -50,7 +50,7 @@
           "provenance": "seeded-empty"
         }
       ],
-      "template_prose_hash": "52f3726ea17f0e423afd47501c6c8191b34675a4fe05bee1fb92ee3850c44048"
+      "template_prose_hash": "754c02f16b4748c94beff20b7e9d098ac7e50fe4d62d9fceeaeb423290e7d184"
     },
     {
       "target": "CONVENTIONS.md",
@@ -76,21 +76,21 @@
       "target": "OPERATIONS.md",
       "source_template": "template/composed/OPERATIONS.md",
       "class": "composed",
-      "rendered_hash": "c6de1156684816c46587b1bbbe0d6586573b142de03f3fee8153d58847f0d53c",
-      "action": "skipped",
+      "rendered_hash": "5074939acd711086e8a068b63ca6af9cb11c6e77611044c01d9759c04add0108",
+      "action": "updated",
       "blocks": [
         {
           "id": "operations.project-deploy",
           "source_line_range": {
-            "start": 2688,
-            "end": 2930
+            "start": 2729,
+            "end": 2971
           },
           "body_hash": "99ee9ac92c4d36b3b8aed9f04b14fb0236eec7cffbc52c589b4813435c68ecf7",
           "template_marker_hash": "c538812699662e1747082864f419826b433df6e5164cdd28e870df72fcc559e5",
           "provenance": "user-authored"
         }
       ],
-      "template_prose_hash": "17db268640514e67a139e17de93cd1f35bd8ef39162dc10026e58fb1670ab81b"
+      "template_prose_hash": "5ac06b1ebbf58b8fe56d65ab98c2ca0aa76995b29aeb064afbf7fb60cecba218"
     },
     {
       "target": "REVIEWS.md",
@@ -117,7 +117,7 @@
       "source_template": "template/composed/.github/copilot-instructions.md",
       "class": "composed",
       "rendered_hash": "ae0fe000c6e6204b50575fb3c94cbcb7e74a02b1731126a94939f5ffd140adfc",
-      "action": "created",
+      "action": "skipped",
       "blocks": [
         {
           "id": "copilot-instructions.harness",
@@ -136,23 +136,23 @@
   "scaffolds": [
     {
       "name": "feature-flags",
-      "version": "v0.10.0"
+      "version": "v0.11.0"
     },
     {
       "name": "verify-deploy",
-      "version": "v0.10.0"
+      "version": "v0.11.0"
     },
     {
       "name": "container-validate",
-      "version": "v0.10.0"
+      "version": "v0.11.0"
     },
     {
       "name": "seed",
-      "version": "v0.10.0"
+      "version": "v0.11.0"
     },
     {
       "name": "health-check",
-      "version": "v0.10.0"
+      "version": "v0.11.0"
     }
   ],
   "excluded": []

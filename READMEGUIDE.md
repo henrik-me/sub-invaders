@@ -5,8 +5,7 @@ satisfy. The harness linter (`scripts/check-readme.mjs`) mechanically enforces
 every ERROR-level rule listed here; WARNING-level rules are advisory.
 
 > **File class: managed.** This guide is overwritten on every `harness sync`.
-> Your `README.md` is _not_ — it is consumer-owned and never touched by sync
-> (see [ADR 0002 — Root README is project-owned, not synced](docs/adr/0002-readme-ownership.md)).
+> Your `README.md` is _not_ — it is consumer-owned and never touched by sync.
 
 ---
 
@@ -334,8 +333,7 @@ into the consumer as a starting skeleton. That file is pre-structured to pass al
 linter checks out of the box.
 
 On every subsequent `harness sync` the consumer's `README.md` is **never
-overwritten** — it is consumer-owned (seeded file class per
-[ADR 0001](docs/adr/0001-file-classes.md)). Changes the consumer makes are
+overwritten** — it is consumer-owned (seeded file class). Changes the consumer makes are
 preserved indefinitely. Changes the harness makes to `template/seeded/README.md`
 do not propagate to existing consumers.
 
