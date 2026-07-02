@@ -407,8 +407,9 @@ ranked, and switching to practice disables daily selection.
 - **Ruleset `main-protection`** (`infra/main-protection-ruleset.json`): pull request required,
   ≥1 approving review, conversation resolution, no force-push, no branch deletion, linear
   history, squash-only merge, explicit repository-admin bypass for owner override (CS01-1).
-- **Required status checks (CS01-2):** the five contexts wired through CI —
-  `ci`, `harness-lint`, `harness-sync-check`, `js-tests`, `dotnet-tests`.
+- **Required status checks (CS01-2):** the six contexts required by
+  `infra/main-protection-ruleset.json` — `ci`, `harness-lint`,
+  `harness-sync-check`, `js-tests`, `dotnet-tests`, `e2e-local`.
   Workflow-pin enforcement, PR-body checks, and commit-trailer checks are
   performed **inside** the `harness-lint` job by the harness CLI rather than
   as separate Ruleset contexts.
@@ -470,7 +471,7 @@ Note: CS04 retired the harness pin-bump exercise per CS04-13 (already validated 
 | Decision | Choice | Rationale |
 |---|---|---|
 | CS01-1 — Ruleset API shape | Author `infra/main-protection-ruleset.json` as the Repository Rulesets API request body, mirroring the agent-harness CS15a `main-protection` shape | CS15a proved this shape; harness standards parity requires it |
-| CS01-2 — Required checks in Ruleset | Require the five CI contexts: `ci`, `harness-lint`, `harness-sync-check`, `js-tests`, `dotnet-tests` (workflow-pin/PR-body/trailer enforcement runs inside `harness-lint`, not as separate Ruleset contexts) | Enforces contribution discipline while allowing project-specific workflow names; matches what the harness CLI actually runs |
+| CS01-2 — Required checks in Ruleset | Require the six CI contexts: `ci`, `harness-lint`, `harness-sync-check`, `js-tests`, `dotnet-tests`, `e2e-local` (workflow-pin/PR-body/trailer enforcement runs inside `harness-lint`, not as separate Ruleset contexts) | Enforces contribution discipline while allowing project-specific workflow names; matches what the harness CLI actually runs |
 | CS01-3 — Code scanning | GitHub CodeQL default setup; configure for the languages GitHub auto-detects as eligible (`actions` + `javascript-typescript` on this repo). `csharp` is not auto-surfaced for the `api/` Functions project; planned follow-up CS to enable .NET coverage via advanced workflow if default detection still misses it. | harness standards parity calls for default setup; less YAML = less consumer-maintained security plumbing |
 | CS01-4 — Dependabot | `.github/dependabot.yml` for `npm`, `nuget`, `github-actions`; weekly cadence; alerts and version updates enabled | Covers full stack: Node harness/tests, .NET Function, and Actions |
 | CS01-5 — Storage account naming | Default `STORAGE_ACCT_NAME=stsubinvaders$RAND6`; lowercase, no dashes, max 24 chars; env override | Azure global uniqueness + single-RG isolation; env override enables deterministic retries |
