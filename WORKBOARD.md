@@ -17,7 +17,6 @@ Status vocabulary: `🟢 Active` (Last Seen within 24h), `🟡 Idle` (24h-7d), `
 
 | CS-Task ID | Title | State | Owner | Branch | Last Updated | Blocked Reason |
 |------------|-------|-------|-------|--------|--------------|----------------|
-| CS19 | CS19 — Refresh ARCHITECTURE.md: remove harness-owned references + fix staleness | 🟢 Active | omni-si | cs19/content | 2026-07-02 | — |
 
 > **Note:** Filesystem is the source of truth for queued and completed work.
 > See `project/clickstops/planned/` for the queue and `project/clickstops/done/`

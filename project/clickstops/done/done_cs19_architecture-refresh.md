@@ -1,10 +1,10 @@
 # CS19 — Refresh ARCHITECTURE.md: remove harness-owned references + fix staleness
 
-**Status:** active
+**Status:** done
 **Owner:** omni-si
 **Branch:** cs19/content
 **Started:** 2026-07-02
-**Closed:** —
+**Closed:** 2026-07-02
 **Filed by:** omni-si, 2026-07-01, after the user flagged that ARCHITECTURE.md "references stuff that is not relevant for this repo" and directed that harness-owned content stay in the harness while this-repo issues get a CS.
 **Depends on:** none
 
@@ -93,13 +93,13 @@ with no runtime, infra, or process-doctrine impact.
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| T1 — Remove `### CS16 technology decisions` table + the broken `active/` link; keep at most one stable `done/` pointer (CS19-1/2) | pending | omni-si | ARCHITECTURE.md |
-| T2 — Strip inline `(C16-xx)` provenance tags from prose; retain the facts + this repo's own CS0x decision refs (CS19-3) | pending | omni-si | ARCHITECTURE.md |
-| T3 — Refresh CI/CD table (6 jobs incl. coverage + aggregate ci), `Last updated` header, `## Future scope`, storage-account name (CS19-4) | pending | omni-si | verify vs `.github/workflows/ci.yml` |
-| T4 — Record CS13/CS14/CS15/CS17/CS18 in `## Decision log` (CS19-5) | pending | omni-si | ARCHITECTURE.md |
-| T5 — Validate: `harness lint` (check-architecture + text-encoding) green; keep the 4 required headings and no broken relative links (CS19-6) | pending | omni-si | — |
-| Close-out: docs + restart state | pending | omni-si | Update `WORKBOARD.md` + `CONTEXT.md`; confirm no process-template drift |
-| Close-out: learnings + follow-ups | pending | omni-si | File learnings in `LEARNINGS.md`; harness-side follow-up tracked by agent-harness#371 |
+| T1 — Remove `### CS16 technology decisions` table + the broken `active/` link; keep at most one stable `done/` pointer (CS19-1/2) | done | omni-si | Removed table; replaced with a single `> **Bootstrap provenance.**` blockquote pointing at the harness `done/` record |
+| T2 — Strip inline `(C16-xx)` provenance tags from prose; retain the facts + this repo's own CS0x decision refs (CS19-3) | done | omni-si | 18 sites de-labelled; only C16/CS16 remaining is in the provenance blockquote |
+| T3 — Refresh CI/CD table (6 jobs incl. coverage + aggregate ci), `Last updated` header, `## Future scope`, storage-account name (CS19-4) | done | omni-si | CI table shows the real 6 jobs (pinned `npx` form); header, roadmap retitle, storage naming all fixed |
+| T4 — Record CS13/CS14/CS15/CS17/CS18 in `## Decision log` (CS19-5) | done | omni-si | Added CS14/CS15/CS17/CS18 decision subsections (CS13 already present) |
+| T5 — Validate: `harness lint` (check-architecture + text-encoding) green; keep the 4 required headings and no broken relative links (CS19-6) | done | omni-si | `harness lint` 21/0; 4 required headings intact; LF/no-BOM |
+| Close-out: docs + restart state | done | omni-si | WORKBOARD row removed; CONTEXT.md updated (CS19 entry + required-checks count corrected) |
+| Close-out: learnings + follow-ups | done | omni-si | LRN-031 filed; harness-side root cause tracked by agent-harness#371 |
 
 ## Notes / Learnings
 
@@ -125,4 +125,29 @@ with no runtime, infra, or process-doctrine impact.
 
 ## Plan-vs-implementation review
 
-> _(filled at close-out per the gate)_
+**Reviewer:** GPT-5.5 (rubber-duck, dispatched by omni-si; reviewer model ∉ Implementer models `claude-opus-4.8`; reviewer agent ≠ `omni-si`)
+**Date:** 2026-07-02
+**Outcome:** GO
+
+| Field | Value |
+|---|---|
+| model | gpt-5.5 |
+| branch HEAD SHA | 54219c092aa7900a3fc40693c2b9e757f7f1e711 |
+| R-round | R1 |
+| verdict | Go |
+| evidence link | content PR #137 (merged `54219c0`); review transcript dispatched by omni-si |
+
+Independent GPT-5.5 plan-vs-implementation review (reviewer model ∉ Implementer models `claude-opus-4.8`; reviewer agent ≠ `omni-si`). All six decisions **Delivered**, no scope creep, no blocking findings:
+
+| Decision | Status | Evidence |
+|---|---|---|
+| CS19-1 | Delivered | `### CS16 technology decisions` table removed; only CS16 mention is the provenance blockquote |
+| CS19-2 | Delivered | Broken `active/` link gone; one stable `done/` pointer remains and resolves (not 404) |
+| CS19-3 | Delivered | No inline `(C16-xx)` tags remain; architecture facts + repo CS refs preserved |
+| CS19-4 | Delivered | Header, CI table (6 jobs, real commands), roadmap retitle, storage naming all refreshed |
+| CS19-5 | Delivered | CS14/CS15/CS17/CS18 decision subsections added and match their done files |
+| CS19-6 | Delivered | Four required headings intact; relative links resolve; LF/no-BOM |
+
+Scope-creep check: none — the merged change touches only `ARCHITECTURE.md`; every hunk traces to a CS19 decision or a documented reviewer-surfaced accuracy fix (Required-status-checks six contexts; CI-table pinned-`npx` / `ci`-context wording).
+
+Content-PR review history: 4 independent GPT-5.5 rubber-duck **Go** rounds (R1 `54c93dc`, R2 `9d3acaf`, R3 `9f68026`, R4 `e38118d`) + Copilot engaged each round (all threads resolved).

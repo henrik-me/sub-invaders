@@ -1,8 +1,25 @@
 # Project Context
 
-> **Last updated:** 2026-07-01 (post-CS18 close-out: E2E suite coverage floor made fatal)
+> **Last updated:** 2026-07-02 (post-CS19 close-out: ARCHITECTURE.md refresh — removed harness-owned refs + fixed staleness)
 
 ## Codebase state
+
+**CS19 complete** (merged 2026-07-02 as `54219c0`) — refreshed `ARCHITECTURE.md` so it
+describes *this* repo and stops carrying harness-owned content. Removed the reproduced
+`CS16` technology-decisions (`C16-9..C16-16`) table and a now-404 link into agent-harness's
+own `active/active_cs16_...` clickstop path, replacing them with a single stable `done/`
+bootstrap-provenance pointer (the "harness content stays in the harness" directive); stripped
+the inline `(C16-xx)` tags (facts preserved). Corrected drifted facts: the CI/CD table now
+lists the real 6 jobs with the pinned `npx -y github:henrik-me/agent-harness#<version>`
+invocations CI actually runs; the Required-status-checks list now shows all six ruleset
+contexts (adds `e2e-local`, from the separate `e2e.yml`); `## Future scope` was reframed to
+`## Roadmap + deferred tripwires` through CS18; the storage-account naming contradiction was
+resolved; and CS14/CS15/CS17/CS18 were added to the decision log. Content PR #137 ran 4
+independent GPT-5.5 rubber-duck **Go** rounds + Copilot each round (2 real accuracy findings
+fixed: five→six required contexts, and CI-table command accuracy). The harness-side root cause
+(bootstrap-authored consumer docs linking into transient `active/` clickstop paths + duplicated
+decision tables) is filed upstream as **agent-harness#371** (LRN-031). See
+`project/clickstops/done/done_cs19_architecture-refresh.md`.
 
 **CS18 complete** (merged 2026-07-01 as `00ffb1d`) — the E2E suite-level coverage
 floor is now a real, blocking CI gate. The monocart `onEnd` hook set
@@ -91,8 +108,8 @@ multi-bump, and stale-staging-env / stale-branch cleanup.
 Highlights:
 - Branch protection Ruleset `main-protection` (id 16210336) is active on `main`,
   requiring 1 approving review, conversation resolution, linear history,
-  squash-only merges, and 5 required CI status checks (`ci`, `harness-lint`,
-  `harness-sync-check`, `js-tests`, `dotnet-tests`). `build-and-deploy` is
+  squash-only merges, and 6 required CI status checks (`ci`, `harness-lint`,
+  `harness-sync-check`, `js-tests`, `dotnet-tests`, `e2e-local`). `build-and-deploy` is
   intentionally NOT required (Dependabot/fork PRs can't get the SWA token,
   and the SWA action now skips cleanly via
   `skip_deploy_on_missing_secrets: true`).
