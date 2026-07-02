@@ -154,7 +154,7 @@ Every active/done CS file must include explicit `## Tasks` rows for:
 `check-clickstop.mjs` enforces these rows for active CS files and for done CS
 files closed on or after CS15a's close-out enforcement date.
 
-**Directory-form CS close-out — `git mv` the whole directory (CS70 / LRN-A).** When a CS
+**Directory-form CS close-out — `git mv` the whole directory (CS70 / LRN-164).** When a CS
 plan lives in **directory form** (`<state>/<state>_cs<NN>_<slug>/<state>_cs<NN>_<slug>.md` —
 the plan file sits inside a per-CS directory that may hold sibling artifacts), the
 `active → done` rename in the close-out PR MUST be a **directory-level** rename of the entire
@@ -588,7 +588,7 @@ urgent cross-repo work routes through an issue. (The human user can
 still act directly outside the orchestrator at any time.)
 
 **Pre-flight — verify the target artifact exists before filing an "update file X"
-issue (CS70 / LRN-B).** Before filing a cross-repo issue whose deliverable is
+issue (CS70 / LRN-165).** Before filing a cross-repo issue whose deliverable is
 "update / annotate / add file `X` in consumer repo `Y`", the orchestrator MUST first
 verify **either** (a) that file `X` already exists in `Y` (e.g.
 `gh api repos/Y/contents/<path>`, `git ls-remote`, or a clone check), **or** (b) that a
@@ -599,7 +599,7 @@ belongs in a **harness-side CS**. Filing a consumer issue to "update a file that
 exist and that no harness contract emits" routes work against a phantom artifact — exactly
 the `sub-invaders-bootstrap-summary.md` misrouting
 ([sub-invaders#91](https://github.com/henrik-me/sub-invaders/issues/91) →
-[agent-harness#290](https://github.com/henrik-me/agent-harness/issues/290); see LRN-B).
+[agent-harness#290](https://github.com/henrik-me/agent-harness/issues/290); see LRN-165).
 
 **Status questions (e.g. "is SI updated to v0.6.0?"):**
 
@@ -1862,11 +1862,15 @@ with a previewable upgrade.
   Default: `process.cwd()`.
 - **`--accept-major`** — required when the resolved template version is a
   major bump from the pinned version (see § SemVer policy).
-- **`--resolved-sha <40hex>`** (apply-mode only) — pin the recorded
-  `resolved_sha` field in `.harness-lock.json` to a specific 40-character
-  lowercase hex commit SHA, instead of letting the engine derive it from
-  `git rev-parse HEAD`. Removes the post-commit-regenerate ordering trap
-  ([LRN-070](LEARNINGS.md#lrn-070)) for CSs that touch templates AND root
+- **`--resolved-sha <40hex>`** (apply-mode only) — override **only** the
+  recorded `resolved_sha` field in `.harness-lock.json` with a specific
+  40-character lowercase hex commit SHA, instead of the SHA derived by the
+  provenance chain (§ Lock provenance). It does **not** set `harness_ref`, so
+  it is **not** a standalone rescue for an install whose provenance is
+  otherwise unresolvable: a real `harness_ref` must still be derivable (from
+  the npx/npm cache or a git checkout) or apply fails closed
+  (`ESYNC_UNRESOLVED_PROVENANCE`). Removes the post-commit-regenerate ordering
+  trap (LRN-070) for CSs that touch templates AND root
   files in the same commit: commit content first, then `harness sync
   --mode=apply --resolved-sha <commit-sha>` records a lock that points at
   the actual content commit. The override is rejected (exit 2) in
@@ -1881,6 +1885,39 @@ with a previewable upgrade.
 - **`--quiet`** (CS64b C64b-3) — suppress the new-managed-file advisory (below);
   errors still go to stderr. (Net-new on `sync` in CS64b — before then
   `harness sync --quiet` errored.)
+
+### Lock provenance (CS82)
+
+Apply mode records the running harness install's identity in
+`.harness-lock.json` as `harness_ref` (the symbolic ref — tag / branch / spec)
+and `resolved_sha` (the exact 40-char commit SHA). These are derived by an
+ordered chain against the **harness install** (never the consumer repo):
+
+1. **npx / npm cache.** The install project's
+   `node_modules/.package-lock.json` entry for the harness package
+   (`packages["node_modules/<pkg>"]`) carries the authoritative `resolved`
+   `git+https://…#<sha>` URL and the requested ref (`from` / spec / `version`).
+   This is the source of truth under `npx` / `npm`, which strip the installed
+   package's own `.git`.
+2. **git self-host.** When the harness runs from its own git checkout (e.g.
+   local development), the ref + SHA come from `git describe` / `rev-parse`
+   against the install directory.
+3. **Fail-closed.** If neither yields a real ref + SHA, apply mode **throws**
+   `ESYNC_UNRESOLVED_PROVENANCE` and writes **no** lock — it never persists a
+   placeholder (`harness_ref: "unknown"`, an all-zero `resolved_sha`, or
+   `version: "unknown"` scaffolds). Scaffold `version`s derive from the
+   resolved `harness_ref`, so they are guaranteed non-placeholder too.
+
+**npx vs. checkout guidance.** Run apply from a context where provenance is
+resolvable: either a git checkout parked at the intended ref, or an
+`npx` / `npm` install whose `node_modules/.package-lock.json` is present. A bare
+source tarball with neither will fail closed by design. `--resolved-sha` fixes
+only `resolved_sha` once a real `harness_ref` is derivable — it is not a
+substitute for a resolvable install (see § Flags).
+
+The fail-closed guard runs in **apply mode only**: `--mode=check` and
+`--mode=dry-run` validate file drift, not provenance, so they never start
+red-flagging a pre-existing lock that already contains placeholder values.
 
 ### New-managed-file reconciliation (CS64b)
 
@@ -2241,9 +2278,11 @@ own CS — file a `planned_cs<NN>_release-v<x.y.z>` plan and follow the standard
 > notifications (`--consumer`). Run `harness release --help` for the full flag
 > list. The steps below remain the canonical spec and the manual fallback;
 > commits, the content PR, and the merge stay explicit orchestrator actions.
-> Because a verb-created tag can also trigger `release.yml` (which drafts), use
-> the verb **or** the manual tag-push flow and re-check for stale duplicate
-> drafts before publishing.
+> The verb is the **single** creator of the GitHub Release; no workflow drafts a
+> duplicate. After a manual tag push, re-running `harness release --publish` still
+> creates the Release (Phase B is resumable — it creates only the Release when the
+> tag already exists); a fully manual (no-verb) cut creates it by hand
+> (§ Post-merge step 10).
 
 ### Inputs
 
@@ -2283,8 +2322,8 @@ gh release list --repo <owner>/<repo> --limit 5
 git ls-remote origin refs/tags/v<x.y.z>
 ```
 
-Stale duplicate drafts (e.g. an auto-draft from `release.yml` left behind by
-a prior partial cut) MUST be deleted **before** the cut starts:
+Stale duplicate drafts (e.g. a draft left behind by a prior partial cut) MUST be
+deleted **before** the cut starts:
 
 ```bash
 gh api -X DELETE repos/<owner>/<repo>/releases/<draft-release-id>
@@ -2364,13 +2403,15 @@ After the content PR squash-merges to `main`:
    ```
 
    Tag the **squash SHA**, not pre-merge branch HEAD — LRN-101's anchor-drift
-   case. The `v*.*.*` tag push triggers `.github/workflows/release.yml`.
+   case.
 
-10. **Publish the draft Release.** `release.yml` creates a **draft** GitHub
-    Release with notes extracted from `CHANGELOG.md` `[<x.y.z>]`. The draft
-    is intentional ([LRN-121](LEARNINGS.md#lrn-121)) — you review then
-    publish, then re-probe for stale duplicate drafts that `release.yml`
-    may have left behind ([LRN-159](LEARNINGS.md#lrn-159)):
+10. **Create + publish the Release.** The `harness release` verb (Phase B)
+    creates the **draft** GitHub Release with notes from `CHANGELOG.md`
+    `[<x.y.z>]`. For a **manual** (no-verb) cut, extract that section to a file and
+    create it by hand: `gh release create v<x.y.z> --verify-tag --draft --notes-file <file>`.
+    The draft is intentional ([LRN-121](LEARNINGS.md#lrn-121)) — review it, then
+    publish, then confirm exactly one release for the tag
+    ([LRN-159](LEARNINGS.md#lrn-159)):
 
     ```bash
     gh release view v<x.y.z>                 # confirm notes match CHANGELOG

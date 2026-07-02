@@ -208,9 +208,9 @@ record.
   for the ordered cut (pre-release audit, state-of-the-world probes
   per REVIEWS.md § 2.6c F6, `npm version` bump, CHANGELOG `[Unreleased]` → `[x.y.z]`
   promotion, README pin sweep, plan-vs-impl + Phase-2 review, Copilot engage, CI,
-  squash-merge, post-merge `git tag` + `git push origin v<x.y.z>` to trigger
-  `release.yml` draft creation, `gh release edit --draft=false` to publish,
-  consumer notification via `harness cross-repo open-issue`) and the
+  squash-merge, post-merge `git tag` + `git push origin v<x.y.z>`, the
+  `harness release` verb creates the draft Release (`gh release edit --draft=false`
+  to publish), consumer notification via `harness cross-repo open-issue`) and the
   solo-orchestrator content-PR admin-merge subsection.
 
 ### Every CS
@@ -264,7 +264,7 @@ record.
   `schemas/*.schema.json` before authoring any field access. Field name guessing
   causes silent integration failures.
 - **Report shape:** every sub-agent must respond with the canonical report shape from
-  [OPERATIONS.md § Sub-agent report shape](OPERATIONS.md#sub-agent-report-shape).
+  [OPERATIONS.md § Sub-agent report shape](OPERATIONS.md#sub-agent-report-shape-mandatory).
   Reports missing this structure are rejected and the sub-agent is re-dispatched.
 - **Sub-agent briefing preamble**: every sub-agent dispatch MUST paste the canonical preamble from
   [OPERATIONS.md § Mandatory briefing preamble](OPERATIONS.md#mandatory-briefing-preamble-copy-verbatim-into-every-dispatch)
