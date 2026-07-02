@@ -10,9 +10,16 @@ PR #140), replacing the older custom validation-only workflow. The v0.12.0 workf
 **branch-name gate** plus real auto-approve + auto-merge of `workboard-only` PRs via a
 **`WORKBOARD_MERGE_TOKEN`** PAT, degrading gracefully to validation-only (owner admin-merge) when
 the secret is absent — so there is **no behavior change until the owner adds the secret**.
-**Owner action pending:** add a fine-grained PAT (Contents R/W + Pull-requests R/W, owner/admin
-account, with an expiration + rotation policy) as the repo secret `WORKBOARD_MERGE_TOKEN` to
-activate auto-merge. **Workboard branch-name convention (now enforced by the workflow):** filing a
+**Merge path — maintainer admin-override (no token).** Workboard-only PRs are merged by the
+maintainer via `gh pr merge --admin` (the repo-admin bypass already in the ruleset). The ruleset
+sets `required_approving_review_count: 1`, GitHub cannot path-conditionally waive it for the
+workboard paths, and `GITHUB_TOKEN` cannot approve a PR — so admin-override is the sanctioned,
+zero-secret path and needs no second reviewer. The harness review gate (`read-only-gates`) already
+skips for `workboard-only` PRs. The v0.12.0 workflow's `WORKBOARD_MERGE_TOKEN` PAT auto-merge is
+**optional automation that is deliberately NOT configured** (it only automates the same admin
+bypass); without the secret the workflow validates and defers to admin-merge (its designed
+fallback). Design feedback filed upstream as agent-harness#395 (make admin-override the documented
+default; longer term make review-evidence a required check so the approval count can be 0). **Workboard branch-name convention (now enforced by the workflow):** filing a
 planned CS uses `docs/file-planned-cs<NN>(-<slug>)?`; claim / close-out use
 `cs<NN>/(claim|close|close-out)` or `workboard/cs<NN>-(claim|close|close-out)`. A non-matching
 branch simply falls back to manual admin-merge (`validate-and-approve` is not a required check).
