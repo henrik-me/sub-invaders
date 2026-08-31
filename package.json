@@ -9,7 +9,7 @@
     "c8": "^11.0.0",
     "esbuild": "0.28.1",
     "http-server": "^14.1.1",
-    "monocart-coverage-reports": "^2.12.12",
+    "monocart-coverage-reports": "^2.13.0",
     "monocart-reporter": "^2.12.1"
   },
   "scripts": {
