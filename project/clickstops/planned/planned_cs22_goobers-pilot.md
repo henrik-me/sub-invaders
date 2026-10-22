@@ -165,6 +165,11 @@ approved live-run scope.
   specified author/reviewer models are unavailable in this session. This exception
   does not change standing model policy or authorize Goobers/Copilot CLI execution.
   Record the substitution and its rationale in both the plan-filing and policy PR bodies.
+- Confirmed pilot audit clarification: `github` identifies the GitHub Copilot agent
+  platform; models and independent agent instances are recorded separately from
+  publishing-account usernames. The maintainer explicitly approved this interpretation
+  on 2026-10-22. It does not establish native GitHub approval or change the ruleset.
+- Completed: the plan-filing PR, #173, merged as `64685df` on 2026-10-22.
 - Pending: arrange an eligible independent human approver before merging any pilot PR.
   The historical solo-admin fallback is explicitly forbidden throughout this pilot.
 - Pending: independent review and normal human approval of the plan and policy PRs.
@@ -203,14 +208,26 @@ approved live-run scope.
 
 R1 requested amendments; R2 approved the revised hashed sections. The remaining R2
 waiver-recording clarification and label-probe citation were applied outside those
-sections without changing their hash. This plan is not merge-ready or claimable before
-normal approval. Local review does not establish a separate GitHub reviewer identity or
-replace human approval; the post-commit PR review is still pending.
+sections without changing their hash. R3 reviewed the committed plan at `df80a758`
+and returned Go. Local review does not establish native GitHub approval or replace
+human approval. Future claim, policy, and close-out PRs retain their normal gates.
 
 | Round | Reviewer model | Plan author model(s) | Reviewer agent | Reviewed sections hash | Timestamp (UTC) | Verdict | Findings recap (≤200 chars) |
 |---|---|---|---|---|---|---|---|
 | R1 | claude-opus-5.5 | gpt-6.1-sol | opus-pilot-review (local; no GitHub login) | d2140ed7b656 | 2026-10-22T21:00:35Z | Needs-Fix | Clarify no-bypass scope and human-controlled trust labels; specify ticket deduplication and config protection. |
 | R2 | claude-opus-5.5 | gpt-6.1-sol | opus-pilot-r2 (local; no GitHub login) | 18688471252e | 2026-10-22T21:04:09Z | Go | Both blockers resolved; record waiver in PR bodies and cite label probe. These non-hashed clarifications are applied. |
+| R3 | claude-opus-5.5 | gpt-6.1-sol | github:opus-pilot-head (local agent instance) | 18688471252e | 2026-10-22T21:51:07Z | Go | Reviewed committed plan df80a758; hash unchanged. Evidence: PR #173 comment 6352130421. Native approval remains separate. |
+
+## Model audit
+
+| Field | Value |
+|---|---|
+| Implementer models | gpt-6.1-sol |
+| Reviewer model | claude-opus-5.5 |
+| Implementer agent | github:omni-si |
+| Reviewer agent | github:opus-pilot-head |
+| Publishing account | henrik-me |
+| Notes | Pilot-scoped maintainer clarification: agent fields name logical instances on the github platform, not GitHub login accounts. The Opus local review and native Copilot bot review are separate. |
 
 ## Tasks
 
@@ -222,6 +239,25 @@ replace human approval; the post-commit PR review is still pending.
 
 Preparation changes no application code, required checks, harness pin, deployment, or
 active policy. The plan-filing branch must not receive the `workboard-only` label.
+
+Pre-claim harvest disposition, 2026-10-22:
+
+- LRN-027: `skip-for-this-CS`. The engine dependency pin and upstream release boundary
+  are unchanged by policy preparation; no engine changes are authorized.
+- LRN-029: reviewed; `skip-for-this-CS` for the policy change. Preserve the existing
+  ranked-score drain override, module Service Worker registration, and query-insensitive
+  offline navigation. Carry these constraints into the later offline-score coding plan.
+  These per-CS dispositions do not close the repository-wide learning entries.
+
+Startup at merged revision `64685df` failed only the tip's commit-trailers check:
+Copilot's co-author line was separated from the final trailer block. Preserve that
+history; use one contiguous required-trailer block on preparation and claim commits.
+No lint flags, checks, or protection settings are relaxed to proceed.
+
+Review evidence:
+
+- [Committed-plan Opus R3 report](https://github.com/henrik-me/sub-invaders/pull/173#issuecomment-6352130421)
+- [Separate native Copilot review](https://github.com/henrik-me/sub-invaders/pull/173#pullrequestreview-5621359086)
 
 Reference sources:
 
