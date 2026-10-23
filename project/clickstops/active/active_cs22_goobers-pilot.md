@@ -170,6 +170,8 @@ approved live-run scope.
   publishing-account usernames. The maintainer explicitly approved this interpretation
   on 2026-10-22. It does not establish native GitHub approval or change the ruleset.
 - Completed: the plan-filing PR, #173, merged as `64685df` on 2026-10-22.
+- Completed: pre-claim evidence PR #174 and claim PR #175 merged; the latter is
+  `b31a39c`. Policy content review/merge and later setup/coding/live-run gates remain.
 - Pending: arrange an eligible independent human approver before merging any pilot PR.
   The historical solo-admin fallback is explicitly forbidden throughout this pilot.
 - Pending: independent review and normal human approval of the plan and policy PRs.
@@ -177,6 +179,9 @@ approved live-run scope.
   human application of both trust/readiness labels before dispatch.
 - Pending: approval of the separately planned setup and coding work.
 - Pending: explicit approval before any live AI execution under the Windows account.
+- Confirmed first-use requirement: notify the user when ready and provide a guided
+  setup/startup explanation before requesting live-run approval. Carry this into the
+  setup plan; distinguish non-live readiness from a proven live integration.
 
 ## Exit criteria
 
@@ -233,17 +238,19 @@ human approval. Future claim, policy, and close-out PRs retain their normal gate
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| Claim CS22 through normal review | active | omni-si | Claim PR only; policy implementation waits for its merge. |
-| Add the scoped local dispatch exception | planned | omni-si | Policy-only content PR; no issue creation before that PR merges. |
-| Verify lint and composed-file synchronization | planned | omni-si | Preserve managed core, hash, required checks, and the local-block boundary. |
-| Record accepted policy and next setup step | planned | omni-si | Update CONTEXT.md without claiming installation or live-run authorization. |
+| Claim CS22 through normal review | done | omni-si | PR #175 merged as b31a39c; canonical ownership is active. |
+| Add the scoped local dispatch exception | active | omni-si | Local-block policy text prepared; normal content review/merge pending. No ticket created. |
+| Verify lint and composed-file synchronization | active | omni-si | Local lint 21/0, no sync drift, unchanged hash, and byte-for-byte composition preservation verified; final PR checks pending. |
+| Record accepted policy and next setup step | active | omni-si | CONTEXT.md records the merge boundary and separately approved setup; no installation or live-run claim. |
 | Close-out: docs + restart state | planned | omni-si | Review final state and complete the normal workboard/clickstop lifecycle. |
 | Close-out: learnings + follow-ups | planned | omni-si | Preserve reviewed learning constraints and separately plan later setup/coding work. |
 
 ## Notes / Learnings
 
-Preparation changes no application code, required checks, harness pin, deployment, or
-active policy. The plan-filing branch must not receive the `workboard-only` label.
+Plan filing and claiming changed no active policy. The content PR adds only the
+reviewed local exception and restart records; it becomes effective after normal merge.
+Application code, required checks, harness pin, and deployment remain unchanged.
+Pilot PRs must not receive the `workboard-only` label.
 
 Pre-claim harvest disposition, 2026-10-22:
 
@@ -258,6 +265,10 @@ Startup at merged revision `64685df` failed only the tip's commit-trailers check
 Copilot's co-author line was separated from the final trailer block. Preserve that
 history; use one contiguous required-trailer block on preparation and claim commits.
 No lint flags, checks, or protection settings are relaxed to proceed.
+
+Policy-content validation uses the pinned v0.12.0 parser/merge engine in memory:
+managed sections and local markers match the baseline, and recomposition preserves
+the complete updated instructions byte-for-byte. No mid-CS sync apply is performed.
 
 Review evidence:
 
