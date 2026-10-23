@@ -610,7 +610,53 @@ above are managed by the harness and will be overwritten on the next
 `harness.config.json` under `composed.overrides["INSTRUCTIONS.md"].local_blocks`.
 
 <!-- harness:local-start id=instructions.harness -->
-_(Project-local orchestration notes — repository-specific claiming phases,
-model choices, cross-repo procedures, and institutional citations. Empty by
-default.)_
+### CS22: one-ticket Goobers pilot exception
+
+The maintainer authorized this project-local exception during CS22. It takes effect
+only after the policy content PR merges. It overrides **"Agent does not file issues
+in this repository"** solely for the one ticket below. All other managed rules remain
+in force. Clickstops remain the canonical plans; the issue is only a dispatch ticket.
+
+**Authorized task:** preserve offline scores enqueued while an earlier score is being
+retried, as specified in CS22. Before creating its ticket, obtain approval of the
+separate coding clickstop. The issue must link to that plan at its reviewed commit
+and contain its approved scope and acceptance criteria. Include this exact body marker:
+
+```text
+Goobers-Pilot-ID: sub-invaders-offline-score-preservation-v1
+```
+
+Before creating anything, search open and closed issues for that marker and verify
+the exact body match. Reuse a unique open match. If any match is closed, more than one
+matches, or the search cannot establish a complete result, stop and ask the user.
+Only a verified absence permits creating the single ticket. Never create a replacement,
+follow-up issue, additional task, or automatic work nomination under this exception.
+
+**Human trust boundary:** creating the pilot labels requires separately approved
+setup. A human must apply both `goobers:approved` and `goobers:ready` before dispatch.
+Agents must not apply or reapply either label. Do not enable backlog-curation or
+work-nomination modules that can create or expand work. Validate that dispatch selects
+only the approved ticket before enabling a run.
+
+During a separately approved coding run, configured claim/status labels and progress
+comments may affect only that ticket; PR creation, CI observation, and review feedback
+may affect only its related pilot PR. Do not let pilot workers modify their instructions,
+Goobers definitions, or governance. These are workflow restrictions, not a claim that
+the repository credential is path-scoped or that Git worktrees sandbox an agent.
+
+**Unchanged approval gates:** every pilot-related PR requires normal checks and
+independent human approval. Do not use admin/ruleset bypass, the historical solo-admin
+fallback, `workboard-only` shortcuts, or automatic merge for this pilot. Internal
+Goobers verdicts are not native GitHub approvals or existing harness review evidence.
+This exception authorizes no other CI, review, merge, or deployment policy changes.
+
+Installation and configuration require a separate approved setup clickstop. Keep
+reviewed definitions in the proposed `goobers/` source tree and runtime state outside
+the repository at `C:\goobers\sub-invaders`; validate the configuration review boundary
+before activating it. No live AI execution under the Windows account, including a
+disposable readiness probe, is authorized without separate explicit user approval.
+Native Windows isolation limitations must be disclosed for that approval.
+
+Remove this exception through normal review when the pilot ends. Until then, retain
+the marker and ticket history so later attempts cannot silently create a second ticket.
 <!-- harness:local-end id=instructions.harness -->

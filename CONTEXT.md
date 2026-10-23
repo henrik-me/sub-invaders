@@ -1,8 +1,31 @@
 # Project Context
 
-> **Last updated:** 2026-07-02 (post-CS21 close-out: adopted v0.12.0 managed workboard-auto-approve.yml; harness pin v0.12.0)
+> **Last updated:** 2026-10-23 (CS22 policy content; harness pin remains v0.12.0)
 
 ## Codebase state
+
+**CS22 in progress: bounded Goobers dispatch policy.** Plan PR #173, pre-claim evidence
+PR #174, and claim PR #175 are merged. Ownership remains `omni-si` on `cs22/content`.
+The `instructions.harness` local block in `INSTRUCTIONS.md` defines the one-ticket
+exception for offline-score preservation; it becomes effective only when its policy
+content PR merges. The managed instructions, harness pin, workflows, and required checks
+are unchanged. This pilot forbids the historical admin/workboard bypass paths described
+in the older CS21 entry below.
+
+The ticket must link to a separately approved coding clickstop and use the exact
+`Goobers-Pilot-ID: sub-invaders-offline-score-preservation-v1` marker. Search both open
+and closed issues before creation; reuse one open match, and stop for closed, ambiguous,
+or unverifiable results. A human applies the approval/readiness labels. Clickstops
+remain the planning source of truth; the exception does not authorize extra issues.
+
+**Restart boundary:** this CS has not created the ticket, installed/configured Goobers,
+changed application code, or run a live AI CLI. Complete normal CS22 policy review and
+close-out first, then file and seek approval for a separate native Windows setup
+clickstop (allocate its ID from the then-current queue). Later coding and every live
+Windows AI run, including a disposable probe, remain separately gated. Proposed reviewed
+definitions belong in `goobers/`; local runtime belongs at `C:\goobers\sub-invaders`,
+outside the repository. In-repository config protection must be established before
+activation; no protection changes are authorized by CS22.
 
 **CS21 complete** (merged 2026-07-02 as `e074a32`) — adopted the agent-harness v0.12.0 managed
 `.github/workflows/workboard-auto-approve.yml` (the harness pin was first bumped v0.11.0→v0.12.0 in
