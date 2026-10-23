@@ -19,9 +19,10 @@ or unverifiable results. A human applies the approval/readiness labels. Clicksto
 remain the planning source of truth; the exception does not authorize extra issues.
 
 **Restart boundary:** this CS has not created the ticket, installed/configured Goobers,
-changed application code, or run a live AI CLI. Complete normal CS22 policy review and
-close-out first, then file and seek approval for a separate native Windows setup
-clickstop (allocate its ID from the then-current queue). Later coding and every live
+changed application code, or run a live AI CLI. Complete normal CS22 policy review.
+As part of CS22 close-out, file the separate native Windows setup and coding clickstops
+required by Deliverable 5, allocating IDs from the then-current queue. Seek approval
+before claiming either follow-up. Later coding and every live
 Windows AI run, including a disposable probe, remain separately gated. Proposed reviewed
 definitions belong in `goobers/`; local runtime belongs at `C:\goobers\sub-invaders`,
 outside the repository. In-repository config protection must be established before

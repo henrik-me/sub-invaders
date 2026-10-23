@@ -627,8 +627,10 @@ Goobers-Pilot-ID: sub-invaders-offline-score-preservation-v1
 ```
 
 Before creating anything, search open and closed issues for that marker and verify
-the exact body match. Reuse a unique open match. If any match is closed, more than one
-matches, or the search cannot establish a complete result, stop and ask the user.
+the exact body match. Reuse a unique open match only after verifying that its plan link,
+scope, and acceptance criteria still match the currently approved coding clickstop at
+its reviewed commit; otherwise stop and ask the user. If any match is closed, more than
+one matches, or the search cannot establish a complete result, stop and ask the user.
 Only a verified absence permits creating the single ticket. Never create a replacement,
 follow-up issue, additional task, or automatic work nomination under this exception.
 
