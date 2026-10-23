@@ -1,9 +1,9 @@
 # CS22 - Define the native Windows Goobers pilot and dispatch exception
 
-**Status:** planned
-**Owner:** unclaimed
-**Branch:** unclaimed
-**Started:** not started
+**Status:** active
+**Owner:** omni-si
+**Branch:** cs22/content
+**Started:** 2026-10-22T23:58:07Z
 **Closed:** not closed
 **Filed by:** omni-si (gpt-6.1-sol), 2026-10-22, at the user's request.
 **Depends on:** none
@@ -233,7 +233,12 @@ human approval. Future claim, policy, and close-out PRs retain their normal gate
 
 | Task | State | Owner | Notes |
 |---|---|---|---|
-| (populated at claim time per Claim) | planned | unclaimed | Plan filing does not claim implementation. |
+| Claim CS22 through normal review | active | omni-si | Claim PR only; policy implementation waits for its merge. |
+| Add the scoped local dispatch exception | planned | omni-si | Policy-only content PR; no issue creation before that PR merges. |
+| Verify lint and composed-file synchronization | planned | omni-si | Preserve managed core, hash, required checks, and the local-block boundary. |
+| Record accepted policy and next setup step | planned | omni-si | Update CONTEXT.md without claiming installation or live-run authorization. |
+| Close-out: docs + restart state | planned | omni-si | Review final state and complete the normal workboard/clickstop lifecycle. |
+| Close-out: learnings + follow-ups | planned | omni-si | Preserve reviewed learning constraints and separately plan later setup/coding work. |
 
 ## Notes / Learnings
 
