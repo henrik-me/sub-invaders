@@ -28,6 +28,12 @@ definitions belong in `goobers/`; local runtime belongs at `C:\goobers\sub-invad
 outside the repository. In-repository config protection must be established before
 activation; no protection changes are authorized by CS22.
 
+Before first use, explicitly notify the user of readiness and provide a guided handoff:
+release, configuration/runtime locations, active roles/workflow/permissions, verified
+Windows start/status/stop commands, and the issue-to-PR path. Distinguish non-live
+configuration readiness from proven live integration. A probe or real live task still
+requires separate approval; the user wants to understand the setup before starting.
+
 **CS21 complete** (merged 2026-07-02 as `e074a32`) — adopted the agent-harness v0.12.0 managed
 `.github/workflows/workboard-auto-approve.yml` (the harness pin was first bumped v0.11.0→v0.12.0 in
 PR #140), replacing the older custom validation-only workflow. The v0.12.0 workflow adds a

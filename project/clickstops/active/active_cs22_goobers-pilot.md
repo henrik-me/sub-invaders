@@ -179,6 +179,9 @@ approved live-run scope.
   human application of both trust/readiness labels before dispatch.
 - Pending: approval of the separately planned setup and coding work.
 - Pending: explicit approval before any live AI execution under the Windows account.
+- Confirmed first-use requirement: notify the user when ready and provide a guided
+  setup/startup explanation before requesting live-run approval. Carry this into the
+  setup plan; distinguish non-live readiness from a proven live integration.
 
 ## Exit criteria
 
